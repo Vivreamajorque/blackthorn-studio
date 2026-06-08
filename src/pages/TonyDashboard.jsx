@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { notion } from '../lib/notion'
 
-const OBJ_JOUR = 143
-const OBJ_MOIS = 3575   // 200€ × 25 jours (OK)
+const OBJ_JOUR = 100
+const OBJ_MOIS = 2500   // 200€ × 25 jours (OK)
 
 // ─── HELPERS ──────────────────────────────────────────
 const todayStr = () => new Date().toISOString().split('T')[0]
@@ -247,7 +247,7 @@ export default function TonyDashboard({ onLogout }) {
         </div>
         <div className="form-group" style={{ margin: 0 }}>
           <label>Date</label>
-          <input type="date" value={caForm.date} onChange={e => setCaForm({...caForm, date: e.target.value})} />
+          <input type="date" min="2026-06-01" value={caForm.date} onChange={e => setCaForm({...caForm, date: e.target.value})} />
         </div>
       </div>
       <div className="form-group" style={{ marginBottom: '24px' }}>

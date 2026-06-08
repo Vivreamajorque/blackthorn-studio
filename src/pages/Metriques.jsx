@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { notion } from '../lib/notion'
 import { Sparkline, MiniBar, Donut, BigStat } from '../components/Charts'
 
-const OBJ_JOUR = 143
-const OBJ_MOIS = 3575
+const OBJ_JOUR = 100
+const OBJ_MOIS = 2500
 const LOYER_HT = 717
 const RETA_TONY = 89
 
@@ -86,10 +86,8 @@ export default function Metriques() {
     .filter(d => (d.properties.Date?.date?.start || '').startsWith(m))
     .reduce((a, d) => a + (d.properties.Montant?.number || 0), 0)
 
-  const chargesFixes = LOYER_HT + RETA_TONY
-  const margeB   = caMois * 0.75
-  const resultat = margeB - chargesFixes
-  const netEst   = resultat * 0.8  // après IRPF 20%
+  const chargesFixes = 0  // charges = 25% CA tout compris
+  const netEst   = caMois * 0.75 * 0.80  // après IRPF 20%
 
   // Days hitting objective
   const last30 = getLast(30)
@@ -370,7 +368,7 @@ export default function Metriques() {
                     { pm: 200, label: 'Cible' },
                     { pm: 300, label: 'Idéal' }
                   ].map(({ pm, label }) => {
-                    const net = (pm * 25 * 0.75 - chargesFixes) * 0.80
+                    const net = pm * 25 * 0.75 * 0.80
                     return (
                       <div key={pm} style={{ padding: '10px', background: 'var(--noir3)', borderRadius: 'var(--r)', textAlign: 'center', border: Math.abs(panierM - pm) < 30 ? '1px solid var(--pierre)' : 'none' }}>
                         <div style={{ fontSize: '10px', color: 'var(--gris)', marginBottom: '4px' }}>{label}</div>

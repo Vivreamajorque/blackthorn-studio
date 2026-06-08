@@ -1,20 +1,20 @@
 import React, { useState } from 'react'
 
 // ── CONSTANTES ─────────────────────────────────────────
-const LOYER_HT = 716.53
-const RETA     = 89.00
 const PERSO    = 1500    // compte joint mensuel
 
 // CA minimum pour l'équilibre :
 // (CA × 0.75 - loyer - reta) × 0.80 = 1500 + 500 + 500 = 2500
 // CA = (3125 + 806) / 0.75 = 5241 → ~210€/j × 25j
-const OBJ_EQUILIBRE = 3575
-const OBJ_JOUR = 143
+const OBJ_EQUILIBRE = 2500
+const OBJ_JOUR = 100
 
 function PLSimulateur({ ca }) {
-  const ben  = ca * 0.75 - LOYER_HT - RETA
-  const net  = Math.max(0, ben) * 0.80
-  const irpf = Math.max(0, ben) * 0.20
+  // Modèle simplifié : charges 25% CA tout compris (loyer + RETA + matériel)
+  const charges = ca * 0.25
+  const ben  = ca * 0.75
+  const net  = ben * 0.80
+  const irpf = ben * 0.20
 
   const joint_ok   = net >= PERSO
   const joint_amount  = Math.min(net, PERSO)
@@ -58,9 +58,7 @@ function PLSimulateur({ ca }) {
         <div className="section-title">🖤 Tony — P&L mensuel</div>
         {[
           { l: `CA HT (${Math.round(ca/25)}€/j × 25j)`, v: fmt(ca), c: 'var(--blanc)' },
-          { l: 'Matériel/charges 25%', v: `-${fmt(ca*0.25)}`, c: 'var(--gris)' },
-          { l: 'Loyer HT', v: `-717€`, c: 'var(--gris)' },
-          { l: 'RETA', v: `-89€`, c: 'var(--gris)' },
+          { l: 'Charges 25% (loyer+RETA+matériel)', v: `-${fmt(charges)}`, c: 'var(--gris)' },
           { l: 'Bénéfice brut', v: fmt(ben), c: 'var(--pierre)' },
           { l: 'IRPF à réserver (20%)', v: `-${fmt(irpf)}`, c: 'var(--jaune)' },
           { l: 'NET DISPONIBLE', v: fmt(net), c: 'var(--vert)', bold: true },

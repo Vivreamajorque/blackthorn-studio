@@ -117,7 +117,7 @@ export default function Sessions() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div className="form-group">
                   <label>Date</label>
-                  <input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
+                  <input type="date" min="2026-06-01" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
                 </div>
                 <div className="form-group">
                   <label>Prix *</label>
