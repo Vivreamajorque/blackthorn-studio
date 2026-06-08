@@ -6,7 +6,7 @@ const FIXES      = 956
 const RETA       = 89
 const PERSO      = 1500
 const CHARGES_FIXES_HIVER = LOYER_TTC + RETA  // 956€ incompressible
-const OBJ_JOUR = 123   // CA × 0.60 = 1500 → 2500€/mois = 100€/j
+const OBJ_JOUR = 156   // CA × 0.60 = 1500 → 2500€/mois = 100€/j
 const PROV_HIVER = 5285  // réserve nécessaire pour passer l'hiver
 const PROV_MOIS  = 1057  // à mettre de côté juin→oct
 
@@ -101,12 +101,12 @@ export default function Dashboard() {
   const pm7    = s7.length>0 ? Math.round(s7.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)/s7.length) : 0
 
   // P&L avec modèle simplifié : charges = 25% CA (tout compris)
-  // Modèle réel : fixes 956€ + variables 8% CA
+  // Modèle réel IRPF + IVA
+  const _r        = (() => { const matos=caMois*0.08; const ben=caMois-956-matos; const irpf=Math.max(0,ben*0.20); const iva=Math.max(0,caMois*0.21-150.47-matos*0.21); return { net:Math.max(0,Math.round(ben-irpf-iva)), irpf:Math.round(irpf), iva:Math.round(iva), ben:Math.round(ben) } })()
+  const netMois   = _r.net
+  const irpf      = _r.irpf
+  const ivaMois   = _r.iva
   const chargesM  = Math.round(956 + caMois * 0.08)
-  const ben       = caMois - chargesM
-  const netMois   = Math.max(0, Math.round(ben * 0.80))
-  const irpf      = Math.max(0, Math.round(ben * 0.20))
-  const ivaNette  = Math.max(0, Math.round(caMois * 0.21 * 0.25))  // net ~5% du CA
   const depMois   = depenses.filter(d=>(d.properties.Date?.date?.start||'').startsWith(m)).reduce((a,d)=>a+(d.properties.Montant?.number||0),0)
   const caCash    = sessM.filter(s=>parsePaiement(s)==='cash').reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
   const caCarte   = sessM.filter(s=>parsePaiement(s)==='carte').reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
@@ -302,7 +302,7 @@ export default function Dashboard() {
       <div className="card" style={{ marginBottom:'14px' }}>
         {[
           { l:'IRPF (20% bénéfice)', v:irpf },
-          { l:'IVA nette estimée', v:ivaNette },
+          { l:'IVA nette estimée', v:ivaMois },
           { l:isEte?'Réserve hiver (juin→oct)':'Réserve hiver', v:isEte?PROV_MOIS:0 },
         ].map(r => (
           <div key={r.l} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid var(--noir3)' }}>
@@ -312,7 +312,7 @@ export default function Dashboard() {
         ))}
         <div style={{ display:'flex', justifyContent:'space-between', paddingTop:'8px', fontWeight:600 }}>
           <span style={{ fontSize:'12px' }}>Total provisions</span>
-          <span style={{ fontFamily:'var(--font-mono)', fontSize:'14px', color:'var(--rouge)' }}>{fmt(irpf+ivaNette+(isEte?PROV_MOIS:0))}</span>
+          <span style={{ fontFamily:'var(--font-mono)', fontSize:'14px', color:'var(--rouge)' }}>{fmt(irpf+ivaMois+(isEte?PROV_MOIS:0))}</span>
         </div>
       </div>
 
@@ -334,8 +334,8 @@ export default function Dashboard() {
           <span style={{ fontFamily:'var(--font-mono)', fontSize:'14px', color:'var(--rouge)' }}>{LOYER_TTC+RETA+PERSO}€</span>
         </div>
         <div style={{ fontSize:'11px', color:'var(--gris2)', marginTop:'6px', lineHeight:1.5 }}>
-          Équilibre mensuel : <strong style={{ color:'var(--pierre)' }}>123€/j × 25j</strong><br/>
-          Tenir l'hiver : <strong style={{ color:'var(--pierre)' }}>181€/j en été</strong>
+          Équilibre mensuel : <strong style={{ color:'var(--pierre)' }}>156€/j × 25j</strong><br/>
+          Tenir l'hiver : <strong style={{ color:'var(--pierre)' }}>234€/j en été</strong>
         </div>
       </div>
     </div>

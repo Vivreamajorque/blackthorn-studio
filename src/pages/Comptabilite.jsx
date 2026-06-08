@@ -21,19 +21,19 @@ const fmtSign = n => (n >= 0 ? '+' : '-') + fmt(n)
 function PLSimulateur({ ca }) {
   const fixes    = FIXES
   const matos    = Math.round(ca * MATOS)
-  const charges  = fixes + matos
-  const ben      = ca - charges
+  const ben      = ca - fixes - matos
   const irpf     = Math.max(0, Math.round(ben * 0.20))
-  const net      = Math.max(0, Math.round(ben * 0.80))
+  const ivaNette = Math.max(0, Math.round(ca*0.21 - 150.47 - matos*0.21))
+  const net      = Math.max(0, Math.round(ben - irpf - ivaNette))
   const dispo    = net - PERSO
   const iva_col  = Math.round(ca * 0.21)
   const iva_net  = Math.max(0, Math.round(iva_col - charges * 0.21))
 
-  const pct = Math.min(100, Math.round((ca / 3077) * 100))
+  const pct = Math.min(100, Math.round((ca / 3895) * 100))
 
   const statut =
     net >= PERSO + PROV_MOIS
-      ? { t: `✅ Équilibre + réserve hiver — +${fmt(dispo - PROV_MOIS)} libre`, c: 'var(--vert)' }
+      ? { t: `✅ Équilibre + réserve hiver (IRPF+IVA inclus)`, c: 'var(--vert)' }
       : net >= PERSO
       ? { t: `✅ Charges couvertes — +${fmt(dispo)} dispo (pas de réserve hiver)`, c: 'var(--jaune)' }
       : { t: `⚠️ Déficit — manque ${fmt(PERSO - net)} pour couvrir les charges`, c: 'var(--rouge)' }
@@ -53,7 +53,7 @@ function PLSimulateur({ ca }) {
           <div style={{ height:'100%', width:`${pct}%`, background:net>=PERSO?'var(--vert)':pct>70?'var(--jaune)':'var(--rouge)', borderRadius:'4px', transition:'width .4s' }} />
         </div>
         <div style={{ display:'flex', justifyContent:'space-between', marginTop:'3px', fontSize:'10px', color:'var(--gris2)' }}>
-          <span>0€</span><span>Équilibre 3 077€</span>
+          <span>0€</span><span>Équilibre 3 895€</span>
         </div>
       </div>
 
@@ -66,6 +66,7 @@ function PLSimulateur({ ca }) {
           { l: `Matériel ~8%`,                            v: `-${fmt(matos)}`,c: 'var(--gris)' },
           { l: 'Bénéfice brut',                           v: ben>0?fmt(ben):`-${fmt(Math.abs(ben))}`, c: ben>0?'var(--pierre)':'var(--rouge)' },
           { l: 'IRPF à réserver (20%)',                   v: `-${fmt(irpf)}`, c: 'var(--jaune)' },
+          { l: 'IVA nette à reverser',                      v: `-${fmt(ivaNette)}`, c: 'var(--jaune)' },
           { l: 'Net disponible',                          v: fmt(net),        c: net>=PERSO?'var(--vert)':'var(--rouge)', bold:true },
           { l: 'Charges ménage',                          v: `-${PERSO}€`,    c: 'var(--gris)' },
           { l: 'Dispo libre',                             v: fmtSign(dispo),  c: dispo>=0?'var(--vert)':'var(--rouge)', bold:true },
@@ -105,8 +106,8 @@ export default function Comptabilite() {
       {/* Les 3 seuils */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'20px' }}>
         {[
-          { label:'Équilibre mensuel', val:'123€/j', sub:'charges + impôts', color:'var(--jaune)' },
-          { label:'Tenir l\'hiver',    val:'181€/j', sub:'en été seulement', color:'var(--pierre)' },
+          { label:'Équilibre mensuel', val:'156€/j', sub:'IRPF + IVA inclus', color:'var(--jaune)' },
+          { label:'Tenir l\'hiver',    val:'234€/j', sub:'en été seulement', color:'var(--pierre)' },
           { label:'Confort',           val:'300€/j', sub:'surplus + réserve', color:'var(--vert)' },
         ].map(s => (
           <div key={s.label} style={{ background:'var(--noir2)', border:`1px solid ${s.color}33`, borderRadius:'var(--r)', padding:'10px 8px', textAlign:'center' }}>
@@ -158,7 +159,8 @@ export default function Comptabilite() {
             {[100, 123, 150, 181, 200, 250, 300, 350].map(pm => {
               const ca   = pm * 25
               const ben  = ca - FIXES - ca * MATOS
-              const net  = Math.max(0, ben) * 0.80
+              const iva2 = Math.max(0, ca*0.21 - 150.47 - ca*0.08*0.21)
+              const net  = Math.max(0, ben - Math.max(0,ben*0.20) - iva2)
               const disp = net - PERSO
               const icon = disp >= PROV_MOIS ? '✅' : disp >= 0 ? '🟡' : '🔴'
               return (
