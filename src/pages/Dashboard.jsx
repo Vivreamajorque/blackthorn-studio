@@ -24,6 +24,14 @@ const netReel = (ca) => {
   }
 }
 
+
+// ── PROFIL ANNUEL (Jun 2026 → Mai 2027) ──────────────
+// CA cible à 234€/j (tenir l'hiver IRPF+IVA inclus)
+const ANNUAL_CA_TARGET = 47208  // sum JOURS × PM_cible
+const JOURS_TRAVAIL_ANNUEL = 192
+// CA cumulé cible par mois (cumsum des targets)
+const CUMUL_TARGETS = [5850,11700,17550,23400,28548,31548,31548,31548,32198,33758,37358,41358]
+
 // Juin 2026 → Mai 2027
 const MONTHS  = ['Jun','Jul','Aoû','Sep','Oct','Nov','Déc','Jan','Fév','Mar','Avr','Mai']
 const MKEYS   = ['2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12','2027-01','2027-02','2027-03','2027-04','2027-05']
@@ -119,6 +127,21 @@ export default function Dashboard() {
   const month  = new Date().getMonth() + 1
   const isEte  = month >= 6 && month <= 10
   const pctEq  = Math.min(100, Math.round((caMois / 3895) * 100))
+
+
+  // ── AVANCEMENT ANNUEL ──────────────────────────────
+  const caAnnuelCumul = actuals.reduce((a,v)=>a+v,0)
+  // CA cumulé cible jusqu'au mois courant
+  const caCibleAujourdhui = curIdx >= 0 ? CUMUL_TARGETS[curIdx] : 0
+  // Jours travaillés écoulés (estimation : jour du mois × jours mois courant / jours dans le mois)
+  const jourDuMois = new Date().getDate()
+  const joursEcoules = MKEYS.slice(0, Math.max(0,curIdx)).reduce((a,_,i)=>a+JOURS[i],0) + Math.round(jourDuMois/30 * (JOURS[curIdx]||0))
+  const joursRestants = JOURS_TRAVAIL_ANNUEL - joursEcoules
+  const caRestant = Math.max(0, ANNUAL_CA_TARGET - caAnnuelCumul)
+  const vitesseActuelle = joursEcoules > 0 ? Math.round(caAnnuelCumul / joursEcoules) : 0
+  const vitesseNecessaire = joursRestants > 0 ? Math.round(caRestant / joursRestants) : 0
+  const avancePctAnnuel = Math.round((caAnnuelCumul / ANNUAL_CA_TARGET) * 100)
+  const surParcours = caAnnuelCumul >= caCibleAujourdhui
 
   // ── CHART ──────────────────────────────────────
   useEffect(() => {
@@ -229,6 +252,32 @@ export default function Dashboard() {
           <div style={{fontSize:'10px',color:'var(--gris2)',marginTop:'3px'}}>
             {isEte?`Mettre ${PROV_MOIS}€/mois de côté · encore ${Math.max(0,PROV_HIVER-resActuelle)}€ à accumuler`:'Compte réserve — décompte hiver'}
           </div>
+        </div>
+      </div>
+
+      {/* ── OBJECTIF ANNUEL JOURNALIER ──────────── */}
+      <div className="card" style={{marginBottom:'14px', borderColor: surParcours ? 'var(--epine2)' : 'rgba(192,57,43,.3)'}}>
+        <div style={{fontSize:'11px',color:'var(--gris)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'10px'}}>
+          Objectif annuel — tenir toute l'année
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'10px'}}>
+          <div style={{textAlign:'center'}}>
+            <div style={{fontSize:'9px',color:'var(--gris)',textTransform:'uppercase',marginBottom:'3px'}}>CA à ce jour</div>
+            <div style={{fontFamily:'var(--font-mono)',fontSize:'20px',color:surParcours?'var(--vert)':'var(--rouge)'}}>{Math.round(caAnnuelCumul).toLocaleString()}€</div>
+            <div style={{fontSize:'10px',color:'var(--gris2)'}}>cible {caCibleAujourdhui.toLocaleString()}€</div>
+          </div>
+          <div style={{textAlign:'center'}}>
+            <div style={{fontSize:'9px',color:'var(--gris)',textTransform:'uppercase',marginBottom:'3px'}}>Vitesse nécessaire</div>
+            <div style={{fontFamily:'var(--font-mono)',fontSize:'20px',color:vitesseActuelle>=vitesseNecessaire?'var(--vert)':'var(--rouge)'}}>{vitesseNecessaire}€/j</div>
+            <div style={{fontSize:'10px',color:'var(--gris2)'}}>actuelle {vitesseActuelle}€/j</div>
+          </div>
+        </div>
+        <div style={{height:'7px',background:'var(--noir3)',borderRadius:'4px',overflow:'hidden',marginBottom:'4px'}}>
+          <div style={{height:'100%',width:Math.min(100,avancePctAnnuel)+'%',background:surParcours?'var(--vert)':'var(--rouge)',borderRadius:'4px',transition:'width .5s'}} />
+        </div>
+        <div style={{display:'flex',justifyContent:'space-between',fontSize:'10px',color:'var(--gris2)'}}>
+          <span>{avancePctAnnuel}% de l'objectif annuel</span>
+          <span>{joursRestants} jours travail restants</span>
         </div>
       </div>
 
