@@ -4,7 +4,7 @@ const KPIS_DB      = '61f7823f-c723-4203-b1d7-0fdc74312dd3'
 const DEPENSES_DB  = '80f3edb9-78ba-4eaa-b762-db1122d26c19'
 
 const call = async (path, method = 'POST', body = null) => {
-  const url = `/api/notion.cjs?path=${encodeURIComponent(path)}`
+  const url = `/api/notion?path=${encodeURIComponent(path)}`
   const r = await fetch(url, {
     method,
     headers: { 'Content-Type': 'application/json' },
