@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { notion, parsePaiement } from '../lib/notion'
 
 const LOYER_TTC  = 867
+const FIXES      = 956
 const RETA       = 89
 const PERSO      = 1500
 const CHARGES_FIXES_HIVER = LOYER_TTC + RETA  // 956€ incompressible
@@ -10,10 +11,12 @@ const PROV_HIVER = 5285  // réserve nécessaire pour passer l'hiver
 const PROV_MOIS  = 1057  // à mettre de côté juin→oct
 
 // Juin → Décembre 2026
-const MONTHS  = ['Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
-const MKEYS   = ['2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12']
-const TARGETS = [7500, 7500, 7500, 7500, 7500, 3000, 0]
-const IS_ETE  = [1,1,1,1,1,0,0]
+const MONTHS  = ['Jun','Jul','Aoû','Sep','Oct','Nov','Déc','Jan','Fév','Mar','Avr','Mai']
+const MKEYS   = ['2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12','2027-01','2027-02','2027-03','2027-04','2027-05']
+const JOURS   = [25,25,25,25,22,15,0,0,5,12,18,20]
+const PM_BASE = [300,300,300,300,300,200,0,0,130,130,200,200]
+const TARGETS = PM_BASE.map((pm,i) => pm * (JOURS[i]||0))
+const IS_ETE  = [1,1,1,1,1,0,0,0,0,0,0,0]
 
 const thisMonth = () => new Date().toISOString().substring(0,7)
 const todayStr  = () => new Date().toISOString().split('T')[0]
@@ -75,11 +78,12 @@ export default function Dashboard() {
   // Réserve accumulée mois par mois
   let resAcc = 0
   const resLine = actuals.map((ca, i) => {
-    const net     = ca * 0.75 * 0.80
+    const ben     = ca - FIXES - ca*0.08
+    const net     = Math.max(0, ben * 0.80)
     const surplus = net - PERSO
     if (IS_ETE[i] && surplus > 0) resAcc = Math.min(PROV_HIVER, resAcc + Math.min(surplus, PROV_MOIS))
-    else if (!IS_ETE[i] && surplus < 0) resAcc = Math.max(0, resAcc + surplus - CHARGES_FIXES_HIVER)
-    return Math.round(resAcc)
+    else if (!IS_ETE[i] && surplus < 0) resAcc = Math.max(0, resAcc + surplus)
+    return Math.round(Math.max(0, resAcc))
   })
 
   // Stats mois courant
@@ -109,7 +113,7 @@ export default function Dashboard() {
   const surplus   = netMois - PERSO
   const month     = new Date().getMonth() + 1
   const isEte     = month >= 6 && month <= 10
-  const resActuelle = currentIdx >= 0 ? resLine[currentIdx] : 0
+  const resActuelle = currentIdx >= 0 ? resLine[Math.min(currentIdx, resLine.length-1)] : 0
   const pctEq     = Math.min(100, Math.round((caMois / (OBJ_JOUR * 25)) * 100))
 
   // Restant 2026 : sum targets mois futurs
@@ -232,7 +236,7 @@ export default function Dashboard() {
           <div style={{ height:180, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--gris)', fontSize:'12px' }}>Chargement...</div>
         ) : (
           <div style={{ position:'relative', height:180 }}>
-            <canvas ref={chartRef} role="img" aria-label="CA mensuel juin à décembre 2026" />
+            <canvas ref={chartRef} role="img" aria-label="CA mensuel juin 2026 à mai 2027" />
           </div>
         )}
         {/* Réserve hiver */}
