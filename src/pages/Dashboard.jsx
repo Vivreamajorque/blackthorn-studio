@@ -5,7 +5,7 @@ const LOYER_TTC  = 867
 const RETA       = 89
 const PERSO      = 1500
 const CHARGES_FIXES_HIVER = LOYER_TTC + RETA  // 956€ incompressible
-const OBJ_JOUR   = 100   // CA × 0.60 = 1500 → 2500€/mois = 100€/j
+const OBJ_JOUR = 123   // CA × 0.60 = 1500 → 2500€/mois = 100€/j
 const PROV_HIVER = 5285  // réserve nécessaire pour passer l'hiver
 const PROV_MOIS  = 1057  // à mettre de côté juin→oct
 
@@ -97,9 +97,11 @@ export default function Dashboard() {
   const pm7    = s7.length>0 ? Math.round(s7.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)/s7.length) : 0
 
   // P&L avec modèle simplifié : charges = 25% CA (tout compris)
-  const netMois   = Math.round(caMois * 0.75 * 0.80)
-  const irpf      = Math.round(caMois * 0.75 * 0.20)
-  const chargesM  = Math.round(caMois * 0.25)
+  // Modèle réel : fixes 956€ + variables 8% CA
+  const chargesM  = Math.round(956 + caMois * 0.08)
+  const ben       = caMois - chargesM
+  const netMois   = Math.max(0, Math.round(ben * 0.80))
+  const irpf      = Math.max(0, Math.round(ben * 0.20))
   const ivaNette  = Math.max(0, Math.round(caMois * 0.21 * 0.25))  // net ~5% du CA
   const depMois   = depenses.filter(d=>(d.properties.Date?.date?.start||'').startsWith(m)).reduce((a,d)=>a+(d.properties.Montant?.number||0),0)
   const caCash    = sessM.filter(s=>parsePaiement(s)==='cash').reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
@@ -274,7 +276,8 @@ export default function Dashboard() {
         <Row label="↳ Carte" value={fmt(caCarte)} color="#5dade2" indent />
 
         <div style={{ fontSize:'10px', color:'var(--rouge)', fontWeight:700, textTransform:'uppercase', letterSpacing:'1px', padding:'8px 0 2px' }}>SORTIES</div>
-        <Row label="Charges 25% (tout compris)" value={`-${fmt(chargesM)}`} color="var(--gris)" sub="loyer + RETA + matériel" />
+        <Row label="Loyer TTC + RETA" value="-956€" color="var(--gris)" sub="fixe — dû quoi qu'il arrive" />
+        <Row label="Matériel ~8%" value={`-${fmt(Math.round(caMois*0.08))}`} color="var(--gris)" />
         {depMois>0 && <Row label="Dépenses saisies" value={`-${fmt(depMois)}`} color="var(--gris)" />}
 
         <div style={{ fontSize:'10px', color:'var(--pierre3)', fontWeight:700, textTransform:'uppercase', letterSpacing:'1px', padding:'8px 0 2px' }}>RÉSULTAT</div>
@@ -327,7 +330,8 @@ export default function Dashboard() {
           <span style={{ fontFamily:'var(--font-mono)', fontSize:'14px', color:'var(--rouge)' }}>{LOYER_TTC+RETA+PERSO}€</span>
         </div>
         <div style={{ fontSize:'11px', color:'var(--gris2)', marginTop:'6px', lineHeight:1.5 }}>
-          Equilibre : <strong style={{ color:'var(--pierre)' }}>100€/j × 25j</strong> (CA×60% = 1 500€ net)
+          Équilibre mensuel : <strong style={{ color:'var(--pierre)' }}>123€/j × 25j</strong><br/>
+          Tenir l'hiver : <strong style={{ color:'var(--pierre)' }}>181€/j en été</strong>
         </div>
       </div>
     </div>
