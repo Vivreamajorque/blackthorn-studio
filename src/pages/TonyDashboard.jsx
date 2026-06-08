@@ -1,179 +1,81 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { notion } from '../lib/notion'
 
-const OBJ_JOUR = 156
-const OBJ_MOIS = 3895   // 200€ × 25 jours (OK)
+// ── CONSTANTES ───────────────────────────────────────
+const OBJ_JOUR   = 156   // équilibre mensuel réel (IRPF+IVA)
+const OBJ_HIVER  = 234   // tenir l'hiver
+const FIXES      = 956
+const MATOS      = 0.08
+const IVA_FL     = 150.47
+const PERSO      = 1500
+const PROV_MOIS  = 1057
 
-// ─── HELPERS ──────────────────────────────────────────
-const todayStr = () => new Date().toISOString().split('T')[0]
-const fmtDate  = (d) => new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
-const getLast7Days = () => Array.from({ length: 7 }, (_, i) => {
-  const d = new Date(); d.setDate(d.getDate() - (6 - i))
-  return d.toISOString().split('T')[0]
-})
-
-// ─── COMPOSANT : Anneau circulaire ─────────────────────
-function Ring({ value, max, size = 120, label, sub, color = '#C4A882' }) {
-  const pct = Math.min(1, value / max)
-  const r = (size - 16) / 2
-  const circ = 2 * Math.PI * r
-  const dash = pct * circ
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#1F1F1F" strokeWidth="10" />
-        <circle cx={size/2} cy={size/2} r={r} fill="none"
-          stroke={value >= max ? '#27AE60' : color}
-          strokeWidth="10"
-          strokeDasharray={`${dash} ${circ}`}
-          strokeLinecap="round"
-          transform={`rotate(-90 ${size/2} ${size/2})`}
-          style={{ transition: 'stroke-dasharray 0.6s ease' }}
-        />
-        <text x={size/2} y={size/2 - 6} textAnchor="middle"
-          fill={value >= max ? '#27AE60' : color}
-          fontSize="18" fontFamily="DM Mono, monospace" fontWeight="500">
-          {value}€
-        </text>
-        <text x={size/2} y={size/2 + 14} textAnchor="middle"
-          fill="#888" fontSize="10" fontFamily="DM Sans, sans-serif">
-          / {max}€
-        </text>
-      </svg>
-      <div style={{ fontSize: '11px', fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '1px' }}>{label}</div>
-      {sub && <div style={{ fontSize: '10px', color: value >= max ? '#27AE60' : '#555' }}>{sub}</div>}
-    </div>
-  )
+const calcNet = (ca) => {
+  const matos = ca * MATOS
+  const ben   = ca - FIXES - matos
+  const irpf  = Math.max(0, Math.round(ben * 0.20))
+  const iva   = Math.max(0, Math.round(ca * 0.21 - IVA_FL - matos * 0.21))
+  const net   = Math.max(0, Math.round(ben - irpf - iva))
+  return { net, irpf, iva, ben: Math.round(ben), dispo: net - PERSO }
 }
 
-// ─── COMPOSANT : Barres 7 jours ────────────────────────
-function BarChart({ data }) {
-  const max = Math.max(...data.map(d => d.ca), OBJ_JOUR)
-  const days = ['D-6','D-5','D-4','D-3','D-2','D-1','Auj']
-  return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: '80px', padding: '0 4px' }}>
-      {data.map((d, i) => {
-        const h = Math.max(4, (d.ca / max) * 70)
-        const hit = d.ca >= OBJ_JOUR
-        return (
-          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-            <div style={{ fontSize: '9px', color: hit ? '#27AE60' : '#555', fontFamily: 'DM Mono, monospace' }}>
-              {d.ca > 0 ? d.ca+'€' : ''}
-            </div>
-            <div style={{
-              width: '100%', height: h+'px', borderRadius: '4px 4px 0 0',
-              background: hit ? '#27AE60' : d.ca > 0 ? '#C4A882' : '#1F1F1F',
-              transition: 'height 0.4s ease'
-            }} />
-            <div style={{ fontSize: '8px', color: '#555', textAlign: 'center' }}>{days[i]}</div>
-          </div>
-        )
-      })}
-      {/* Ligne objectif */}
-    </div>
-  )
-}
+const todayStr  = () => new Date().toISOString().split('T')[0]
+const thisMonth = () => new Date().toISOString().substring(0,7)
+const fmtE = (n) => { const a=Math.abs(Math.round(n)); return (n<0?'-':'')+(a>=1000?(a/1000).toFixed(1)+'k€':a+'€') }
 
-// ─── CATÉGORIES DÉPENSES ──────────────────────────────
 const CATS = ['🖊️ Matériel tatouage','🧴 Consommables','📱 Marketing','🔧 Équipement','🏠 Charges fixes','🚗 Déplacements','📦 Autre']
 
-// ─── PAGE PRINCIPALE ──────────────────────────────────
 export default function TonyDashboard({ onLogout }) {
-  const [tab, setTab] = useState('home')      // home | ca | depense | histo
-  const [sessions, setSessions] = useState([])
-  const [depenses, setDepenses] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [toast, setToast] = useState('')
+  const [tab,       setTab]       = useState('home')
+  const [sessions,  setSessions]  = useState([])
+  const [depenses,  setDepenses]  = useState([])
+  const [loading,   setLoading]   = useState(true)
+  const [toast,     setToast]     = useState('')
+  const fileRef = useRef(null)
 
-  // Formulaire CA
-  const [caForm, setCaForm] = useState({ ca: '', sessions: '1', notes: '', date: todayStr() })
+  // Form CA
+  const [caForm, setCaForm] = useState({
+    ca: '', sessions: '1', paiement: 'cash', notes: '', date: todayStr()
+  })
   const [caSaving, setCaSaving] = useState(false)
 
-  // Formulaire Dépense
-  const [depForm, setDepForm] = useState({ montant: '', fournisseur: '', categorie: '🖊️ Matériel tatouage', date: todayStr(), notes: '', iva_recuperable: true })
+  // Form Dépense
+  const [depForm, setDepForm] = useState({
+    montant: '', fournisseur: '', categorie: '🖊️ Matériel tatouage',
+    date: todayStr(), notes: '', iva_recuperable: true
+  })
   const [depSaving, setDepSaving] = useState(false)
-  const [photo, setPhoto] = useState(null)
+  const [photo, setPhoto]         = useState(null)
   const [analyzing, setAnalyzing] = useState(false)
-  const fileRef = useRef(null)
 
   const showToast = (m) => { setToast(m); setTimeout(() => setToast(''), 2500) }
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [s, d] = await Promise.all([notion.getSessions(), notion.getDepenses()])
-        if (s.results) setSessions(s.results)
-        if (d.results) setDepenses(d.results)
-      } catch(e) {}
-      setLoading(false)
-    }
-    load()
+  const load = useCallback(async () => {
+    try {
+      const [s,d] = await Promise.all([notion.getSessions(), notion.getDepenses()])
+      if (s.results) setSessions(s.results)
+      if (d.results) setDepenses(d.results)
+    } catch(e) {}
+    setLoading(false)
   }, [])
+  useEffect(() => { load() }, [load])
 
   // ── Calculs stats ──────────────────────────────────
-  const today = todayStr()
-  const last7 = getLast7Days()
+  const m   = thisMonth()
+  const td  = todayStr()
+  const sessM = sessions.filter(s => (s.properties.Date?.date?.start||'').startsWith(m) &&
+    !(s.properties.Type?.select?.name||'').includes('Amely'))
+  const caMois = sessM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const caJour = sessions.filter(s=>s.properties.Date?.date?.start===td && !(s.properties.Type?.select?.name||'').includes('Amely'))
+    .reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
 
-  const caByDay = {}
-  sessions.forEach(s => {
-    const d = s.properties.Date?.date?.start
-    const ca = s.properties.Prix?.number || 0
-    if (d) caByDay[d] = (caByDay[d] || 0) + ca
-  })
+  const r = calcNet(caMois)
+  const depMois = depenses.filter(d=>(d.properties.Date?.date?.start||'').startsWith(m))
+    .reduce((a,d)=>a+(d.properties.Montant?.number||0),0)
 
-  const caAujourdhui = caByDay[today] || 0
-  const caSemaine    = last7.reduce((a, d) => a + (caByDay[d] || 0), 0)
-  const caMois       = Object.entries(caByDay)
-    .filter(([d]) => d.startsWith(today.substring(0, 7)))
-    .reduce((a, [, v]) => a + v, 0)
-
-  const barData = last7.map(d => ({ date: d, ca: caByDay[d] || 0 }))
-
-  // Streak : jours consécutifs depuis aujourd'hui ≥ OBJ_JOUR
-  let streak = 0
-  for (let i = 0; i < 30; i++) {
-    const d = new Date(); d.setDate(d.getDate() - i)
-    const ds = d.toISOString().split('T')[0]
-    if ((caByDay[ds] || 0) >= OBJ_JOUR) streak++
-    else if (i > 0) break
-  }
-
-  // ── Analyse photo ticket ──────────────────────────
-  const handlePhoto = async (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    setAnalyzing(true)
-    const reader = new FileReader()
-    reader.onload = async (ev) => {
-      const base64 = ev.target.result.split(',')[1]
-      setPhoto(ev.target.result)
-      try {
-        const r = await fetch('/api/analyze-receipt', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: base64, mediaType: file.type })
-        })
-        const data = await r.json()
-        if (!data.manual) {
-          setDepForm(f => ({
-            ...f,
-            montant: data.montant?.toString() || f.montant,
-            fournisseur: data.fournisseur || f.fournisseur,
-            categorie: CATS.find(c => c.toLowerCase().includes((data.categorie||'').toLowerCase().split(' ')[0])) || f.categorie,
-            date: data.date || f.date,
-            notes: data.description || f.notes,
-            iva_recuperable: true,
-            montant_iva: data.iva_pct ? ((parseFloat(data.montant||0) * data.iva_pct / (100 + data.iva_pct))).toFixed(2) : ''
-          }))
-          showToast('✓ Ticket analysé automatiquement')
-        } else {
-          showToast('Ticket non lisible — saisis manuellement')
-        }
-      } catch(e) { showToast('Saisis manuellement') }
-      setAnalyzing(false)
-    }
-    reader.readAsDataURL(file)
-  }
+  const status = r.net >= PERSO + PROV_MOIS ? '✅' : r.net >= PERSO ? '🟡' : '🔴'
+  const isMonth = new Date().getMonth() + 1
+  const isEte   = isMonth >= 6 && isMonth <= 10
 
   // ── Submit CA ──────────────────────────────────────
   const submitCA = async () => {
@@ -185,17 +87,18 @@ export default function TonyDashboard({ onLogout }) {
         type: '🖤 Tattoo Tony',
         client: '', natio: '—',
         style: caForm.notes,
-        prix: caForm.ca, acompte: 0, solde: caForm.ca,
-        paiement: caForm.paiement,
-        notes: `${caForm.sessions} session(s)${caForm.notes ? ' · ' + caForm.notes : ''}`,
-        date: caForm.date, avis: false
+        prix: parseFloat(caForm.ca) || 0,
+        acompte: 0,
+        solde: parseFloat(caForm.ca) || 0,
+        paiement: caForm.paiement || 'cash',
+        notes: `${caForm.sessions} session(s)${caForm.notes ? ' · '+caForm.notes : ''}`,
+        date: caForm.date,
+        avis: false
       })
-      showToast('✓ CA enregistré')
-      setCaForm({ ca: '', sessions: '1', paiement: 'cash', notes: '', date: todayStr() })
+      showToast(parseFloat(caForm.ca) >= OBJ_JOUR ? '🔥 Objectif atteint !' : '✓ CA enregistré')
+      setCaForm({ ca:'', sessions:'1', paiement:'cash', notes:'', date:todayStr() })
       setTab('home')
-      // Refresh
-      const s = await notion.getSessions()
-      if (s.results) setSessions(s.results)
+      load()
     } catch(e) { showToast('Erreur — réessaie') }
     setCaSaving(false)
   }
@@ -207,253 +110,326 @@ export default function TonyDashboard({ onLogout }) {
     try {
       await notion.addDepense({ ...depForm, saisi_par: 'Tony' })
       showToast('✓ Dépense enregistrée')
-      setDepForm({ montant: '', fournisseur: '', categorie: '🖊️ Matériel tatouage', date: todayStr(), notes: '', iva_recuperable: true })
+      setDepForm({ montant:'', fournisseur:'', categorie:'🖊️ Matériel tatouage', date:todayStr(), notes:'', iva_recuperable:true })
       setPhoto(null)
       setTab('home')
-      const d = await notion.getDepenses()
-      if (d.results) setDepenses(d.results)
+      load()
     } catch(e) { showToast('Erreur — réessaie') }
     setDepSaving(false)
   }
 
-  // ──────────────────────────────────────────────────
-  // RENDU
-  // ──────────────────────────────────────────────────
+  // ── Analyse photo ──────────────────────────────────
+  const handlePhoto = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAnalyzing(true)
+    const reader = new FileReader()
+    reader.onload = async (ev) => {
+      const base64 = ev.target.result.split(',')[1]
+      setPhoto(ev.target.result)
+      try {
+        const res = await fetch('/api/analyze-receipt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: base64, mediaType: file.type })
+        })
+        const data = await res.json()
+        if (!data.manual && data.montant) {
+          setDepForm(f => ({
+            ...f,
+            montant: data.montant?.toString() || f.montant,
+            fournisseur: data.fournisseur || f.fournisseur,
+            categorie: CATS.find(c => c.toLowerCase().includes((data.categorie||'').toLowerCase().split(' ')[0])) || f.categorie,
+            date: data.date || f.date,
+            notes: data.description || f.notes,
+          }))
+          showToast('✓ Ticket analysé')
+        } else {
+          showToast('Saisis manuellement')
+        }
+      } catch(e) { showToast('Saisis manuellement') }
+      setAnalyzing(false)
+    }
+    reader.readAsDataURL(file)
+  }
 
-  // ── TAB CA ──────────────────────────────────────
+  // ══════════════════════════════════════════════════
+  // RENDU TABS
+  // ══════════════════════════════════════════════════
+
+  // ── SAISIE CA ──────────────────────────────────────
   if (tab === 'ca') return (
-    <div style={{ padding: '32px 20px', minHeight: '100vh' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
-        <div style={{ fontFamily: 'var(--font-head)', fontSize: '18px', fontWeight: 700 }}>Mon CA du jour</div>
-        <button className="btn btn-ghost" onClick={() => setTab('home')} style={{ padding: '6px 14px', fontSize: '12px' }}>← Retour</button>
+    <div style={{ padding:'28px 20px', minHeight:'100vh' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'24px' }}>
+        <div style={{ fontFamily:'var(--font-head)', fontSize:'18px', fontWeight:700 }}>Mon CA du jour</div>
+        <button className="btn btn-ghost" onClick={()=>setTab('home')} style={{ padding:'6px 14px', fontSize:'12px' }}>← Retour</button>
       </div>
 
-      <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-        <div style={{ fontSize: '13px', color: 'var(--gris)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>CA encaissé (€)</div>
+      {/* Grand chiffre CA */}
+      <div style={{ textAlign:'center', marginBottom:'20px' }}>
+        <div style={{ fontSize:'12px', color:'var(--gris)', marginBottom:'10px', textTransform:'uppercase', letterSpacing:'1px' }}>CA encaissé (€ HT)</div>
         <input type="number" inputMode="decimal" placeholder="0"
-          value={caForm.ca} onChange={e => setCaForm({...caForm, ca: e.target.value})}
-          style={{ fontSize: '52px', fontFamily: 'var(--font-mono)', fontWeight: 500, textAlign: 'center', background: 'transparent', border: 'none', borderBottom: '2px solid var(--pierre)', borderRadius: 0, color: 'var(--pierre)', width: '220px', padding: '8px 0' }} />
+          value={caForm.ca} onChange={e=>setCaForm({...caForm,ca:e.target.value})}
+          style={{ fontSize:'52px', fontFamily:'var(--font-mono)', fontWeight:500, textAlign:'center', background:'transparent', border:'none', borderBottom:'2px solid var(--pierre)', borderRadius:0, color:'var(--pierre)', width:'220px', padding:'8px 0' }} />
         {caForm.ca > 0 && (
-          <div style={{ marginTop: '12px', fontSize: '13px', color: parseFloat(caForm.ca) >= OBJ_JOUR ? 'var(--vert)' : 'var(--gris)' }}>
-            {parseFloat(caForm.ca) >= OBJ_JOUR ? `✅ Objectif ${OBJ_JOUR}€ atteint !` : `${(OBJ_JOUR - parseFloat(caForm.ca)).toFixed(0)}€ avant l'objectif`}
+          <div style={{ marginTop:'10px', fontSize:'13px', color:parseFloat(caForm.ca)>=OBJ_JOUR?'var(--vert)':'var(--gris)' }}>
+            {parseFloat(caForm.ca)>=OBJ_JOUR ? `✅ ${OBJ_JOUR}€ équilibre atteint !` : `encore ${(OBJ_JOUR-parseFloat(caForm.ca)).toFixed(0)}€ pour l'équilibre`}
           </div>
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-        <div className="form-group" style={{ margin: 0 }}>
+      {/* Cash / Carte */}
+      <div style={{ display:'flex', gap:'10px', marginBottom:'18px' }}>
+        {['cash','carte'].map(p=>(
+          <button key={p} onClick={()=>setCaForm({...caForm,paiement:p})} style={{
+            flex:1, padding:'14px', borderRadius:'var(--r)',
+            background: caForm.paiement===p ? (p==='cash'?'var(--vert)':'#2980B9') : 'var(--noir2)',
+            color: caForm.paiement===p ? 'var(--noir)' : 'var(--gris)',
+            border: caForm.paiement===p ? 'none' : '1px solid var(--noir3)',
+            fontFamily:'var(--font-head)', fontWeight:700, fontSize:'15px', cursor:'pointer',
+            letterSpacing:'1px', transition:'all .2s'
+          }}>
+            {p==='cash' ? '💵 Cash' : '💳 Carte'}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom:'14px' }}>
+        <div className="form-group" style={{ margin:0 }}>
           <label>Sessions</label>
-          <input type="number" inputMode="numeric" placeholder="1" value={caForm.sessions} onChange={e => setCaForm({...caForm, sessions: e.target.value})} style={{ textAlign: 'center', fontSize: '20px' }} />
+          <input type="number" inputMode="numeric" placeholder="1"
+            value={caForm.sessions} onChange={e=>setCaForm({...caForm,sessions:e.target.value})}
+            style={{ textAlign:'center', fontSize:'20px' }} />
         </div>
-        <div className="form-group" style={{ margin: 0 }}>
+        <div className="form-group" style={{ margin:0 }}>
           <label>Date</label>
-          <input type="date" min="2026-06-01" value={caForm.date} onChange={e => setCaForm({...caForm, date: e.target.value})} />
+          <input type="date" min="2026-06-01" value={caForm.date} onChange={e=>setCaForm({...caForm,date:e.target.value})} />
         </div>
       </div>
-      <div className="form-group" style={{ marginBottom: '24px' }}>
-        <label>Notes rapides</label>
-        <textarea rows="2" placeholder="Ex: botanical avant-bras, client allemand..." value={caForm.notes} onChange={e => setCaForm({...caForm, notes: e.target.value})} style={{ resize: 'none' }} />
+      <div className="form-group" style={{ marginBottom:'20px' }}>
+        <label>Notes (style, nationalité...)</label>
+        <textarea rows="2" placeholder="Ex: botanical avant-bras, client DE..." value={caForm.notes} onChange={e=>setCaForm({...caForm,notes:e.target.value})} style={{ resize:'none' }} />
       </div>
-      <button className="btn btn-primary" onClick={submitCA} disabled={caSaving || !caForm.ca} style={{ width: '100%', padding: '16px', fontSize: '15px' }}>
+      <button className="btn btn-primary" onClick={submitCA} disabled={caSaving||!caForm.ca} style={{ width:'100%', padding:'16px', fontSize:'15px' }}>
         {caSaving ? 'Enregistrement...' : '✓ Valider'}
       </button>
       {toast && <div className="toast">{toast}</div>}
     </div>
   )
 
-  // ── TAB DÉPENSE ──────────────────────────────────
+  // ── DÉPENSE ────────────────────────────────────────
   if (tab === 'depense') return (
-    <div style={{ padding: '28px 20px', minHeight: '100vh' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <div style={{ fontFamily: 'var(--font-head)', fontSize: '18px', fontWeight: 700 }}>Nouvelle dépense</div>
-        <button className="btn btn-ghost" onClick={() => { setTab('home'); setPhoto(null) }} style={{ padding: '6px 14px', fontSize: '12px' }}>← Retour</button>
+    <div style={{ padding:'28px 20px', minHeight:'100vh' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px' }}>
+        <div style={{ fontFamily:'var(--font-head)', fontSize:'18px', fontWeight:700 }}>Dépense / Facture</div>
+        <button className="btn btn-ghost" onClick={()=>{setTab('home');setPhoto(null)}} style={{ padding:'6px 14px', fontSize:'12px' }}>← Retour</button>
       </div>
 
-      {/* Photo ticket */}
-      <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} style={{ display: 'none' }} />
+      <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} style={{ display:'none' }} />
+
       {!photo ? (
-        <button onClick={() => fileRef.current.click()} className="btn btn-ghost" style={{ width: '100%', padding: '20px', marginBottom: '20px', borderStyle: 'dashed', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
-          <span style={{ fontSize: '28px' }}>📷</span>
-          Photo du ticket (optionnel)<br />
-          <span style={{ fontSize: '11px', color: 'var(--gris)' }}>Claude analyse et remplit automatiquement</span>
+        <button onClick={()=>fileRef.current?.click()} className="btn btn-ghost" style={{ width:'100%', padding:'18px', marginBottom:'16px', flexDirection:'column', gap:'6px', fontSize:'13px' }}>
+          <span style={{ fontSize:'26px' }}>📷</span>
+          Photo du ticket<br/>
+          <span style={{ fontSize:'10px', color:'var(--gris)' }}>Analyse automatique si ANTHROPIC_API_KEY configurée</span>
         </button>
       ) : (
-        <div style={{ marginBottom: '16px', position: 'relative' }}>
-          <img src={photo} style={{ width: '100%', borderRadius: '8px', maxHeight: '160px', objectFit: 'cover' }} />
+        <div style={{ marginBottom:'14px', position:'relative' }}>
+          <img src={photo} style={{ width:'100%', borderRadius:'8px', maxHeight:'150px', objectFit:'cover' }} />
           {analyzing && (
-            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.7)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ color: 'var(--pierre)', fontSize: '14px' }}>Analyse en cours...</div>
+            <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,.7)', borderRadius:'8px', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--pierre)', fontSize:'14px' }}>
+              Analyse...
             </div>
           )}
-          <button onClick={() => { setPhoto(null); setDepForm(f => ({...f, montant:'',fournisseur:'',notes:''})) }} style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,.7)', border: 'none', color: '#fff', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', fontSize: '14px' }}>×</button>
+          <button onClick={()=>{setPhoto(null)}} style={{ position:'absolute', top:6, right:6, background:'rgba(0,0,0,.7)', border:'none', color:'#fff', borderRadius:'50%', width:26, height:26, cursor:'pointer' }}>×</button>
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-        <div className="form-group" style={{ margin: 0 }}>
-          <label>Montant (€) *</label>
-          <input type="number" inputMode="decimal" placeholder="0.00" value={depForm.montant} onChange={e => setDepForm({...depForm, montant: e.target.value})} style={{ fontSize: '22px', textAlign: 'center', fontFamily: 'var(--font-mono)' }} />
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px' }}>
+        <div className="form-group" style={{ margin:0 }}>
+          <label>Montant TTC (€) *</label>
+          <input type="number" inputMode="decimal" placeholder="0.00"
+            value={depForm.montant} onChange={e=>setDepForm({...depForm,montant:e.target.value})}
+            style={{ fontSize:'22px', textAlign:'center', fontFamily:'var(--font-mono)' }} />
         </div>
-        <div className="form-group" style={{ margin: 0 }}>
+        <div className="form-group" style={{ margin:0 }}>
           <label>Date</label>
-          <input type="date" value={depForm.date} onChange={e => setDepForm({...depForm, date: e.target.value})} />
+          <input type="date" min="2026-06-01" value={depForm.date} onChange={e=>setDepForm({...depForm,date:e.target.value})} />
         </div>
       </div>
-
-      <div className="form-group" style={{ marginBottom: '12px' }}>
+      <div className="form-group" style={{ marginBottom:'10px' }}>
         <label>Catégorie</label>
-        <select value={depForm.categorie} onChange={e => setDepForm({...depForm, categorie: e.target.value})}>
-          {CATS.map(c => <option key={c}>{c}</option>)}
+        <select value={depForm.categorie} onChange={e=>setDepForm({...depForm,categorie:e.target.value})}>
+          {CATS.map(c=><option key={c}>{c}</option>)}
         </select>
       </div>
-
-      <div className="form-group" style={{ marginBottom: '12px' }}>
-        <label>Fournisseur / Commerce</label>
-        <input placeholder="Ex: Kwadron, Leroy Merlin..." value={depForm.fournisseur} onChange={e => setDepForm({...depForm, fournisseur: e.target.value})} />
+      <div className="form-group" style={{ marginBottom:'10px' }}>
+        <label>Fournisseur</label>
+        <input placeholder="Kwadron, Mercadona..." value={depForm.fournisseur} onChange={e=>setDepForm({...depForm,fournisseur:e.target.value})} />
       </div>
-
-      <div className="form-group" style={{ marginBottom: '16px' }}>
+      <div className="form-group" style={{ marginBottom:'12px' }}>
         <label>Notes</label>
-        <input placeholder="Description rapide" value={depForm.notes} onChange={e => setDepForm({...depForm, notes: e.target.value})} />
+        <input placeholder="Description rapide" value={depForm.notes} onChange={e=>setDepForm({...depForm,notes:e.target.value})} />
       </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-        <input type="checkbox" id="iva" checked={depForm.iva_recuperable} onChange={e => setDepForm({...depForm, iva_recuperable: e.target.checked})} style={{ width: 20, height: 20, accentColor: 'var(--pierre)', cursor: 'pointer' }} />
-        <label htmlFor="iva" style={{ fontSize: '13px', color: 'var(--gris)', cursor: 'pointer' }}>IVA récupérable (21%)</label>
+      <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'18px' }}>
+        <input type="checkbox" id="iva" checked={depForm.iva_recuperable} onChange={e=>setDepForm({...depForm,iva_recuperable:e.target.checked})} style={{ width:20, height:20, accentColor:'var(--pierre)', cursor:'pointer' }} />
+        <label htmlFor="iva" style={{ fontSize:'13px', color:'var(--gris)', cursor:'pointer' }}>IVA récupérable (21%)</label>
       </div>
-
-      <button className="btn btn-primary" onClick={submitDep} disabled={depSaving || !depForm.montant} style={{ width: '100%', padding: '16px', fontSize: '15px' }}>
+      <button className="btn btn-primary" onClick={submitDep} disabled={depSaving||!depForm.montant} style={{ width:'100%', padding:'16px' }}>
         {depSaving ? 'Enregistrement...' : '✓ Enregistrer la dépense'}
       </button>
       {toast && <div className="toast">{toast}</div>}
     </div>
   )
 
-  // ── TAB HISTORIQUE ───────────────────────────────
+  // ── HISTORIQUE ─────────────────────────────────────
   if (tab === 'histo') return (
-    <div style={{ padding: '24px 16px', paddingBottom: '32px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <div style={{ fontFamily: 'var(--font-head)', fontSize: '18px', fontWeight: 700 }}>Historique</div>
-        <button className="btn btn-ghost" onClick={() => setTab('home')} style={{ padding: '6px 14px', fontSize: '12px' }}>← Retour</button>
+    <div style={{ padding:'24px 16px 32px' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'18px' }}>
+        <div style={{ fontFamily:'var(--font-head)', fontSize:'18px', fontWeight:700 }}>Historique</div>
+        <button className="btn btn-ghost" onClick={()=>setTab('home')} style={{ padding:'6px 14px', fontSize:'12px' }}>← Retour</button>
       </div>
-
-      <div style={{ fontSize: '11px', color: 'var(--gris)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' }}>CA</div>
-      {loading && <div style={{ color: 'var(--gris)', textAlign: 'center', padding: '20px' }}>Chargement...</div>}
-      {sessions.slice(0, 8).map(s => {
-        const p = s.properties
-        const ca = p.Prix?.number || 0
-        const date = p.Date?.date?.start || ''
-        const notes = p.Notes?.rich_text?.[0]?.plain_text || ''
+      <div className="section-title">CA récent</div>
+      {loading && <div style={{ color:'var(--gris)', padding:'20px', textAlign:'center', fontSize:'12px' }}>Chargement...</div>}
+      {sessions.filter(s=>!(s.properties.Type?.select?.name||'').includes('Amely')).slice(0,8).map(s=>{
+        const ca   = s.properties.Prix?.number || 0
+        const date = s.properties.Date?.date?.start || ''
+        const notes = s.properties.Notes?.rich_text?.[0]?.plain_text || ''
+        const title = s.properties.Session?.title?.[0]?.plain_text || ''
+        const isCash = !title.includes('[CARTE]')
         const ok = ca >= OBJ_JOUR
         return (
-          <div key={s.id} className="card" style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px' }}>
+          <div key={s.id} className="card" style={{ marginBottom:'8px', display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 14px' }}>
             <div>
-              <div style={{ fontSize: '12px', color: 'var(--gris)' }}>{date ? fmtDate(date) : '—'}</div>
-              {notes && <div style={{ fontSize: '11px', color: 'var(--gris2)', marginTop: '2px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{notes}</div>}
+              <div style={{ fontSize:'12px', color:'var(--gris)' }}>{date}</div>
+              {notes && <div style={{ fontSize:'11px', color:'var(--gris2)', marginTop:'2px', maxWidth:'180px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{notes}</div>}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexDirection: 'column', alignItems: 'flex-end' }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '18px', color: ok ? 'var(--vert)' : 'var(--pierre)' }}>{ca}€</span>
-              {(() => { const t = s.properties.Session?.title?.[0]?.plain_text||''; const isCash = !t.includes('[CARTE]'); return <span style={{ fontSize:'9px', padding:'2px 6px', borderRadius:'8px', background: isCash ? 'rgba(39,174,96,.2)' : 'rgba(41,128,185,.2)', color: isCash ? '#2ecc71' : '#5dade2' }}>{isCash?'CASH':'CARTE'}</span> })()}
+            <div style={{ display:'flex', alignItems:'center', gap:'8px', flexDirection:'column', alignItems:'flex-end' }}>
+              <span style={{ fontFamily:'var(--font-mono)', fontSize:'16px', color:ok?'var(--vert)':'var(--pierre)' }}>{ca}€</span>
+              <span style={{ fontSize:'9px', padding:'2px 5px', borderRadius:'8px', background:isCash?'rgba(39,174,96,.2)':'rgba(41,128,185,.2)', color:isCash?'#2ecc71':'#5dade2' }}>
+                {isCash?'CASH':'CARTE'}
+              </span>
             </div>
           </div>
         )
       })}
-
-      <div style={{ fontSize: '11px', color: 'var(--gris)', textTransform: 'uppercase', letterSpacing: '1px', margin: '16px 0 10px' }}>Dépenses récentes</div>
-      {depenses.slice(0, 5).map(d => {
-        const p = d.properties
-        const m = p.Montant?.number || 0
-        const cat = p.Catégorie?.select?.name || ''
-        const date = p.Date?.date?.start || ''
-        const fourn = p.Fournisseur?.rich_text?.[0]?.plain_text || ''
+      <div className="section-title" style={{ marginTop:'16px' }}>Dépenses récentes</div>
+      {depenses.slice(0,5).map(d=>{
+        const m = d.properties.Montant?.number || 0
+        const cat = d.properties.Catégorie?.select?.name || ''
+        const date = d.properties.Date?.date?.start || ''
+        const fourn = d.properties.Fournisseur?.rich_text?.[0]?.plain_text || ''
         return (
-          <div key={d.id} className="card" style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px' }}>
+          <div key={d.id} className="card" style={{ marginBottom:'8px', display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 14px' }}>
             <div>
-              <div style={{ fontSize: '12px' }}>{cat || '—'}</div>
-              <div style={{ fontSize: '11px', color: 'var(--gris)', marginTop: '2px' }}>{fourn} {date ? '· ' + fmtDate(date) : ''}</div>
+              <div style={{ fontSize:'12px' }}>{cat}</div>
+              <div style={{ fontSize:'11px', color:'var(--gris)', marginTop:'2px' }}>{fourn} {date && '· '+date}</div>
             </div>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '16px', color: 'var(--rouge)' }}>-{m}€</span>
+            <span style={{ fontFamily:'var(--font-mono)', fontSize:'14px', color:'var(--rouge)' }}>-{m}€</span>
           </div>
         )
       })}
     </div>
   )
 
-  // ── HOME ─────────────────────────────────────────
-  const dayLabel = caAujourdhui >= OBJ_JOUR ? '🔥 Objectif atteint !' : caAujourdhui > 0 ? `${OBJ_JOUR - caAujourdhui}€ restants` : 'Pas encore saisi'
-
+  // ── HOME ───────────────────────────────────────────
   return (
-    <div style={{ padding: '24px 16px 32px', minHeight: '100vh' }}>
+    <div style={{ padding:'24px 16px 32px', minHeight:'100vh' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'20px' }}>
         <div>
-          <div style={{ fontFamily: 'var(--font-head)', fontSize: '22px', fontWeight: 800, letterSpacing: '2px', color: 'var(--pierre)' }}>BLACKTHORN</div>
-          <div style={{ fontSize: '12px', color: 'var(--gris)', marginTop: '2px' }}>
-            {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+          <div style={{ fontFamily:'var(--font-head)', fontSize:'22px', fontWeight:800, letterSpacing:'2px', color:'var(--pierre)' }}>BLACKTHORN</div>
+          <div style={{ fontSize:'11px', color:'var(--gris)', marginTop:'2px' }}>
+            {new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}
           </div>
         </div>
-        {streak > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(243,156,18,.15)', padding: '6px 12px', borderRadius: '20px' }}>
-            <span style={{ fontSize: '18px' }}>🔥</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '16px', color: '#f5b942', fontWeight: 500 }}>{streak}</span>
-            <span style={{ fontSize: '10px', color: '#f5b942' }}>jours</span>
+        <button onClick={load} style={{ background:'none', border:'none', color:'var(--gris)', fontSize:'18px', cursor:'pointer' }}>↻</button>
+      </div>
+
+      {/* Statut équilibre */}
+      <div className="card" style={{ marginBottom:'14px', borderColor:r.net>=PERSO+PROV_MOIS?'var(--epine2)':r.net>=PERSO?'rgba(186,117,23,.4)':'rgba(192,57,43,.4)' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
+          <div style={{ fontSize:'11px', color:'var(--gris)', textTransform:'uppercase', letterSpacing:'1px' }}>Statut du mois</div>
+          <span style={{ fontSize:'20px' }}>{status}</span>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px' }}>
+          <div style={{ textAlign:'center', padding:'8px', background:'var(--noir3)', borderRadius:'var(--r)' }}>
+            <div style={{ fontSize:'9px', color:'var(--gris)', textTransform:'uppercase', marginBottom:'3px' }}>Aujourd'hui</div>
+            <div style={{ fontFamily:'var(--font-mono)', fontSize:'18px', color:caJour>=OBJ_JOUR?'var(--vert)':caJour>0?'var(--pierre)':'var(--gris2)' }}>
+              {caJour > 0 ? caJour+'€' : '—'}
+            </div>
+          </div>
+          <div style={{ textAlign:'center', padding:'8px', background:'var(--noir3)', borderRadius:'var(--r)' }}>
+            <div style={{ fontSize:'9px', color:'var(--gris)', textTransform:'uppercase', marginBottom:'3px' }}>Ce mois</div>
+            <div style={{ fontFamily:'var(--font-mono)', fontSize:'18px', color:caMois>=3895?'var(--vert)':caMois>0?'var(--pierre)':'var(--gris2)' }}>
+              {caMois > 0 ? fmtE(caMois) : '—'}
+            </div>
+          </div>
+        </div>
+        {/* Barre équilibre */}
+        <div style={{ height:'5px', background:'var(--noir3)', borderRadius:'3px', overflow:'hidden', marginBottom:'4px' }}>
+          <div style={{ height:'100%', width:Math.min(100,(caMois/3895)*100)+'%', background:caMois>=3895?'var(--vert)':'var(--pierre)', borderRadius:'3px', transition:'width .5s' }} />
+        </div>
+        <div style={{ fontSize:'10px', color:'var(--gris2)' }}>
+          {Math.round((caMois/3895)*100)}% de l'équilibre mensuel (3 895€ · 156€/j)
+        </div>
+      </div>
+
+      {/* Impôts du mois */}
+      <div className="card" style={{ marginBottom:'14px' }}>
+        <div style={{ fontSize:'11px', color:'var(--gris)', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'10px' }}>À mettre de côté ce mois</div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px' }}>
+          {[
+            { l:'IRPF 20%', v:r.irpf+'€', c:'var(--jaune)' },
+            { l:'IVA nette', v:r.iva+'€', c:'var(--jaune)' },
+            { l:isEte?'Réserve hiver':'Hiver', v:isEte?PROV_MOIS+'€':'—', c:isEte?'var(--pierre)':'var(--gris2)' },
+          ].map(x=>(
+            <div key={x.l} style={{ textAlign:'center', padding:'8px 4px', background:'var(--noir3)', borderRadius:'var(--r)' }}>
+              <div style={{ fontSize:'9px', color:'var(--gris)', textTransform:'uppercase', marginBottom:'3px' }}>{x.l}</div>
+              <div style={{ fontFamily:'var(--font-mono)', fontSize:'15px', color:x.c }}>{x.v}</div>
+            </div>
+          ))}
+        </div>
+        {depMois > 0 && (
+          <div style={{ marginTop:'8px', display:'flex', justifyContent:'space-between', fontSize:'12px', color:'var(--gris)' }}>
+            <span>Dépenses ce mois</span>
+            <span style={{ fontFamily:'var(--font-mono)', color:'var(--rouge)' }}>-{fmtE(depMois)}</span>
           </div>
         )}
       </div>
 
-      {/* Anneaux de progression */}
-      <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: '24px' }}>
-        <Ring value={caAujourdhui} max={OBJ_JOUR} size={120} label="Aujourd'hui" sub={dayLabel} />
-        <Ring value={Math.round(caMois)} max={OBJ_MOIS} size={110} label="Ce mois" sub={`${Math.round(caMois / OBJ_MOIS * 100)}%`} color="#5AADA5" />
-      </div>
-
-      {/* Barre de semaine */}
-      <div className="card" style={{ marginBottom: '16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <span style={{ fontSize: '11px', color: 'var(--gris)', textTransform: 'uppercase', letterSpacing: '1px' }}>7 derniers jours</span>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--pierre)' }}>{caSemaine}€</span>
-        </div>
-        {loading ? (
-          <div style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gris)', fontSize: '12px' }}>Chargement...</div>
-        ) : (
-          <BarChart data={barData} />
-        )}
-        {/* Ligne objectif 200€ */}
-        <div style={{ fontSize: '10px', color: 'var(--gris)', marginTop: '8px', textAlign: 'center' }}>
-          — objectif {OBJ_JOUR}€/jour
-        </div>
-      </div>
-
-      {/* Dépenses du mois */}
-      {depenses.length > 0 && (() => {
-        const moisStr = todayStr().substring(0, 7)
-        const depMois = depenses.filter(d => (d.properties.Date?.date?.start || '').startsWith(moisStr))
-          .reduce((a, d) => a + (d.properties.Montant?.number || 0), 0)
-        return depMois > 0 ? (
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', padding: '10px 14px', background: 'var(--noir2)', borderRadius: 'var(--r)', border: '1px solid var(--noir3)' }}>
-            <span style={{ fontSize: '12px', color: 'var(--gris)' }}>🧾 Dépenses ce mois</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', color: 'var(--rouge)' }}>-{Math.round(depMois)}€</span>
+      {/* Seuils rappel */}
+      <div className="card" style={{ marginBottom:'20px', padding:'10px 14px' }}>
+        <div style={{ fontSize:'11px', color:'var(--gris)', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'6px' }}>Seuils (IRPF + IVA inclus)</div>
+        {[
+          { pm:156, l:'Équilibre mensuel' },
+          { pm:234, l:'Tenir l\'hiver' },
+          { pm:300, l:'Confort' },
+        ].map(s=>(
+          <div key={s.pm} style={{ display:'flex', justifyContent:'space-between', padding:'4px 0', fontSize:'12px' }}>
+            <span style={{ color:'var(--gris)' }}>{s.l}</span>
+            <span style={{ fontFamily:'var(--font-mono)', color:caJour>0&&caJour/1>=s.pm?'var(--vert)':'var(--gris2)' }}>{s.pm}€/j</span>
           </div>
-        ) : null
-      })()}
+        ))}
+      </div>
 
       {/* Actions */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <button className="btn btn-primary" onClick={() => setTab('ca')} style={{ padding: '16px', fontSize: '15px', fontWeight: 700 }}>
+      <div style={{ display:'flex', flexDirection:'column', gap:'10px', marginBottom:'20px' }}>
+        <button className="btn btn-primary" onClick={()=>setTab('ca')} style={{ padding:'16px', fontSize:'15px', fontWeight:700 }}>
           + Mon CA du jour
         </button>
-        <button className="btn btn-ghost" onClick={() => setTab('depense')} style={{ padding: '14px', fontSize: '14px' }}>
+        <button className="btn btn-ghost" onClick={()=>setTab('depense')} style={{ padding:'13px' }}>
           🧾 Ajouter une dépense / facture
         </button>
-        <button className="btn btn-ghost" onClick={() => setTab('histo')} style={{ padding: '12px', fontSize: '13px' }}>
+        <button className="btn btn-ghost" onClick={()=>setTab('histo')} style={{ padding:'11px', fontSize:'13px' }}>
           Voir l'historique
         </button>
       </div>
 
-      {/* Logout */}
-      <button onClick={onLogout} style={{ background: 'none', border: 'none', color: 'var(--gris2)', fontSize: '11px', marginTop: '20px', cursor: 'pointer', width: '100%', textAlign: 'center' }}>
+      <button onClick={onLogout} style={{ background:'none', border:'none', color:'var(--gris2)', fontSize:'11px', cursor:'pointer', width:'100%', textAlign:'center' }}>
         Déconnexion
       </button>
+      {toast && <div className="toast">{toast}</div>}
     </div>
   )
 }
