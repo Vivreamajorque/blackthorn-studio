@@ -1,5 +1,8 @@
 {
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
-  ]
+  ],
+  "functions": {
+    "api/*.cjs": { "runtime": "nodejs20.x" }
+  }
 }
