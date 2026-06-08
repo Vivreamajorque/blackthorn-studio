@@ -6,14 +6,16 @@ import Clients from './pages/Clients'
 import Comptabilite from './pages/Comptabilite'
 import Apprentissage from './pages/Apprentissage'
 import Roadmap from './pages/Roadmap'
+import TonyDashboard from './pages/TonyDashboard'
 
-const PIN = import.meta.env.VITE_APP_PIN || '2026'
+const PIN_AMELY = import.meta.env.VITE_APP_PIN || '2026'
+const PIN_TONY  = import.meta.env.VITE_TONY_PIN || '1111'
+
 const NAV = [
   { path: '/', icon: '◈', label: 'Hub' },
   { path: '/sessions', icon: '🖤', label: 'Sessions' },
   { path: '/clients', icon: '⟐', label: 'Clients' },
   { path: '/compta', icon: '⊞', label: 'Compta' },
-  { path: '/apprentissage', icon: '◉', label: 'Apprendre' },
   { path: '/roadmap', icon: '◎', label: 'Vision' }
 ]
 
@@ -27,7 +29,8 @@ function PinScreen({ onUnlock }) {
     const next = code + v
     setCode(next)
     if (next.length === 4) {
-      if (next === PIN) { onUnlock() }
+      if (next === PIN_AMELY) { onUnlock('amely') }
+      else if (next === PIN_TONY) { onUnlock('tony') }
       else {
         setShake(true); setError(true)
         setTimeout(() => { setShake(false); setCode(''); setError(false) }, 600)
@@ -49,7 +52,6 @@ function PinScreen({ onUnlock }) {
           Cockpit Studio
         </div>
       </div>
-
       <div style={{
         display: 'flex', gap: '16px', marginBottom: '40px',
         animation: shake ? 'shake .4s ease' : 'none'
@@ -57,17 +59,12 @@ function PinScreen({ onUnlock }) {
         {[0,1,2,3].map(i => (
           <div key={i} style={{
             width: 16, height: 16, borderRadius: '50%',
-            background: i < code.length
-              ? (error ? 'var(--rouge)' : 'var(--pierre)')
-              : 'var(--noir3)',
-            border: `2px solid ${i < code.length
-              ? (error ? 'var(--rouge)' : 'var(--pierre)')
-              : 'var(--gris2)'}`,
+            background: i < code.length ? (error ? 'var(--rouge)' : 'var(--pierre)') : 'var(--noir3)',
+            border: `2px solid ${i < code.length ? (error ? 'var(--rouge)' : 'var(--pierre)') : 'var(--gris2)'}`,
             transition: 'all .2s'
           }} />
         ))}
       </div>
-
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 72px)', gap: '12px' }}>
         {['1','2','3','4','5','6','7','8','9','','0','del'].map((k, i) => (
           k === '' ? <div key={i} /> :
@@ -78,9 +75,7 @@ function PinScreen({ onUnlock }) {
             color: 'var(--blanc)',
             fontFamily: k === 'del' ? 'var(--font-body)' : 'var(--font-mono)',
             fontSize: k === 'del' ? '18px' : '22px',
-            fontWeight: 400,
-            transition: 'all .15s',
-            cursor: 'pointer'
+            fontWeight: 400, transition: 'all .15s', cursor: 'pointer'
           }}
           onMouseDown={e => e.currentTarget.style.transform = 'scale(.9)'}
           onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
@@ -89,7 +84,6 @@ function PinScreen({ onUnlock }) {
           </button>
         ))}
       </div>
-
       <style>{`
         @keyframes shake {
           0%,100% { transform: translateX(0); }
@@ -107,11 +101,9 @@ function NavBar() {
   return (
     <nav style={{
       position: 'fixed', bottom: 0, left: 0, right: 0,
-      background: 'var(--noir2)',
-      borderTop: '1px solid var(--noir3)',
+      background: 'var(--noir2)', borderTop: '1px solid var(--noir3)',
       display: 'flex', justifyContent: 'space-around',
-      padding: '8px 0 calc(8px + env(safe-area-inset-bottom))',
-      zIndex: 100
+      padding: '8px 0 calc(8px + env(safe-area-inset-bottom))', zIndex: 100
     }}>
       {NAV.map(({ path, icon, label }) => {
         const active = location.pathname === path
@@ -120,15 +112,10 @@ function NavBar() {
             background: 'none', border: 'none',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
             color: active ? 'var(--pierre)' : 'var(--gris2)',
-            padding: '4px 8px',
-            transition: 'color .2s',
-            minWidth: 44
+            padding: '4px 8px', transition: 'color .2s', minWidth: 44
           }}>
             <span style={{ fontSize: '18px', lineHeight: 1 }}>{icon}</span>
-            <span style={{
-              fontSize: '9px', fontFamily: 'var(--font-head)',
-              fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase'
-            }}>{label}</span>
+            <span style={{ fontSize: '9px', fontFamily: 'var(--font-head)', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>{label}</span>
           </button>
         )
       })}
@@ -137,17 +124,19 @@ function NavBar() {
 }
 
 export default function App() {
-  const [unlocked, setUnlocked] = useState(() => {
-    return sessionStorage.getItem('bt_unlocked') === '1'
-  })
+  const [role, setRole] = useState(() => sessionStorage.getItem('bt_role') || null)
 
-  const unlock = () => {
-    sessionStorage.setItem('bt_unlocked', '1')
-    setUnlocked(true)
+  const unlock = (r) => {
+    sessionStorage.setItem('bt_role', r)
+    setRole(r)
   }
 
-  if (!unlocked) return <PinScreen onUnlock={unlock} />
+  if (!role) return <PinScreen onUnlock={unlock} />
 
+  // MODE TONY — interface simplifiée saisie CA quotidien
+  if (role === 'tony') return <TonyDashboard onLogout={() => { sessionStorage.removeItem('bt_role'); setRole(null) }} />
+
+  // MODE AMELY — cockpit complet
   return (
     <div style={{ paddingBottom: '72px' }}>
       <Routes>
