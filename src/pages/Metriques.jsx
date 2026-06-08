@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { notion } from '../lib/notion'
 import { Sparkline, MiniBar, Donut, BigStat } from '../components/Charts'
 
-const OBJ_JOUR = 210
-const OBJ_MOIS = 5250
+const OBJ_JOUR = 143
+const OBJ_MOIS = 3575
 const LOYER_HT = 717
 const RETA_TONY = 89
 

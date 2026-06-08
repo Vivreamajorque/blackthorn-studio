@@ -4,13 +4,12 @@ import React, { useState } from 'react'
 const LOYER_HT = 716.53
 const RETA     = 89.00
 const PERSO    = 1500    // compte joint mensuel
-const POCKET   = 500     // chacun (Tony + Amely)
 
 // CA minimum pour l'équilibre :
 // (CA × 0.75 - loyer - reta) × 0.80 = 1500 + 500 + 500 = 2500
 // CA = (3125 + 806) / 0.75 = 5241 → ~210€/j × 25j
-const OBJ_EQUILIBRE = 5241
-const OBJ_JOUR      = 210
+const OBJ_EQUILIBRE = 3575
+const OBJ_JOUR = 143
 
 function PLSimulateur({ ca }) {
   const ben  = ca * 0.75 - LOYER_HT - RETA
@@ -18,12 +17,7 @@ function PLSimulateur({ ca }) {
   const irpf = Math.max(0, ben) * 0.20
 
   const joint_ok   = net >= PERSO
-  const equity_ok  = net >= PERSO + POCKET * 2
-  const surplus    = Math.max(0, net - PERSO - POCKET * 2)
-
   const joint_amount  = Math.min(net, PERSO)
-  const tony_pocket   = equity_ok ? POCKET : Math.max(0, (net - PERSO) / 2)
-  const amely_pocket  = equity_ok ? POCKET : Math.max(0, (net - PERSO) / 2)
 
   // IVA
   const iva_col  = ca * 0.21
@@ -33,11 +27,9 @@ function PLSimulateur({ ca }) {
   const fmt = n => `${Math.round(n)}€`
   const pct = Math.min(100, (ca / OBJ_EQUILIBRE) * 100)
 
-  const statut = equity_ok
-    ? { label: '✅ Équilibre atteint — loisirs + épargne', color: 'var(--vert)' }
-    : joint_ok
-    ? { label: '⚠️ Joint couvert — pockets insuffisants', color: 'var(--jaune)' }
-    : { label: '🔴 CA insuffisant — loyer non couvert', color: 'var(--rouge)' }
+  const statut = joint_ok
+    ? { label: net > PERSO ? `✅ Équilibre — ${Math.round(net - PERSO)}€ de surplus disponible` : '✅ Charges couvertes', color: 'var(--vert)' }
+    : { label: `⚠️ Manque ${Math.round(PERSO - net)}€ pour couvrir les charges`, color: 'var(--rouge)' }
 
   return (
     <div>
@@ -53,7 +45,7 @@ function PLSimulateur({ ca }) {
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--pierre)' }}>{pct.toFixed(0)}%</span>
         </div>
         <div style={{ height: '8px', background: 'var(--noir3)', borderRadius: '4px', overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${pct}%`, background: equity_ok ? 'var(--vert)' : pct > 70 ? 'var(--jaune)' : 'var(--rouge)', borderRadius: '4px', transition: 'width .4s ease' }} />
+          <div style={{ height: '100%', width: `${pct}%`, background: pct > 70 ? 'var(--jaune)' : 'var(--rouge)', borderRadius: '4px', transition: 'width .4s ease' }} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
           <span style={{ fontSize: '10px', color: 'var(--gris)' }}>0€</span>
@@ -80,23 +72,17 @@ function PLSimulateur({ ca }) {
         ))}
       </div>
 
-      {/* Répartition */}
-      <div className="card" style={{ marginBottom: '10px', borderColor: equity_ok ? 'var(--epine2)' : 'var(--gris2)', background: equity_ok ? 'var(--epine)' : 'var(--noir2)' }}>
+      {/* Répartition simple */}
+      <div className="card" style={{ marginBottom: '10px', borderColor: joint_ok ? 'var(--epine2)' : 'var(--gris2)', background: joint_ok ? 'var(--epine)' : 'var(--noir2)' }}>
         <div className="section-title">Répartition du net</div>
-        {[
-          { l: '🏠 Compte joint (ménage)', v: fmt(joint_amount), ok: joint_ok },
-          { l: '🖤 Tony argent de poche', v: fmt(tony_pocket), ok: tony_pocket >= POCKET },
-          { l: '🌿 Amely virement interne', v: fmt(amely_pocket), ok: amely_pocket >= POCKET },
-        ].map(r => (
-          <div key={r.l} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,.05)' }}>
-            <span style={{ fontSize: '12px' }}>{r.l}</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', color: r.ok ? 'var(--vert)' : 'var(--rouge)' }}>{r.v}</span>
-          </div>
-        ))}
-        {surplus > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,.05)' }}>
+          <span style={{ fontSize: '12px' }}>🏠 Compte joint (ménage)</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', color: joint_ok ? 'var(--vert)' : 'var(--rouge)' }}>{fmt(joint_amount)}</span>
+        </div>
+        {net > PERSO && (
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
-            <span style={{ fontSize: '12px', color: 'var(--pierre)' }}>💰 Surplus épargne/réserve</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', color: 'var(--pierre)', fontWeight: 700 }}>{fmt(surplus)}</span>
+            <span style={{ fontSize: '12px', color: 'var(--pierre)' }}>💰 Disponible (épargne / pockets)</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', color: 'var(--pierre)', fontWeight: 700 }}>{fmt(net - PERSO)}</span>
           </div>
         )}
       </div>
@@ -139,11 +125,11 @@ export default function Comptabilite() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ fontSize: '11px', color: 'var(--gris)', textTransform: 'uppercase', letterSpacing: '1px' }}>Point d'équilibre</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '24px', color: 'var(--pierre)', marginTop: '2px' }}>210€/jour</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '24px', color: 'var(--pierre)', marginTop: '2px' }}>143€/jour</div>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '11px', color: 'var(--gris)' }}>= 5 250€ CA/mois</div>
-            <div style={{ fontSize: '11px', color: 'var(--gris)', marginTop: '2px' }}>Joint ✅ Tony 500€ ✅ Amely 500€ ✅</div>
+            <div style={{ fontSize: '11px', color: 'var(--gris)' }}>= 3 575€ CA/mois</div>
+            <div style={{ fontSize: '11px', color: 'var(--gris)', marginTop: '2px' }}>Charges couvertes — surplus à décider</div>
           </div>
         </div>
       </div>
@@ -163,8 +149,8 @@ export default function Comptabilite() {
       {tab === 'simulateur' && (
         <div>
           <div className="form-group">
-            <label>CA Tony ce mois (€ HT) — ou 210 × 25 = 5 250€</label>
-            <input type="number" placeholder="5250" value={caInput} onChange={e => setCaInput(e.target.value)} style={{ fontSize: '22px', textAlign: 'center', fontFamily: 'var(--font-mono)' }} />
+            <label>CA Tony ce mois (€ HT) — ou 143 × 25 = 3 575€</label>
+            <input type="number" placeholder="3575" value={caInput} onChange={e => setCaInput(e.target.value)} style={{ fontSize: '22px', textAlign: 'center', fontFamily: 'var(--font-mono)' }} />
           </div>
           <PLSimulateur ca={parseFloat(caInput) || 5250} />
         </div>
@@ -191,8 +177,8 @@ export default function Comptabilite() {
             {[157, 210, 250, 300, 350, 400].map(pm => {
               const ca   = pm * 25
               const net  = Math.max(0, ca * 0.75 - LOYER_HT - RETA) * 0.80
-              const ok   = net >= PERSO + POCKET * 2
-              const surplus = Math.max(0, net - PERSO - POCKET * 2)
+              const ok   = net >= PERSO + PERSO
+              const surplus = Math.max(0, net - PERSO - PERSO)
               return (
                 <div key={pm} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid var(--noir3)' }}>
                   <div>
@@ -201,7 +187,7 @@ export default function Comptabilite() {
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: ok ? 'var(--vert)' : 'var(--rouge)' }}>
-                      {ok ? `+${Math.round(surplus)}€ surplus` : `${Math.round(net)}€ net`}
+                      {ok ? `+${Math.round(net - PERSO)}€ dispo` : `${Math.round(net)}€ net`}
                     </div>
                   </div>
                 </div>
