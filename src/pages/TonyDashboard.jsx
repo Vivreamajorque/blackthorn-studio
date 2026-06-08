@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { notion } from '../lib/notion'
 
-const OBJ_JOUR  = 219
-const OBJ_MOIS  = 5000   // 200€ × 25 jours (OK)
+const OBJ_JOUR = 210
+const OBJ_MOIS = 5250   // 200€ × 25 jours (OK)
 
 // ─── HELPERS ──────────────────────────────────────────
 const todayStr = () => new Date().toISOString().split('T')[0]
