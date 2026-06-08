@@ -41,10 +41,10 @@ function SaisieRevenu({ onSaved }) {
     try {
       await notion.addSession({
         session: `Amely · ${form.date} · ${form.montant}€`,
-        type: `💚 Revenu Amely — ${form.source}`,
+        type: '💚 Revenu Amely',
         client:'', natio:'—', style:'', paiement:'cash',
         prix: parseFloat(form.montant), acompte:0, solde: parseFloat(form.montant),
-        notes: form.notes, date: form.date, avis: false
+        notes: `${form.source}${form.notes ? ' — ' + form.notes : ''}`, date: form.date, avis: false
       })
       setToast('✓ Revenu enregistré')
       setForm({ montant:'', source:'VAM', date:new Date().toISOString().split('T')[0], notes:'' })

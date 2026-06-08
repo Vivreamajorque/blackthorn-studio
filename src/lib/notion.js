@@ -24,9 +24,9 @@ export const notion = {
     parent: { database_id: SESSIONS_DB },
     properties: {
       Session: { title: [{ text: { content: `[${(data.paiement||'CASH').toUpperCase()}] ${data.session || `Session ${data.date}`}` } }] },
-      Type: { select: { name: data.type } },
+      Type: { select: { name: data.type && ['🖤 Tattoo Tony','💎 Piercing Amely','🛍️ Bijou vendu','🎨 Tattoo Amely','🎁 Gift Voucher','💚 Revenu Amely'].includes(data.type) ? data.type : '🖤 Tattoo Tony' } },
       'Client prénom': { rich_text: [{ text: { content: data.client || '' } }] },
-      Nationalité: { select: { name: data.natio || '—' } },
+      Nationalité: { select: { name: (data.natio && data.natio !== '—' ? data.natio : 'Autre') } },
       'Style / Type': { rich_text: [{ text: { content: data.style || '' } }] },
       Prix: { number: parseFloat(data.prix) || 0 },
       'Acompte reçu': { number: parseFloat(data.acompte) || 0 },
