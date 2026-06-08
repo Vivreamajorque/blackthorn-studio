@@ -10,7 +10,10 @@ const call = async (path, method = 'POST', body = null) => {
     headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined
   })
-  if (!r.ok) throw new Error(`Notion ${r.status}`)
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}))
+    throw new Error(`Notion ${r.status}: ${err.message || err.error || JSON.stringify(err).substring(0,100)}`)
+  }
   return r.json()
 }
 

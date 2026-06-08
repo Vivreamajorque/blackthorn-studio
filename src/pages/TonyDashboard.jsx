@@ -99,7 +99,7 @@ export default function TonyDashboard({ onLogout }) {
       setCaForm({ ca:'', sessions:'1', paiement:'cash', notes:'', date:todayStr() })
       setTab('home')
       load()
-    } catch(e) { showToast('Erreur — réessaie') }
+    } catch(e) { showToast('Erreur: ' + (e.message||JSON.stringify(e)).substring(0,80)) }
     setCaSaving(false)
   }
 
@@ -114,7 +114,7 @@ export default function TonyDashboard({ onLogout }) {
       setPhoto(null)
       setTab('home')
       load()
-    } catch(e) { showToast('Erreur — réessaie') }
+    } catch(e) { showToast('Erreur: ' + (e.message||JSON.stringify(e)).substring(0,80)) }
     setDepSaving(false)
   }
 
