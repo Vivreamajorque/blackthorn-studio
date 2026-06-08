@@ -1,103 +1,81 @@
 import React, { useState } from 'react'
 
-// ── CONSTANTES ─────────────────────────────────────────
-const PERSO    = 1500    // compte joint mensuel
+// Modèle : charges = 25% CA tout compris (loyer + RETA + matériel)
+// Bénéfice = CA × 75% · Net = Bénéfice × 80% · IRPF = Bénéfice × 20%
+const PERSO    = 1500
+const OBJ_JOUR = 100   // CA × 0.60 = 1500 → 2500€/mois
 
-// CA minimum pour l'équilibre :
-// (CA × 0.75 - loyer - reta) × 0.80 = 1500 + 500 + 500 = 2500
-// CA = (3125 + 806) / 0.75 = 5241 → ~210€/j × 25j
-const OBJ_EQUILIBRE = 2500
-const OBJ_JOUR = 100
+const fmt = n => `${Math.round(Math.abs(n))}€`
 
 function PLSimulateur({ ca }) {
-  // Modèle simplifié : charges 25% CA tout compris (loyer + RETA + matériel)
-  const charges = ca * 0.25
-  const ben  = ca * 0.75
-  const net  = ben * 0.80
-  const irpf = ben * 0.20
+  const charges = Math.round(ca * 0.25)
+  const ben     = Math.round(ca * 0.75)
+  const irpf    = Math.round(ben * 0.20)
+  const net     = Math.round(ben * 0.80)
+  const surplus = net - PERSO
+  const iva_col = Math.round(ca * 0.21)
+  const iva_net = Math.round(iva_col * 0.25)   // ~5% CA net
+  const pct     = Math.min(100, Math.round((ca / (OBJ_JOUR * 25)) * 100))
 
-  const joint_ok   = net >= PERSO
-  const joint_amount  = Math.min(net, PERSO)
-
-  // IVA
-  const iva_col  = ca * 0.21
-  const iva_rec  = LOYER_HT * 0.21 + ca * 0.25 * 0.21
-  const iva_net  = iva_col - iva_rec
-
-  const fmt = n => `${Math.round(n)}€`
-  const pct = Math.min(100, (ca / OBJ_EQUILIBRE) * 100)
-
-  const statut = joint_ok
-    ? { label: net > PERSO ? `✅ Équilibre — ${Math.round(net - PERSO)}€ de surplus disponible` : '✅ Charges couvertes', color: 'var(--vert)' }
-    : { label: `⚠️ Manque ${Math.round(PERSO - net)}€ pour couvrir les charges`, color: 'var(--rouge)' }
+  const statut = net >= PERSO
+    ? { label: net > PERSO ? `✅ Équilibre — +${fmt(surplus)} disponible` : '✅ Charges couvertes pile', color: 'var(--vert)' }
+    : { label: `⚠️ Manque ${fmt(PERSO - net)} pour couvrir les charges`, color: 'var(--rouge)' }
 
   return (
     <div>
-      {/* Statut */}
-      <div style={{ background: 'var(--noir3)', borderRadius: 'var(--r)', padding: '12px 16px', marginBottom: '16px', borderLeft: `3px solid ${statut.color}` }}>
-        <div style={{ fontSize: '13px', color: statut.color, fontWeight: 600 }}>{statut.label}</div>
+      <div style={{ background:'var(--noir3)', borderRadius:'var(--r)', padding:'12px 16px', marginBottom:'14px', borderLeft:`3px solid ${statut.color}` }}>
+        <div style={{ fontSize:'13px', color:statut.color, fontWeight:600 }}>{statut.label}</div>
       </div>
 
-      {/* Jauge équilibre */}
-      <div style={{ marginBottom: '16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-          <span style={{ fontSize: '11px', color: 'var(--gris)', textTransform: 'uppercase', letterSpacing: '1px' }}>Progression vers l'équilibre</span>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--pierre)' }}>{pct.toFixed(0)}%</span>
+      {/* Barre équilibre */}
+      <div style={{ marginBottom:'16px' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'5px' }}>
+          <span style={{ fontSize:'11px', color:'var(--gris)', textTransform:'uppercase', letterSpacing:'1px' }}>vs équilibre (100€/j)</span>
+          <span style={{ fontFamily:'var(--font-mono)', fontSize:'12px', color:'var(--pierre)' }}>{pct}%</span>
         </div>
-        <div style={{ height: '8px', background: 'var(--noir3)', borderRadius: '4px', overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${pct}%`, background: pct > 70 ? 'var(--jaune)' : 'var(--rouge)', borderRadius: '4px', transition: 'width .4s ease' }} />
+        <div style={{ height:'7px', background:'var(--noir3)', borderRadius:'4px', overflow:'hidden' }}>
+          <div style={{ height:'100%', width:`${pct}%`, background:net>=PERSO?'var(--vert)':pct>70?'var(--jaune)':'var(--rouge)', borderRadius:'4px', transition:'width .4s ease' }} />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
-          <span style={{ fontSize: '10px', color: 'var(--gris)' }}>0€</span>
-          <span style={{ fontSize: '10px', color: 'var(--pierre)' }}>Équilibre {fmt(OBJ_EQUILIBRE)}</span>
+        <div style={{ display:'flex', justifyContent:'space-between', marginTop:'3px', fontSize:'10px', color:'var(--gris2)' }}>
+          <span>0€</span>
+          <span>Équilibre 2 500€</span>
         </div>
       </div>
 
       {/* P&L */}
-      <div className="card" style={{ marginBottom: '10px' }}>
-        <div className="section-title">🖤 Tony — P&L mensuel</div>
+      <div className="card" style={{ marginBottom:'10px' }}>
+        <div className="section-title">P&L mensuel</div>
         {[
-          { l: `CA HT (${Math.round(ca/25)}€/j × 25j)`, v: fmt(ca), c: 'var(--blanc)' },
-          { l: 'Charges 25% (loyer+RETA+matériel)', v: `-${fmt(charges)}`, c: 'var(--gris)' },
-          { l: 'Bénéfice brut', v: fmt(ben), c: 'var(--pierre)' },
-          { l: 'IRPF à réserver (20%)', v: `-${fmt(irpf)}`, c: 'var(--jaune)' },
-          { l: 'NET DISPONIBLE', v: fmt(net), c: 'var(--vert)', bold: true },
+          { l:`CA HT (${Math.round(ca/25)}€/j × 25j)`,   v:`${fmt(ca)}`,      c:'var(--vert)' },
+          { l:'Charges 25% (loyer+RETA+matériel)',         v:`-${fmt(charges)}`,c:'var(--gris)' },
+          { l:'Bénéfice brut',                             v:fmt(ben),          c:'var(--pierre)' },
+          { l:'IRPF à réserver (20%)',                     v:`-${fmt(irpf)}`,   c:'var(--jaune)' },
+          { l:'Net disponible',                            v:fmt(net),          c:net>=PERSO?'var(--vert)':'var(--rouge)', bold:true },
+          { l:'Charges ménage',                            v:`-${PERSO}€`,      c:'var(--gris)' },
+          { l:'Dispo libre',                               v:(surplus>=0?'+':'')+fmt(Math.abs(surplus)), c:surplus>=0?'var(--vert)':'var(--rouge)', bold:true },
         ].map(r => (
-          <div key={r.l} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid var(--noir3)' }}>
-            <span style={{ fontSize: '12px', color: 'var(--gris)' }}>{r.l}</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: r.c, fontWeight: r.bold ? 700 : 400 }}>{r.v}</span>
+          <div key={r.l} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid var(--noir3)' }}>
+            <span style={{ fontSize:'12px', color:'var(--gris)' }}>{r.l}</span>
+            <span style={{ fontFamily:'var(--font-mono)', fontSize:'13px', color:r.c, fontWeight:r.bold?700:400 }}>{r.v}</span>
           </div>
         ))}
-      </div>
-
-      {/* Répartition simple */}
-      <div className="card" style={{ marginBottom: '10px', borderColor: joint_ok ? 'var(--epine2)' : 'var(--gris2)', background: joint_ok ? 'var(--epine)' : 'var(--noir2)' }}>
-        <div className="section-title">Répartition du net</div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,.05)' }}>
-          <span style={{ fontSize: '12px' }}>🏠 Compte joint (ménage)</span>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', color: joint_ok ? 'var(--vert)' : 'var(--rouge)' }}>{fmt(joint_amount)}</span>
-        </div>
-        {net > PERSO && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
-            <span style={{ fontSize: '12px', color: 'var(--pierre)' }}>💰 Disponible (épargne / pockets)</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', color: 'var(--pierre)', fontWeight: 700 }}>{fmt(net - PERSO)}</span>
-          </div>
-        )}
       </div>
 
       {/* IVA */}
       <div className="card">
         <div className="section-title">IVA — Modelo 303</div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--noir3)' }}>
-          <span style={{ fontSize: '12px', color: 'var(--gris)' }}>IVA net mensuel</span>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--rouge)' }}>{fmt(iva_net)}</span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
-          <span style={{ fontSize: '12px', color: 'var(--gris)' }}>Modelo 303 trimestriel</span>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--rouge)', fontWeight: 700 }}>{fmt(iva_net * 3)}</span>
-        </div>
-        <div style={{ fontSize: '11px', color: 'var(--gris2)', marginTop: '6px' }}>
-          Mettre {fmt(iva_net)}/mois de côté dès l'encaissement.
+        {[
+          { l:`IVA collecté (${fmt(ca)} × 21%)`, v:`${fmt(iva_col)}` },
+          { l:'IVA nette à reverser (~5% CA)',    v:`${fmt(iva_net)}`, bold:true },
+          { l:'Trimestriel (× 3)',                v:`${fmt(iva_net*3)}`, bold:true },
+        ].map(r => (
+          <div key={r.l} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:'1px solid var(--noir3)' }}>
+            <span style={{ fontSize:'12px', color:'var(--gris)' }}>{r.l}</span>
+            <span style={{ fontFamily:'var(--font-mono)', fontSize:'13px', color:r.bold?'var(--rouge)':'var(--blanc)', fontWeight:r.bold?700:400 }}>{r.v}</span>
+          </div>
+        ))}
+        <div style={{ fontSize:'11px', color:'var(--gris2)', marginTop:'8px' }}>
+          Mettre de côté {fmt(iva_net)}/mois dès l'encaissement.
         </div>
       </div>
     </div>
@@ -105,89 +83,102 @@ function PLSimulateur({ ca }) {
 }
 
 export default function Comptabilite() {
-  const [caInput, setCaInput] = useState('')
-  const [tab, setTab]         = useState('simulateur')
+  const [caInput,  setCaInput]  = useState('')
+  const [activeTab, setActiveTab] = useState('simulateur')
 
   const tabs = [
-    { id: 'simulateur', label: 'Simulateur' },
-    { id: 'charges',    label: 'Charges' },
-    { id: 'fiscal',     label: 'Fiscal' },
+    { id:'simulateur', label:'Simulateur' },
+    { id:'charges',    label:'Charges' },
+    { id:'fiscal',     label:'Fiscal' },
   ]
 
   return (
-    <div style={{ padding: '24px 16px 8px' }}>
-      <div style={{ fontFamily: 'var(--font-head)', fontSize: '18px', fontWeight: 700, marginBottom: '16px' }}>Comptabilité</div>
+    <div style={{ padding:'24px 16px 8px' }}>
+      <div style={{ fontFamily:'var(--font-head)', fontSize:'18px', fontWeight:700, marginBottom:'16px' }}>Comptabilité</div>
 
-      {/* Equilibre rapide */}
-      <div className="card" style={{ marginBottom: '20px', borderColor: 'var(--pierre3)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      {/* Point équilibre */}
+      <div className="card" style={{ marginBottom:'20px', borderColor:'var(--pierre3)' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <div>
-            <div style={{ fontSize: '11px', color: 'var(--gris)', textTransform: 'uppercase', letterSpacing: '1px' }}>Point d'équilibre</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '24px', color: 'var(--pierre)', marginTop: '2px' }}>143€/jour</div>
+            <div style={{ fontSize:'11px', color:'var(--gris)', textTransform:'uppercase', letterSpacing:'1px' }}>Équilibre</div>
+            <div style={{ fontFamily:'var(--font-mono)', fontSize:'24px', color:'var(--pierre)', marginTop:'2px' }}>100€/jour</div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '11px', color: 'var(--gris)' }}>= 3 575€ CA/mois</div>
-            <div style={{ fontSize: '11px', color: 'var(--gris)', marginTop: '2px' }}>Charges couvertes — surplus à décider</div>
+          <div style={{ textAlign:'right', fontSize:'11px', color:'var(--gris)' }}>
+            <div>2 500€ CA/mois</div>
+            <div style={{ marginTop:'2px' }}>Charges couvertes</div>
           </div>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+      {/* Tabs */}
+      <div style={{ display:'flex', gap:'8px', marginBottom:'20px' }}>
         {tabs.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
-            flex: 1, padding: '9px', borderRadius: 'var(--r)', fontSize: '11px',
-            background: tab === t.id ? 'var(--pierre)' : 'var(--noir2)',
-            color: tab === t.id ? 'var(--noir)' : 'var(--gris)',
-            border: tab === t.id ? 'none' : '1px solid var(--noir3)',
-            fontFamily: 'var(--font-head)', fontWeight: 600, cursor: 'pointer'
+          <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
+            flex:1, padding:'9px', borderRadius:'var(--r)', fontSize:'11px',
+            background:activeTab===t.id?'var(--pierre)':'var(--noir2)',
+            color:activeTab===t.id?'var(--noir)':'var(--gris)',
+            border:activeTab===t.id?'none':'1px solid var(--noir3)',
+            fontFamily:'var(--font-head)', fontWeight:600, cursor:'pointer'
           }}>{t.label}</button>
         ))}
       </div>
 
-      {tab === 'simulateur' && (
+      {/* SIMULATEUR */}
+      {activeTab === 'simulateur' && (
         <div>
           <div className="form-group">
-            <label>CA Tony ce mois (€ HT) — ou 143 × 25 = 3 575€</label>
-            <input type="number" placeholder="3575" value={caInput} onChange={e => setCaInput(e.target.value)} style={{ fontSize: '22px', textAlign: 'center', fontFamily: 'var(--font-mono)' }} />
+            <label>CA Tony ce mois (€ HT)</label>
+            <input type="number" placeholder="2500" value={caInput}
+              onChange={e => setCaInput(e.target.value)}
+              style={{ fontSize:'22px', textAlign:'center', fontFamily:'var(--font-mono)' }} />
           </div>
-          <PLSimulateur ca={parseFloat(caInput) || 5250} />
+          <PLSimulateur ca={parseFloat(caInput) || 2500} />
         </div>
       )}
 
-      {tab === 'charges' && (
+      {/* CHARGES */}
+      {activeTab === 'charges' && (
         <div>
-          <div className="section-title">Charges fixes confirmées</div>
+          <div className="section-title">Charges mensuelles</div>
+          <div className="card" style={{ marginBottom:'10px' }}>
+            <div style={{ fontSize:'12px', color:'var(--gris)', lineHeight:1.8 }}>
+              Les charges sont calculées à <strong style={{ color:'var(--pierre)' }}>25% du CA</strong> — tout compris :<br/>
+              loyer TTC (867€), RETA (89€), matériel et consommables.
+            </div>
+          </div>
           {[
-            { l: 'Loyer TTC (studio)', v: '867€/mois' },
-            { l: 'Loyer HT déductible', v: '716,53€', green: true },
-            { l: 'IVA récupérable', v: '150,47€', green: true },
-            { l: 'RETA Tony (tarifa plana)', v: '~89€/mois' },
-            { l: 'Matériel variable', v: '25% du CA' },
-            { l: 'Charges perso ménage', v: '1 500€/mois' },
-          ].map((c, i) => (
-            <div key={i} className="card" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', padding: '12px 16px' }}>
-              <span style={{ fontSize: '13px' }}>{c.l}</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: c.green ? 'var(--vert)' : 'var(--pierre)' }}>{c.v}</span>
+            { l:'Loyer TTC studio', v:'867€' },
+            { l:'RETA Tony (tarifa plana)', v:'~89€' },
+            { l:'Matériel consommable', v:'~variable' },
+            { l:'Total 25% sur 2 500€ CA', v:'625€', note:'équilibre' },
+            { l:'Total 25% sur 5 000€ CA', v:'1 250€', note:'objectif été' },
+            { l:'Total 25% sur 7 500€ CA', v:'1 875€', note:'haute saison' },
+          ].map((r,i) => (
+            <div key={i} className="card" style={{ marginBottom:'8px', display:'flex', justifyContent:'space-between', padding:'12px 16px', alignItems:'center' }}>
+              <span style={{ fontSize:'13px' }}>{r.l}</span>
+              <div style={{ textAlign:'right' }}>
+                <span style={{ fontFamily:'var(--font-mono)', fontSize:'13px', color:'var(--pierre)' }}>{r.v}</span>
+                {r.note && <div style={{ fontSize:'10px', color:'var(--gris)' }}>{r.note}</div>}
+              </div>
             </div>
           ))}
-          <div className="card" style={{ marginTop: '4px', borderColor: 'var(--pierre3)' }}>
-            <div className="section-title">Projections panier moyen</div>
-            {[157, 210, 250, 300, 350, 400].map(pm => {
+
+          <div className="card" style={{ marginTop:'8px' }}>
+            <div className="section-title">Projections nettes</div>
+            {[100,150,200,250,300,350,400].map(pm => {
               const ca   = pm * 25
-              const net  = Math.max(0, ca * 0.75 - LOYER_HT - RETA) * 0.80
-              const ok   = net >= PERSO + PERSO
-              const surplus = Math.max(0, net - PERSO - PERSO)
+              const net  = Math.round(ca * 0.75 * 0.80)
+              const dispo = net - PERSO
+              const ok   = dispo >= 0
               return (
-                <div key={pm} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid var(--noir3)' }}>
+                <div key={pm} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid var(--noir3)', alignItems:'center' }}>
                   <div>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px' }}>{pm}€/j</span>
-                    {pm === 210 && <span style={{ fontSize: '10px', color: 'var(--pierre)', marginLeft: '8px' }}>← ÉQUILIBRE</span>}
+                    <span style={{ fontFamily:'var(--font-mono)', fontSize:'14px' }}>{pm}€/j</span>
+                    {pm === 100 && <span style={{ fontSize:'10px', color:'var(--pierre)', marginLeft:'8px' }}>← équilibre</span>}
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: ok ? 'var(--vert)' : 'var(--rouge)' }}>
-                      {ok ? `+${Math.round(net - PERSO)}€ dispo` : `${Math.round(net)}€ net`}
-                    </div>
-                  </div>
+                  <span style={{ fontFamily:'var(--font-mono)', fontSize:'13px', color:ok?'var(--vert)':'var(--rouge)' }}>
+                    {dispo>=0?'+':''}{Math.round(dispo)}€ dispo
+                  </span>
                 </div>
               )
             })}
@@ -195,36 +186,43 @@ export default function Comptabilite() {
         </div>
       )}
 
-      {tab === 'fiscal' && (
+      {/* FISCAL */}
+      {activeTab === 'fiscal' && (
         <div>
           <div className="section-title">Échéances 2026</div>
           {[
-            { p: 'T2 (avr-juin)', d: '20 juillet' },
-            { p: 'T3 (juil-sept)', d: '20 octobre' },
-            { p: 'T4 (oct-déc)', d: '30 janv. 2027' },
-          ].map((t, i) => (
-            <div key={i} className="card" style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            { p:'T2 (avr-juin)', d:'20 juillet' },
+            { p:'T3 (juil-sept)', d:'20 octobre' },
+            { p:'T4 (oct-déc)', d:'30 janv. 2027' },
+          ].map((t,i) => (
+            <div key={i} className="card" style={{ marginBottom:'8px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <div>
-                <div style={{ fontSize: '12px', fontWeight: 600 }}>Modelo 303 + 130</div>
-                <div style={{ fontSize: '11px', color: 'var(--gris)', marginTop: '2px' }}>{t.p}</div>
+                <div style={{ fontSize:'12px', fontWeight:600 }}>Modelo 303 + 130</div>
+                <div style={{ fontSize:'11px', color:'var(--gris)', marginTop:'2px' }}>{t.p}</div>
               </div>
               <span className="tag tag-warn">{t.d}</span>
             </div>
           ))}
-          <div className="card" style={{ marginTop: '8px' }}>
-            <div className="section-title">Provisions mensuelles</div>
-            <div style={{ fontSize: '13px', color: 'var(--gris)', lineHeight: 1.9 }}>
-              IRPF Tony (20% bénéfice)<br />
-              IVA net : ~469€/mois → <strong style={{ color: 'var(--rouge)' }}>1 407€/trimestre</strong><br />
-              <strong style={{ color: 'var(--pierre)' }}>Règle : 26% de chaque encaissement de côté</strong>
-            </div>
+
+          <div className="card" style={{ marginTop:'8px', marginBottom:'10px' }}>
+            <div className="section-title">Provisions / mois (sur 5 000€ CA)</div>
+            {[
+              { l:'IRPF (20% × 3 750€)', v:'750€', c:'var(--jaune)' },
+              { l:'IVA nette (~5% CA)', v:'~250€', c:'var(--jaune)' },
+              { l:'Réserve hiver (été uniquement)', v:'1 057€', c:'var(--pierre)' },
+            ].map(r => (
+              <div key={r.l} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid var(--noir3)' }}>
+                <span style={{ fontSize:'12px', color:'var(--gris)' }}>{r.l}</span>
+                <span style={{ fontFamily:'var(--font-mono)', fontSize:'13px', color:r.c }}>{r.v}</span>
+              </div>
+            ))}
           </div>
-          <div className="card" style={{ marginTop: '10px' }}>
-            <div className="section-title">Virements internes (pas de facturation)</div>
-            <div style={{ fontSize: '13px', color: 'var(--gris)', lineHeight: 1.8 }}>
-              Tony vire directement à Amely <strong style={{ color: 'var(--blanc)' }}>500€/mois</strong> depuis le compte entreprise.<br />
-              Ce n'est <strong style={{ color: 'var(--blanc)' }}>pas une facture</strong>, pas d'IVA, pas d'IRPF supplémentaire.<br />
-              À documenter en interne comme répartition des bénéfices.
+
+          <div className="card">
+            <div className="section-title">Charges incompressibles hiver</div>
+            <div style={{ fontSize:'13px', color:'var(--gris)', lineHeight:1.8 }}>
+              Déc + Jan (0 CA) : loyer 867€ + RETA 89€ + ménage 1 500€<br/>
+              = <strong style={{ color:'var(--rouge)' }}>2 456€/mois à sortir de la réserve</strong>
             </div>
           </div>
         </div>

@@ -13,7 +13,6 @@ const PIN_TONY  = import.meta.env.VITE_TONY_PIN || '1111'
 
 const NAV_AMELY = [
   { path: '/',          icon: '◈',  label: 'Hub' },
-  { path: '/sessions',  icon: '🖤', label: 'Sessions' },
   { path: '/metriques', icon: '📊', label: 'Métriques' },
   { path: '/compta',    icon: '⊞',  label: 'Compta' },
 ]
