@@ -62,7 +62,7 @@ function PinScreen({ onUnlock }) {
   )
 }
 
-function NavBar() {
+function NavBar({ onLogout }) {
   const location = useLocation()
   const navigate = useNavigate()
   return (
@@ -76,6 +76,10 @@ function NavBar() {
           </button>
         )
       })}
+      <button onClick={onLogout} style={{ background:'none', border:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:'3px', color:'var(--gris2)', padding:'4px 6px', minWidth:40 }}>
+        <span style={{ fontSize:'16px', lineHeight:1 }}>🔒</span>
+        <span style={{ fontSize:'8px', fontFamily:'var(--font-head)', fontWeight:700, letterSpacing:'1px', textTransform:'uppercase' }}>Exit</span>
+      </button>
     </nav>
   )
 }
@@ -97,7 +101,7 @@ export default function App() {
         <Route path="/apprentissage" element={<Apprentissage />} />
         <Route path="/roadmap"       element={<Roadmap />} />
       </Routes>
-      <NavBar />
+      <NavBar onLogout={() => { sessionStorage.removeItem('bt_role'); setRole(null) }} />
     </div>
   )
 }
