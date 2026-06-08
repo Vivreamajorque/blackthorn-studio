@@ -1,3 +1,8 @@
-module.exports = function handler(req, res) {
-  res.status(200).json({ ok: true, node: process.version, ts: Date.now() })
+export const config = { runtime: 'edge' }
+
+export default async function handler(req) {
+  return new Response(JSON.stringify({ ok: true, runtime: 'edge', ts: Date.now() }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+  })
 }
