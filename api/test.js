@@ -1,3 +1,3 @@
-module.exports = function(req, res) {
-  res.status(200).json({ ok: true, node: process.version, ts: Date.now() })
+export default function handler(req, res) {
+  res.status(200).json({ ok: true, node: process.version, esm: true })
 }
