@@ -4,8 +4,11 @@ import { Sparkline, MiniBar, Donut, BigStat } from '../components/Charts'
 
 const OBJ_JOUR = 200
 const OBJ_MOIS = 5000
-const LOYER_HT = 992
-const RETA = 89
+const LOYER_HT = 717
+const RETA_TONY = 89
+const RETA_AMELY = 80
+const AMELY_CA = 800
+const AMELY_NET = 536
 
 // ── helpers ──────────────────────────────────────────────
 const todayStr = () => new Date().toISOString().split('T')[0]
@@ -86,7 +89,7 @@ export default function Metriques() {
     .filter(d => (d.properties.Date?.date?.start || '').startsWith(m))
     .reduce((a, d) => a + (d.properties.Montant?.number || 0), 0)
 
-  const chargesFixes = LOYER_HT + RETA
+  const chargesFixes = LOYER_HT + RETA_TONY
   const margeB   = caMois * 0.75
   const resultat = margeB - chargesFixes
   const netEst   = resultat * 0.8  // après IRPF 20%

@@ -1,33 +1,99 @@
 import React, { useState } from 'react'
 
-const TRIMESTRES = ['T2 2026 (avr-juin)', 'T3 2026 (juil-sept)', 'T4 2026 (oct-déc)']
-
 const CHARGES_FIXES = [
-  { label: 'Loyer HT', montant: 991.74, recurrence: '/mois' },
+  { label: 'Loyer HT (867€ TTC)', montant: 716.53, recurrence: '/mois' },
   { label: 'RETA Tony (tarifa plana)', montant: 88.72, recurrence: '/mois' },
-  { label: 'Matériel consommable', montant: 180, recurrence: '/mois' },
-  { label: 'Residuos sanitarios', montant: 45, recurrence: '/mois' },
-  { label: 'Assurance RC Pro', montant: 65, recurrence: '/mois' },
+  { label: 'RETA Amely (tarifa plana)', montant: 80.00, recurrence: '/mois' },
+  { label: 'Matériel + consomm. (25% CA)', montant: 0, recurrence: '/mois', variable: true },
 ]
 
-function CalculProv({ ca }) {
-  const iva = (ca * 0.17).toFixed(2)
-  const irpf = (ca * 0.20).toFixed(2)
-  const total = (ca * 0.37).toFixed(2)
-  const net = (ca - parseFloat(total)).toFixed(2)
+function CalculProv({ ca, amelyCA = 800 }) {
+  const loyer_ht = 716.53
+  const reta = 88.72 + 80
+  const charges_var = ca * 0.25
+  const charges_amely = 50
+  
+  // Tony
+  const ben_tony = ca - loyer_ht - charges_var - 88.72
+  const irpf_tony = ben_tony > 0 ? ben_tony * 0.20 : 0
+  const net_tony = ben_tony - irpf_tony
+
+  // Amely
+  const ben_amely = amelyCA - charges_amely - 80
+  const irpf_amely = ben_amely > 0 ? ben_amely * 0.20 : 0
+  const net_amely = ben_amely - irpf_amely
+
+  // IVA
+  const iva_collecte = (ca + amelyCA) * 0.21
+  const iva_recup = (loyer_ht * 0.21) + (charges_var * 0.21)
+  const iva_net = iva_collecte - iva_recup
+
   return (
-    <div className="card" style={{ marginTop: '12px' }}>
-      <div className="section-title">Provisions sur {ca}€</div>
-      <div style={{ display: 'grid', gap: '8px' }}>
+    <div>
+      <div className="card" style={{ marginTop: '12px', marginBottom: '10px' }}>
+        <div className="section-title">Tony — tatouage</div>
         {[
-          { l: 'IVA à reverser (17% net)', v: iva+'€', c: 'var(--rouge)' },
-          { l: 'IRPF à reverser (20%)', v: irpf+'€', c: 'var(--jaune)' },
-          { l: 'Total à mettre de côté', v: total+'€', c: 'var(--pierre)' },
-          { l: 'Disponible net', v: net+'€', c: 'var(--vert)' },
+          { l: 'CA HT', v: `${ca}€`, c: 'var(--blanc)' },
+          { l: 'Matériel 25%', v: `-${charges_var.toFixed(0)}€`, c: 'var(--gris)' },
+          { l: 'Loyer HT', v: `-717€`, c: 'var(--gris)' },
+          { l: 'RETA', v: `-89€`, c: 'var(--gris)' },
+          { l: 'Bénéfice brut', v: `${ben_tony.toFixed(0)}€`, c: 'var(--pierre)' },
+          { l: 'IRPF à réserver (20%)', v: `-${irpf_tony.toFixed(0)}€`, c: 'var(--jaune)' },
+          { l: 'NET TONY', v: `${net_tony.toFixed(0)}€`, c: 'var(--vert)' },
         ].map(row => (
-          <div key={row.l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--noir3)' }}>
-            <span style={{ fontSize: '13px', color: 'var(--gris)' }}>{row.l}</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '15px', color: row.c }}>{row.v}</span>
+          <div key={row.l} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid var(--noir3)' }}>
+            <span style={{ fontSize: '12px', color: 'var(--gris)' }}>{row.l}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: row.c }}>{row.v}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="card" style={{ marginBottom: '10px' }}>
+        <div className="section-title">Amely — services</div>
+        {[
+          { l: `CA services HT`, v: `${amelyCA}€`, c: 'var(--blanc)' },
+          { l: 'Charges outils', v: `-50€`, c: 'var(--gris)' },
+          { l: 'RETA', v: `-80€`, c: 'var(--gris)' },
+          { l: 'Bénéfice brut', v: `${ben_amely.toFixed(0)}€`, c: 'var(--pierre)' },
+          { l: 'IRPF à réserver (20%)', v: `-${irpf_amely.toFixed(0)}€`, c: 'var(--jaune)' },
+          { l: 'NET AMELY', v: `${net_amely.toFixed(0)}€`, c: 'var(--vert)' },
+        ].map(row => (
+          <div key={row.l} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid var(--noir3)' }}>
+            <span style={{ fontSize: '12px', color: 'var(--gris)' }}>{row.l}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: row.c }}>{row.v}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="card" style={{ background: 'var(--epine)', borderColor: 'var(--epine2)', marginBottom: '10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+          <span style={{ fontSize: '12px' }}>Net couple</span>
+          <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--vert)' }}>{(net_tony + net_amely).toFixed(0)}€</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+          <span style={{ fontSize: '12px', color: 'var(--gris)' }}>- Charges perso</span>
+          <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--rouge)' }}>-1 500€</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid var(--epine2)' }}>
+          <span style={{ fontWeight: 600 }}>DÉGAGEMENT</span>
+          <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--vert)', fontSize: '18px' }}>
+            {(net_tony + net_amely - 1500).toFixed(0)}€
+          </span>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="section-title">IVA à reverser (Modelo 303)</div>
+        {[
+          { l: `IVA collecté Tony (${ca}€ × 21%)`, v: `${(ca * 0.21).toFixed(0)}€` },
+          { l: `IVA collecté Amely (${amelyCA}€ × 21%)`, v: `${(amelyCA * 0.21).toFixed(0)}€` },
+          { l: 'IVA récupérable loyer + achats', v: `-${iva_recup.toFixed(0)}€` },
+          { l: 'IVA net / mois', v: `${iva_net.toFixed(0)}€`, bold: true },
+          { l: 'IVA trimestriel (Modelo 303)', v: `${(iva_net * 3).toFixed(0)}€`, bold: true },
+        ].map(row => (
+          <div key={row.l} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid var(--noir3)' }}>
+            <span style={{ fontSize: '12px', color: 'var(--gris)' }}>{row.l}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: row.bold ? 'var(--rouge)' : 'var(--blanc)', fontWeight: row.bold ? 600 : 400 }}>{row.v}</span>
           </div>
         ))}
       </div>
@@ -36,151 +102,128 @@ function CalculProv({ ca }) {
 }
 
 export default function Comptabilite() {
-  const [caInput, setCaInput] = useState('')
-  const [activeTab, setActiveTab] = useState('provisions')
+  const [caInput, setCaInput]   = useState('')
+  const [amelyInput, setAmelyInput] = useState('800')
+  const [activeTab, setActiveTab] = useState('simulateur')
 
   const tabs = [
-    { id: 'provisions', label: '% Provisions' },
-    { id: 'charges', label: 'Charges' },
-    { id: 'fiscal', label: 'Fiscal' },
-    { id: 'facturation', label: 'Facturation' },
+    { id: 'simulateur', label: 'Simulateur' },
+    { id: 'charges',    label: 'Charges' },
+    { id: 'fiscal',     label: 'Fiscal' },
   ]
 
   return (
     <div style={{ padding: '24px 16px 8px' }}>
-      <div style={{ fontFamily: 'var(--font-head)', fontSize: '18px', fontWeight: 700, marginBottom: '16px' }}>
-        Comptabilité
-      </div>
+      <div style={{ fontFamily: 'var(--font-head)', fontSize: '18px', fontWeight: 700, marginBottom: '16px' }}>Comptabilité</div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', overflowX: 'auto', paddingBottom: '4px' }}>
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
         {tabs.map(t => (
-          <button key={t.id} onClick={() => setActiveTab(t.id)} className="btn" style={{
-            padding: '8px 16px', flexShrink: 0, fontSize: '12px',
+          <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
+            flex: 1, padding: '9px', borderRadius: 'var(--r)', fontSize: '11px',
             background: activeTab === t.id ? 'var(--pierre)' : 'var(--noir2)',
             color: activeTab === t.id ? 'var(--noir)' : 'var(--gris)',
-            border: activeTab === t.id ? 'none' : '1px solid var(--noir3)'
+            border: activeTab === t.id ? 'none' : '1px solid var(--noir3)',
+            fontFamily: 'var(--font-head)', fontWeight: 600, cursor: 'pointer'
           }}>{t.label}</button>
         ))}
       </div>
 
-      {/* PROVISIONS */}
-      {activeTab === 'provisions' && (
+      {activeTab === 'simulateur' && (
         <div>
-          <div className="section-title">Calculateur de provisions</div>
-          <div className="card" style={{ marginBottom: '12px' }}>
-            <div style={{ fontSize: '13px', color: 'var(--gris)', marginBottom: '12px', lineHeight: 1.5 }}>
-              Sur chaque paiement reçu, mets de côté :<br />
-              <strong style={{ color: 'var(--rouge)' }}>17% IVA net</strong> + <strong style={{ color: 'var(--jaune)' }}>20% IRPF</strong> = <strong style={{ color: 'var(--pierre)' }}>37% total</strong>
+          <div className="section-title">Simulateur P&L</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label>CA Tony (€ HT)</label>
+              <input type="number" placeholder="5000" value={caInput} onChange={e => setCaInput(e.target.value)} style={{ fontSize: '18px', textAlign: 'center', fontFamily: 'var(--font-mono)' }} />
             </div>
-            <div className="form-group">
-              <label>CA encaissé (€)</label>
-              <input type="number" placeholder="Ex: 280" value={caInput} onChange={e => setCaInput(e.target.value)} />
-            </div>
-          </div>
-          {caInput && parseFloat(caInput) > 0 && <CalculProv ca={parseFloat(caInput)} />}
-
-          <div className="card" style={{ marginTop: '16px' }}>
-            <div className="section-title">Règle d'or</div>
-            <div style={{ fontSize: '13px', color: 'var(--gris)', lineHeight: 1.7 }}>
-              Dès qu'un paiement arrive → vire <strong style={{ color: 'var(--pierre)' }}>37%</strong> sur ton compte provision.<br />
-              Ne touche jamais à ce compte. C'est l'argent de Hacienda.
+            <div className="form-group" style={{ margin: 0 }}>
+              <label>CA Amely (€ HT)</label>
+              <input type="number" placeholder="800" value={amelyInput} onChange={e => setAmelyInput(e.target.value)} style={{ fontSize: '18px', textAlign: 'center', fontFamily: 'var(--font-mono)' }} />
             </div>
           </div>
+          {(caInput || amelyInput) && (
+            <CalculProv ca={parseFloat(caInput) || 5000} amelyCA={parseFloat(amelyInput) || 800} />
+          )}
+          {!caInput && !amelyInput && (
+            <div className="card" style={{ textAlign: 'center', padding: '24px', color: 'var(--gris)', fontSize: '13px' }}>
+              Saisis le CA mensuel Tony pour calculer le P&L complet
+            </div>
+          )}
         </div>
       )}
 
-      {/* CHARGES */}
       {activeTab === 'charges' && (
         <div>
           <div className="section-title">Charges fixes confirmées</div>
-          {CHARGES_FIXES.map((c, i) => (
-            <div key={i} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', padding: '12px 16px' }}>
+          {[
+            { label: 'Loyer HT (867€ TTC)', montant: 716.53 },
+            { label: 'IVA loyer récupérable', montant: 150.47, green: true },
+            { label: 'RETA Tony (tarifa plana)', montant: 88.72 },
+            { label: 'RETA Amely (tarifa plana)', montant: 80.00 },
+            { label: 'Charges perso couple', montant: 1500 },
+          ].map((c, i) => (
+            <div key={i} className="card" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', padding: '12px 16px' }}>
               <span style={{ fontSize: '13px' }}>{c.label}</span>
-              <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--pierre)' }}>
-                {c.montant}€<span style={{ fontSize: '11px', color: 'var(--gris)' }}>{c.recurrence}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', color: c.green ? 'var(--vert)' : 'var(--pierre)' }}>
+                {c.green ? '+' : ''}{c.montant}€/mois
               </span>
             </div>
           ))}
-          <div className="card" style={{ marginTop: '12px', background: 'var(--epine)', borderColor: 'var(--epine2)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
-              <span>TOTAL mensuel</span>
-              <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--pierre)' }}>
-                {CHARGES_FIXES.reduce((a,c) => a+c.montant, 0).toFixed(2)}€
-              </span>
-            </div>
-          </div>
 
-          <div className="card" style={{ marginTop: '16px' }}>
-            <div className="section-title">Break-even</div>
-            <div style={{ fontSize: '13px', color: 'var(--gris)', lineHeight: 1.7 }}>
-              Charges studio : <strong style={{ color: 'var(--blanc)' }}>~1 370€/mois</strong><br />
-              + Charges perso : <strong style={{ color: 'var(--blanc)' }}>2 000€/mois</strong><br />
-              + Provisions 35% : <strong style={{ color: 'var(--blanc)' }}>~1 430€/mois</strong><br />
-              <strong style={{ color: 'var(--pierre)', fontSize: '16px' }}>→ CA minimum : ~4 800€/mois</strong><br />
-              <span style={{ color: 'var(--vert)' }}>= 4 sessions/semaine à 280€</span>
+          <div className="card" style={{ marginTop: '8px' }}>
+            <div className="section-title">Break-even Tony</div>
+            <div style={{ fontSize: '13px', color: 'var(--gris)', lineHeight: 1.8 }}>
+              Seul : <strong style={{ color: 'var(--blanc)' }}>3 976€/mois = 159€/jour</strong><br />
+              Avec Amely 800€ : <strong style={{ color: 'var(--vert)' }}>3 083€/mois = 123€/jour</strong><br />
+              <span style={{ fontSize: '11px', color: 'var(--pierre)' }}>→ Les 800€ d'Amely = -36€/jour d'objectif pour Tony</span>
             </div>
           </div>
         </div>
       )}
 
-      {/* FISCAL */}
       {activeTab === 'fiscal' && (
         <div>
           <div className="section-title">Échéances 2026</div>
           {[
-            { periode: 'T2 (avr-juin)', delai: '20 juillet 2026', model: 'Modelo 303 + 130' },
-            { periode: 'T3 (juil-sept)', delai: '20 octobre 2026', model: 'Modelo 303 + 130' },
-            { periode: 'T4 (oct-déc)', delai: '30 janvier 2027', model: 'Modelo 303 + 130' },
+            { m: 'T2 (avr-juin)', delai: '20 juillet', model: 'Modelo 303 + 130 Tony + 130 Amely' },
+            { m: 'T3 (juil-sept)', delai: '20 octobre', model: 'Modelo 303 + 130 Tony + 130 Amely' },
+            { m: 'T4 (oct-déc)', delai: '30 janvier 2027', model: 'Modelo 303 + 130 Tony + 130 Amely' },
           ].map((t, i) => (
             <div key={i} className="card" style={{ marginBottom: '10px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <div>
                   <div style={{ fontSize: '13px', fontWeight: 600 }}>{t.model}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--gris)', marginTop: '3px' }}>{t.periode}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--gris)', marginTop: '3px' }}>{t.m}</div>
                 </div>
                 <span className="tag tag-warn">{t.delai}</span>
               </div>
             </div>
           ))}
 
-          <div className="card" style={{ marginTop: '16px' }}>
+          <div className="card" style={{ marginTop: '8px' }}>
             <div className="section-title">Loyer — détail IVA</div>
             <div style={{ fontSize: '13px', color: 'var(--gris)', lineHeight: 1.8 }}>
-              TTC : <strong style={{ color: 'var(--blanc)' }}>1 200€</strong><br />
-              HT déductible : <strong style={{ color: 'var(--pierre)' }}>991,74€</strong><br />
-              IVA récupérable : <strong style={{ color: 'var(--vert)' }}>208,26€</strong>
+              TTC : <strong style={{ color: 'var(--blanc)' }}>867€</strong><br />
+              HT déductible : <strong style={{ color: 'var(--pierre)' }}>716,53€</strong><br />
+              IVA récupérable : <strong style={{ color: 'var(--vert)' }}>150,47€</strong>
             </div>
           </div>
 
-          <div className="card" style={{ marginTop: '12px' }}>
-            <div className="section-title">Tarifa plana Tony</div>
+          <div className="card" style={{ marginTop: '10px' }}>
+            <div className="section-title">Provisions à réserver</div>
+            <div style={{ fontSize: '13px', color: 'var(--gris)', lineHeight: 1.9 }}>
+              IRPF Tony (20%) : <strong style={{ color: 'var(--jaune)' }}>~589€/mois</strong><br />
+              IRPF Amely (20%) : <strong style={{ color: 'var(--jaune)' }}>~134€/mois</strong><br />
+              IVA net mensuel : <strong style={{ color: 'var(--rouge)' }}>~805€/mois</strong><br />
+              <strong style={{ color: 'var(--pierre)' }}>TOTAL : ~1 528€/mois = 26% du CA</strong>
+            </div>
+          </div>
+
+          <div className="card" style={{ marginTop: '10px' }}>
+            <div className="section-title">Tarifa plana</div>
             <div style={{ fontSize: '13px', color: 'var(--gris)', lineHeight: 1.8 }}>
-              Montant : <strong style={{ color: 'var(--pierre)' }}>~89€/mois</strong> (80€ + MEI 0,9%)<br />
-              ⚠️ Avec 30K€ en 6 mois → SMI dépassé → simuler avec gestor 3 mois avant fin.
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* FACTURATION */}
-      {activeTab === 'facturation' && (
-        <div>
-          <div className="section-title">Rappels facturation</div>
-          <div className="card" style={{ marginBottom: '10px' }}>
-            <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>Tatouage = prestation de service</div>
-            <div style={{ fontSize: '13px', color: 'var(--gris)', lineHeight: 1.7 }}>
-              IVA applicable : <strong style={{ color: 'var(--blanc)' }}>21%</strong><br />
-              Facturer en IVA inclus ou HT+IVA selon la demande client<br />
-              Conserver TOUTES les factures fournisseurs (déduction IVA soportado)
-            </div>
-          </div>
-          <div className="card">
-            <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>COGS — coût par session</div>
-            <div style={{ fontSize: '13px', color: 'var(--gris)', lineHeight: 1.7 }}>
-              Cartouches + consommables : <strong style={{ color: 'var(--pierre)' }}>~4-6€/session</strong><br />
-              = moins de 3% du CA à 280€<br />
-              <strong style={{ color: 'var(--vert)' }}>Marge brute : 97%</strong>
+              Tony : ~89€/mois · Surveiller fin période avec gestor<br />
+              Amely : ~80€/mois · Si récente, 12 mois garantis
             </div>
           </div>
         </div>
