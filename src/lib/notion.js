@@ -3,8 +3,8 @@ const CLIENTS_DB   = '3bbdc6c0-6e3a-4b59-987e-97056eac6d22'
 const KPIS_DB      = '61f7823f-c723-4203-b1d7-0fdc74312dd3'
 const DEPENSES_DB  = '80f3edb9-78ba-4eaa-b762-db1122d26c19'
 
-const call = async (notionPath, method = 'POST', body = null) => {
-  const url = `/api/notion?path=${encodeURIComponent(notionPath)}`
+const call = async (path, method = 'POST', body = null) => {
+  const url = `/api/notion?path=${encodeURIComponent(path)}`
   const r = await fetch(url, {
     method,
     headers: { 'Content-Type': 'application/json' },
@@ -17,7 +17,7 @@ const call = async (notionPath, method = 'POST', body = null) => {
 export const notion = {
   getSessions: () => call(`databases/${SESSIONS_DB}/query`, 'POST', {
     sorts: [{ property: 'Date', direction: 'descending' }],
-    page_size: 50
+    page_size: 100
   }),
 
   addSession: (data) => call('pages', 'POST', {
@@ -59,7 +59,7 @@ export const notion = {
 
   getDepenses: () => call(`databases/${DEPENSES_DB}/query`, 'POST', {
     sorts: [{ property: 'Date', direction: 'descending' }],
-    page_size: 30
+    page_size: 50
   }),
 
   addDepense: (data) => call('pages', 'POST', {
@@ -77,14 +77,31 @@ export const notion = {
     }
   }),
 
+  getKPIs: () => call(`databases/${KPIS_DB}/query`, 'POST', {
+    sorts: [{ timestamp: 'created_time', direction: 'descending' }],
+    page_size: 12
+  }),
+
   addKPI: (data) => call('pages', 'POST', {
     parent: { database_id: KPIS_DB },
     properties: {
-      Semaine: { title: [{ text: { content: data.semaine } }] },
+      Semaine: { title: [{ text: { content: data.semaine || '' } }] },
       'CA tattoo Tony': { number: parseFloat(data.ca_tattoo) || 0 },
+      'CA piercing Amely': { number: parseFloat(data.ca_piercing) || 0 },
+      'CA bijoux': { number: parseFloat(data.ca_bijoux) || 0 },
+      'CA parallèle': { number: parseFloat(data.ca_parallele) || 0 },
       'TOTAL CA': { number: parseFloat(data.total) || 0 },
-      'Objectif semaine': { number: 5000 },
-      'Sessions tattoo': { number: parseInt(data.sessions) || 0 }
+      'Objectif semaine': { number: 1250 },
+      'Sessions tattoo': { number: parseInt(data.sessions) || 0 },
+      'Prix moyen tattoo': { number: parseFloat(data.prix_moyen) || 0 },
+      'Insta abonnés': { number: parseInt(data.insta_abonnes) || 0 },
+      'TikTok vues': { number: parseInt(data.tiktok_vues) || 0 },
+      'Google clics appel': { number: parseInt(data.google_clics) || 0 },
+      'Avis reçus': { number: parseInt(data.avis_recus) || 0 },
+      'DM reçus': { number: parseInt(data.dm_recus) || 0 },
+      'DM convertis RDV': { number: parseInt(data.dm_convertis) || 0 },
+      'Capital accumulé': { number: parseFloat(data.capital) || 0 },
+      'Notes stratégie': { rich_text: [{ text: { content: data.notes || '' } }] }
     }
   })
 }
