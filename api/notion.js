@@ -1,6 +1,36 @@
-const { Client } = require('@notionhq/client')
+const https = require('https')
 
-const notion = new Client({ auth: process.env.NOTION_KEY })
+const NOTION_KEY = process.env.NOTION_KEY
+const BASE_HOST  = 'api.notion.com'
+
+function notionRequest(method, path, body) {
+  return new Promise((resolve, reject) => {
+    const payload = body ? JSON.stringify(body) : null
+    const options = {
+      hostname: BASE_HOST,
+      port: 443,
+      path: `/v1/${path}`,
+      method: method,
+      headers: {
+        'Authorization': `Bearer ${NOTION_KEY}`,
+        'Notion-Version': '2022-06-28',
+        'Content-Type': 'application/json',
+        ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {})
+      }
+    }
+    const req = https.request(options, (res) => {
+      let data = ''
+      res.on('data', chunk => data += chunk)
+      res.on('end', () => {
+        try { resolve({ status: res.statusCode, body: JSON.parse(data) }) }
+        catch(e) { resolve({ status: res.statusCode, body: { error: data } }) }
+      })
+    })
+    req.on('error', reject)
+    if (payload) req.write(payload)
+    req.end()
+  })
+}
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -10,35 +40,16 @@ module.exports = async function handler(req, res) {
 
   const rawPath = req.query.path
   if (!rawPath) return res.status(400).json({ error: 'path requis' })
+  if (!NOTION_KEY) return res.status(500).json({ error: 'NOTION_KEY manquante' })
 
   const notionPath = Array.isArray(rawPath) ? rawPath.join('/') : rawPath
   const method = req.method || 'GET'
-  const body   = req.body || {}
+  const hasBody = ['POST', 'PATCH', 'PUT'].includes(method)
 
   try {
-    let result
-
-    if (notionPath === 'pages' && method === 'POST') {
-      result = await notion.pages.create(body)
-    } else if (notionPath.startsWith('databases/') && notionPath.endsWith('/query') && method === 'POST') {
-      const dbId = notionPath.split('/')[1]
-      result = await notion.databases.query({ database_id: dbId, ...body })
-    } else if (notionPath.startsWith('databases/') && method === 'GET') {
-      const dbId = notionPath.split('/')[1]
-      result = await notion.databases.retrieve({ database_id: dbId })
-    } else if (notionPath.startsWith('pages/') && method === 'PATCH') {
-      const pageId = notionPath.split('/')[1]
-      result = await notion.pages.update({ page_id: pageId, ...body })
-    } else {
-      return res.status(400).json({ error: `Route non gérée: ${method} ${notionPath}` })
-    }
-
-    return res.status(200).json(result)
+    const r = await notionRequest(method, notionPath, hasBody ? req.body : null)
+    return res.status(r.status).json(r.body)
   } catch(e) {
-    return res.status(e.status || 500).json({
-      error: e.message,
-      code: e.code,
-      body: e.body
-    })
+    return res.status(500).json({ error: e.message })
   }
 }
