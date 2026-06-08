@@ -1,8 +1,10 @@
 {
   "rewrites": [
-    {
-      "source": "/((?!api/).*)",
-      "destination": "/index.html"
-    }
-  ]
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "regions": ["cdg1"],
+  "functions": {
+    "api/notion.js": { "runtime": "nodejs20.x" },
+    "api/test.js": { "runtime": "nodejs20.x" }
+  }
 }
