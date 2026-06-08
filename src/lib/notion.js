@@ -23,7 +23,7 @@ export const notion = {
   addSession: (data) => call('pages', 'POST', {
     parent: { database_id: SESSIONS_DB },
     properties: {
-      Session: { title: [{ text: { content: data.session || `Session ${data.date}` } }] },
+      Session: { title: [{ text: { content: `[${(data.paiement||'CASH').toUpperCase()}] ${data.session || `Session ${data.date}`}` } }] },
       Type: { select: { name: data.type } },
       'Client prénom': { rich_text: [{ text: { content: data.client || '' } }] },
       Nationalité: { select: { name: data.natio || '—' } },
@@ -104,4 +104,12 @@ export const notion = {
       'Notes stratégie': { rich_text: [{ text: { content: data.notes || '' } }] }
     }
   })
+}
+
+export const parsePaiement = (s) => {
+  const title = s.properties.Session?.title?.[0]?.plain_text || ''
+  const notes = s.properties.Notes?.rich_text?.[0]?.plain_text || ''
+  if (title.startsWith('[CASH]') || notes.includes('PAIEMENT:CASH')) return 'cash'
+  if (title.startsWith('[CARTE]') || notes.includes('PAIEMENT:CARTE')) return 'carte'
+  return 'cash' // par défaut cash si pas renseigné
 }

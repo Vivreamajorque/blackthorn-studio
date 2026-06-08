@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { notion } from '../lib/notion'
+import { notion, parsePaiement } from '../lib/notion'
 
 const LOYER_TTC  = 867
 const LOYER_HT   = 716.53
@@ -104,6 +104,8 @@ export default function Dashboard() {
   const caMois    = sessM.reduce((a,s) => a + (s.properties.Prix?.number||0), 0)
   const nbMois    = sessM.length
   const panierM   = nbMois > 0 ? Math.round(caMois/nbMois) : 0
+  const caCash    = sessM.filter(s => parsePaiement(s) === 'cash').reduce((a,s) => a+(s.properties.Prix?.number||0), 0)
+  const caCarte   = sessM.filter(s => parsePaiement(s) === 'carte').reduce((a,s) => a+(s.properties.Prix?.number||0), 0)
   const sessJ     = sessions.filter(s => s.properties.Date?.date?.start === today)
   const caJour    = sessJ.reduce((a,s) => a + (s.properties.Prix?.number||0), 0)
   const nbJour    = sessJ.length
@@ -297,7 +299,9 @@ export default function Dashboard() {
       <div className="section-title">Finances du mois</div>
       <div className="card" style={{ marginBottom: '16px' }}>
         <div style={{ fontSize:'10px', color:'var(--vert)', fontWeight:700, textTransform:'uppercase', letterSpacing:'1px', padding:'4px 0 2px' }}>ENTRÉES</div>
-        <Row label="CA encaissé HT" value={fmt(caMois)} color="var(--vert)" />
+        <Row label="CA total HT" value={fmt(caMois)} color="var(--vert)" />
+        <Row label="dont Cash" value={fmt(caCash)} color="#2ecc71" indent={true} />
+        <Row label="dont Carte" value={fmt(caCarte)} color="#5dade2" indent={true} />
 
         <div style={{ fontSize:'10px', color:'var(--rouge)', fontWeight:700, textTransform:'uppercase', letterSpacing:'1px', padding:'8px 0 2px' }}>SORTIES</div>
         <Row label="Loyer HT" value="-717€" />

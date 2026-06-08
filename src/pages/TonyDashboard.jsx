@@ -186,11 +186,12 @@ export default function TonyDashboard({ onLogout }) {
         client: '', natio: '—',
         style: caForm.notes,
         prix: caForm.ca, acompte: 0, solde: caForm.ca,
+        paiement: caForm.paiement,
         notes: `${caForm.sessions} session(s)${caForm.notes ? ' · ' + caForm.notes : ''}`,
         date: caForm.date, avis: false
       })
       showToast('✓ CA enregistré')
-      setCaForm({ ca: '', sessions: '1', notes: '', date: todayStr() })
+      setCaForm({ ca: '', sessions: '1', paiement: 'cash', notes: '', date: todayStr() })
       setTab('home')
       // Refresh
       const s = await notion.getSessions()
@@ -350,9 +351,9 @@ export default function TonyDashboard({ onLogout }) {
               <div style={{ fontSize: '12px', color: 'var(--gris)' }}>{date ? fmtDate(date) : '—'}</div>
               {notes && <div style={{ fontSize: '11px', color: 'var(--gris2)', marginTop: '2px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{notes}</div>}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {ok && <span style={{ fontSize: '14px' }}>🔥</span>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexDirection: 'column', alignItems: 'flex-end' }}>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: '18px', color: ok ? 'var(--vert)' : 'var(--pierre)' }}>{ca}€</span>
+              {(() => { const t = s.properties.Session?.title?.[0]?.plain_text||''; const isCash = !t.includes('[CARTE]'); return <span style={{ fontSize:'9px', padding:'2px 6px', borderRadius:'8px', background: isCash ? 'rgba(39,174,96,.2)' : 'rgba(41,128,185,.2)', color: isCash ? '#2ecc71' : '#5dade2' }}>{isCash?'CASH':'CARTE'}</span> })()}
             </div>
           </div>
         )
