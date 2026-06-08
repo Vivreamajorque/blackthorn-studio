@@ -1,6 +1,7 @@
-const SESSIONS_DB = 'ce868414-a4a5-4450-ab3f-804be7fd5eb1'
-const CLIENTS_DB  = '3bbdc6c0-6e3a-4b59-987e-97056eac6d22'
-const KPIS_DB     = '61f7823f-c723-4203-b1d7-0fdc74312dd3'
+const SESSIONS_DB  = 'ce868414-a4a5-4450-ab3f-804be7fd5eb1'
+const CLIENTS_DB   = '3bbdc6c0-6e3a-4b59-987e-97056eac6d22'
+const KPIS_DB      = '61f7823f-c723-4203-b1d7-0fdc74312dd3'
+const DEPENSES_DB  = '80f3edb9-78ba-4eaa-b762-db1122d26c19'
 
 const call = async (notionPath, method = 'POST', body = null) => {
   const url = `/api/notion?path=${encodeURIComponent(notionPath)}`
@@ -9,7 +10,7 @@ const call = async (notionPath, method = 'POST', body = null) => {
     headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined
   })
-  if (!r.ok) throw new Error(`Notion API error ${r.status}`)
+  if (!r.ok) throw new Error(`Notion ${r.status}`)
   return r.json()
 }
 
@@ -25,7 +26,7 @@ export const notion = {
       Session: { title: [{ text: { content: data.session || `Session ${data.date}` } }] },
       Type: { select: { name: data.type } },
       'Client prénom': { rich_text: [{ text: { content: data.client || '' } }] },
-      Nationalité: { select: { name: data.natio || '🇫🇷 FR' } },
+      Nationalité: { select: { name: data.natio || '—' } },
       'Style / Type': { rich_text: [{ text: { content: data.style || '' } }] },
       Prix: { number: parseFloat(data.prix) || 0 },
       'Acompte reçu': { number: parseFloat(data.acompte) || 0 },
@@ -56,21 +57,34 @@ export const notion = {
     }
   }),
 
+  getDepenses: () => call(`databases/${DEPENSES_DB}/query`, 'POST', {
+    sorts: [{ property: 'Date', direction: 'descending' }],
+    page_size: 30
+  }),
+
+  addDepense: (data) => call('pages', 'POST', {
+    parent: { database_id: DEPENSES_DB },
+    properties: {
+      Achat: { title: [{ text: { content: data.description || data.fournisseur || 'Achat' } }] },
+      Date: { date: { start: data.date } },
+      Montant: { number: parseFloat(data.montant) || 0 },
+      Catégorie: { select: { name: data.categorie || '📦 Autre' } },
+      Fournisseur: { rich_text: [{ text: { content: data.fournisseur || '' } }] },
+      'IVA récupérable': { checkbox: !!data.iva_recuperable },
+      'Montant IVA': { number: parseFloat(data.montant_iva) || 0 },
+      'Saisi par': { select: { name: data.saisi_par || 'Tony' } },
+      Notes: { rich_text: [{ text: { content: data.notes || '' } }] }
+    }
+  }),
+
   addKPI: (data) => call('pages', 'POST', {
     parent: { database_id: KPIS_DB },
     properties: {
       Semaine: { title: [{ text: { content: data.semaine } }] },
-      Période: { rich_text: [{ text: { content: data.periode || '' } }] },
       'CA tattoo Tony': { number: parseFloat(data.ca_tattoo) || 0 },
-      'CA piercing Amely': { number: parseFloat(data.ca_piercing) || 0 },
-      'CA bijoux': { number: parseFloat(data.ca_bijoux) || 0 },
-      'CA parallèle': { number: parseFloat(data.ca_parallele) || 0 },
       'TOTAL CA': { number: parseFloat(data.total) || 0 },
-      'Objectif semaine': { number: 1055 },
-      'Sessions tattoo': { number: parseInt(data.sessions) || 0 },
-      Piercings: { number: parseInt(data.piercings) || 0 },
-      'Prix moyen tattoo': { number: parseFloat(data.prix_moyen) || 0 },
-      'Capital accumulé': { number: parseFloat(data.capital) || 0 }
+      'Objectif semaine': { number: 5000 },
+      'Sessions tattoo': { number: parseInt(data.sessions) || 0 }
     }
   })
 }
