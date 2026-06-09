@@ -252,7 +252,7 @@ export default function TonyDashboard({ onLogout }) {
       showToast('✓ RDV modifié')
       setEditRdv(null)
       load()
-    } catch(e) { showToast('Erreur') }
+    } catch(e) { console.error('updateRdv error:', e); showToast('Erreur : ' + (e.message||'').substring(0,40)) }
     setEditRdvSaving(false)
   }
 
@@ -825,15 +825,14 @@ export default function TonyDashboard({ onLogout }) {
                             padding:'5px 8px',borderRadius:'8px',fontSize:'13px',cursor:'pointer',
                             background:'var(--bg2)',border:'1px solid var(--border2)',color:'var(--txt3)'
                           }}>✏️</button>
-                          <button onClick={()=>openConfirm(s)} style={{
+                          {(isPast||isToday)&&<button onClick={()=>openConfirm(s)} style={{
                             padding:'5px 10px',borderRadius:'8px',fontSize:'11px',fontWeight:700,cursor:'pointer',
-                            background:isPast?'var(--green)':'rgba(22,121,74,.1)',
-                            color:isPast?'#fff':'var(--green)',
-                            border:isPast?'none':'1px solid rgba(22,121,74,.25)',
+                            background:isPast?'var(--green)':'var(--amber)',
+                            color:'#fff',border:'none',
                             fontFamily:'var(--font-head)'
                           }}>
                             {isPast?'Valider':'✓ Venu'}
-                          </button>
+                          </button>}
                         </div>
                       </div>
                     </div>

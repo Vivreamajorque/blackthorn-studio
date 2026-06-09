@@ -73,18 +73,22 @@ export const notion = {
     }
   }),
 
-  updateRdv: (pageId, data) => call(`pages/${pageId}`, 'PATCH', {
-    properties: {
-      Session:        { title: [{ text: { content: `[RDV] ${data.client || 'Client'} · ${data.date}` } }] },
-      Prix:           { number: parseFloat(data.prixEstime) || 0 },
-      'Acompte reçu': { number: parseFloat(data.acompte) || 0 },
-      Nationalité:    { select: { name: data.natio || 'Autre' } },
-      Date:           { date: { start: data.heure ? `${data.date}T${data.heure}:00.000+01:00` : data.date, is_datetime: data.heure ? 1 : 0 } },
-      'Client prénom':{ rich_text: [{ text: { content: data.client || '' } }] },
-      'Style / Type': { rich_text: [{ text: { content: data.style || '' } }] },
-      ...(data.source ? { 'Source': { select: { name: data.source } } } : {})
-    }
-  }),
+  updateRdv: (pageId, data) => {
+    const natio = data.natio || 'Autre'
+    const dateStart = data.heure && data.date ? `${data.date}T${data.heure}:00.000+01:00` : (data.date || new Date().toISOString().split('T')[0])
+    return call(`pages/${pageId}`, 'PATCH', {
+      properties: {
+        Session:        { title: [{ text: { content: `[RDV] ${data.client || 'Client'} · ${data.date || ''}` } }] },
+        Prix:           { number: parseFloat(data.prixEstime) || 0 },
+        'Acompte reçu': { number: parseFloat(data.acompte) || 0 },
+        Nationalité:    { select: { name: natio } },
+        Date:           { date: { start: dateStart } },
+        'Client prénom':{ rich_text: [{ text: { content: data.client || '' } }] },
+        'Style / Type': { rich_text: [{ text: { content: data.style || '' } }] },
+        ...(data.source ? { Source: { select: { name: data.source } } } : {})
+      }
+    })
+  },
 
   noShowAppointment: (pageId) => call(`pages/${pageId}`, 'PATCH', {
     properties: { Statut: { select: { name: '👻 No-show' } } }
