@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import Planning from './Planning'
 import { notion, parsePaiement, getNbSess } from '../lib/notion'
 
 const OBJ_EQ   = 3895
@@ -417,6 +418,8 @@ export default function TonyDashboard({ onLogout }) {
     </div>
   )
 
+  if (tab==='planning') return <Planning onBack={()=>setTab('home')} />
+
   if (tab==='rdv') return (
     <div style={{padding:'0 0 40px',minHeight:'100dvh',background:'var(--bg)'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'24px'}}>
@@ -670,7 +673,7 @@ export default function TonyDashboard({ onLogout }) {
 
   // ── HOME ──────────────────────────────────────────
   return (
-    <div style={{background:'var(--bg)',minHeight:'100vh',paddingBottom:'80px'}}>
+    <div style={{background:'var(--bg)',minHeight:'100dvh',paddingBottom:'88px'}}>
 
       {/* Confirmation RDV — bottom sheet */}
       {confirming&&(
@@ -711,99 +714,118 @@ export default function TonyDashboard({ onLogout }) {
 
       <div style={{padding:'16px 16px 0'}}>
 
-        {/* ─── PRÉVISIONNEL TOUJOURS VISIBLE ─── */}
+        {/* ─── 3 PROCHAINS RDV + BOUTON PLANNING ─── */}
         <div style={{marginBottom:'14px'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
-            <div style={{fontSize:'10px',color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'2px',fontWeight:600}}>
-              📅 Rendez-vous à venir
-            </div>
-            <button onClick={()=>setTab('rdv')} style={{fontSize:'11px',padding:'5px 12px',borderRadius:'20px',background:'var(--txt)',color:'var(--bg)',border:'none',cursor:'pointer',fontFamily:'var(--font-head)',fontWeight:600}}>
-              + Nouveau RDV
-            </button>
+            <div className="section-title-gold" style={{margin:0}}>Prochains rendez-vous</div>
+            <button onClick={()=>setTab('rdv')} style={{
+              fontSize:'11px',padding:'5px 12px',borderRadius:'20px',
+              background:'var(--txt)',color:'var(--bg)',border:'none',
+              cursor:'pointer',fontFamily:'var(--font-head)',fontWeight:600
+            }}>+ Nouveau</button>
           </div>
 
-          {rdvsProchains.length===0 ? (
+          {rdvsProchains.length === 0 ? (
             <div className="card" style={{padding:'20px',textAlign:'center',border:'1.5px dashed var(--border2)'}}>
-              <div style={{fontSize:'28px',marginBottom:'8px'}}>📅</div>
-              <div style={{fontSize:'13px',fontWeight:600,color:'var(--txt2)',marginBottom:'4px'}}>Aucun RDV planifié</div>
-              <div style={{fontSize:'11px',color:'var(--txt3)',marginBottom:'14px'}}>Enregistre tes prochains clients pour piloter tes revenus</div>
-              <button onClick={()=>setTab('rdv')} className="btn btn-primary" style={{padding:'10px 20px',fontSize:'13px'}}>
+              <div style={{fontSize:'24px',marginBottom:'6px'}}>📅</div>
+              <div style={{fontSize:'12px',fontWeight:600,color:'var(--txt2)',marginBottom:'4px'}}>Aucun RDV planifié</div>
+              <div style={{fontSize:'11px',color:'var(--txt3)',marginBottom:'14px'}}>Ajoute tes prochains clients</div>
+              <button onClick={()=>setTab('rdv')} className="btn btn-primary" style={{padding:'9px 20px',fontSize:'13px'}}>
                 + Ajouter un RDV
               </button>
             </div>
           ) : (
             <>
-              {rdvsProchains.map((s,idx)=>{
-                const client=s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'Client'
-                const style=s.properties['Style / Type']?.rich_text?.[0]?.plain_text||''
-                const prix=s.properties.Prix?.number||0
-                const acompte=s.properties['Acompte reçu']?.number||0
-                const date=s.properties.Date?.date?.start||''
-                const isToday=date===td
-                const isPast=date<td
+              {/* 3 CARDS COMPACTES */}
+              {rdvsProchains.slice(0,3).map((s,idx) => {
+                const client  = s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'Client'
+                const style   = s.properties['Style / Type']?.rich_text?.[0]?.plain_text||''
+                const prix    = s.properties.Prix?.number||0
+                const acompte = s.properties['Acompte reçu']?.number||0
+                const date    = s.properties.Date?.date?.start?.split('T')[0]||''
+                const notes   = s.properties.Notes?.rich_text?.[0]?.plain_text||''
+                const heure   = notes.match(/·\s*(\d{2}:\d{2})/)?.[1]||null
+                const isToday = date === td
+                const isPast  = date < td
+                const d       = new Date(date)
+                const diff    = Math.round((d - new Date(td)) / 86400000)
+
                 return (
-                  <div key={s.id} className="card" style={{
-                    marginBottom:'8px',padding:'12px 14px',
-                    borderLeft:`3px solid ${isPast?'#C0392B':isToday?'#D4820A':'var(--pierre)'}`,
-                    opacity:isPast?0.85:1
+                  <div key={s.id} style={{
+                    display:'flex', alignItems:'stretch', marginBottom:'8px',
+                    borderRadius:'var(--r-lg)', overflow:'hidden',
+                    boxShadow:'var(--shadow-sm)', border:'1px solid var(--border)',
+                    background:'var(--surface)'
                   }}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'10px'}}>
-                      <div style={{flex:1}}>
-                        <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'3px',flexWrap:'wrap'}}>
-                          <span style={{fontSize:'13px',fontWeight:700,color:isPast?'#C0392B':isToday?'#D4820A':'var(--txt)'}}>
-                            {isPast ? '⚠️ '+labelDate(date) : labelDate(date)}
-                          </span>
-                          {isToday && <span style={{fontSize:'9px',padding:'2px 6px',background:'rgba(212,130,10,.12)',color:'#D4820A',borderRadius:'4px',fontWeight:700}}>AUJOURD'HUI</span>}
-                          {isPast && <span style={{fontSize:'9px',padding:'2px 6px',background:'rgba(192,57,43,.1)',color:'#C0392B',borderRadius:'4px',fontWeight:700}}>À VALIDER</span>}
+                    {/* Bande date — gauche */}
+                    <div style={{
+                      width:56, flexShrink:0,
+                      background:isPast?'var(--red)':isToday?'var(--txt)':'var(--bg2)',
+                      display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+                      padding:'12px 4px', gap:'1px'
+                    }}>
+                      <span style={{
+                        fontSize:'9px', fontWeight:700, textTransform:'uppercase', letterSpacing:'.8px',
+                        color:isPast||isToday?'rgba(248,245,240,.65)':'var(--txt3)'
+                      }}>
+                        {isPast?'passé':isToday?'auj.':diff===1?'dem.':d.toLocaleDateString('fr-FR',{weekday:'short'})}
+                      </span>
+                      <span style={{
+                        fontSize:'22px', fontWeight:800, fontFamily:'var(--font-mono)',
+                        color:isPast||isToday?'var(--bg)':'var(--txt)',
+                        lineHeight:1
+                      }}>{d.getDate()}</span>
+                      <span style={{
+                        fontSize:'9px', fontWeight:600,
+                        color:isPast||isToday?'rgba(248,245,240,.65)':'var(--txt3)'
+                      }}>
+                        {d.toLocaleDateString('fr-FR',{month:'short'})}
+                      </span>
+                    </div>
+
+                    {/* Contenu */}
+                    <div style={{flex:1, padding:'11px 12px', display:'flex', justifyContent:'space-between', alignItems:'center', minWidth:0}}>
+                      <div style={{flex:1, minWidth:0}}>
+                        <div style={{fontSize:'14px',fontWeight:700,color:'var(--txt)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                          {client}
                         </div>
-                        <div style={{fontSize:'13px',fontWeight:600}}>{client}</div>
-                        {style&&<div style={{fontSize:'11px',color:'var(--txt3)',marginTop:'1px'}}>{style}</div>}
-                        <div style={{display:'flex',gap:'6px',marginTop:'3px',flexWrap:'wrap',alignItems:'center'}}>
-                      {s.properties.Source?.select?.name&&<span style={{fontSize:'10px',padding:'1px 6px',background:'var(--bg2)',borderRadius:'10px',color:'var(--txt3)'}}>{s.properties.Source.select.name}</span>}
-                      {acompte>0&&<span style={{fontSize:'10px',color:'#1A8C5A'}}>Acompte: {acompte}€</span>}
-                    </div>
+                        {style && <div style={{fontSize:'11px',color:'var(--txt3)',marginTop:'1px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{style}</div>}
+                        <div style={{display:'flex',gap:'6px',marginTop:'4px',flexWrap:'wrap',alignItems:'center'}}>
+                          {heure && <span style={{fontSize:'10px',color:'var(--txt3)',fontFamily:'var(--font-mono)',background:'var(--bg)',padding:'1px 5px',borderRadius:'4px'}}>🕐 {heure}</span>}
+                          {acompte>0 && <span style={{fontSize:'10px',color:'var(--green)'}}>Acompte {acompte}€</span>}
+                          {isPast && <span style={{fontSize:'9px',padding:'1px 5px',background:'var(--red-bg)',color:'var(--red)',borderRadius:'10px',fontWeight:700}}>À VALIDER</span>}
+                        </div>
                       </div>
-                      <div style={{textAlign:'right',flexShrink:0,marginLeft:'12px'}}>
-                        <div style={{fontFamily:'var(--font-mono)',fontSize:'18px',fontWeight:600}}>{prix}€</div>
-                        {acompte>0&&<div style={{fontSize:'10px',color:'var(--txt3)'}}> reste: {Math.max(0,prix-acompte)}€</div>}
+                      <div style={{flexShrink:0,marginLeft:'10px',textAlign:'right'}}>
+                        <div style={{fontFamily:'var(--font-mono)',fontSize:'18px',fontWeight:600,color:isPast?'var(--red)':'var(--txt)'}}>{prix}€</div>
+                        <button onClick={()=>openConfirm(s)} style={{
+                          marginTop:'5px',padding:'5px 10px',borderRadius:'8px',fontSize:'11px',fontWeight:700,cursor:'pointer',
+                          background:isPast?'var(--green)':'rgba(22,121,74,.1)',
+                          color:isPast?'#fff':'var(--green)',
+                          border:isPast?'none':'1px solid rgba(22,121,74,.25)',
+                          fontFamily:'var(--font-head)'
+                        }}>
+                          {isPast?'Valider':'✓ Venu'}
+                        </button>
                       </div>
-                    </div>
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 40px',gap:'6px'}}>
-                      <button onClick={()=>openConfirm(s)} style={{
-                        padding:'10px',borderRadius:'var(--r)',
-                        background:isPast?'#1A8C5A':'rgba(26,140,90,.1)',
-                        border:isPast?'none':'1.5px solid rgba(26,140,90,.3)',
-                        color:isPast?'#fff':'#1A8C5A',
-                        fontFamily:'var(--font-head)',fontWeight:700,fontSize:'12px',cursor:'pointer'
-                      }}>
-                        ✅ {isPast?'Valider':'Client venu'}
-                      </button>
-                      <button onClick={()=>doNoShow(s)} style={{
-                        padding:'10px',borderRadius:'var(--r)',
-                        background:'var(--card)',border:'1.5px solid var(--border2)',
-                        color:'var(--txt3)',fontFamily:'var(--font-head)',fontWeight:700,fontSize:'12px',cursor:'pointer'
-                      }}>
-                        👻 No-show
-                      </button>
-                      <button onClick={()=>{ setEditRdv({
-                        id:s.id,
-                        client:s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'',
-                        style:s.properties['Style / Type']?.rich_text?.[0]?.plain_text||'',
-                        prixEstime:String(s.properties.Prix?.number||0),
-                        sessions:getNbSess(s)||'1',
-                        acompte:String(s.properties['Acompte reçu']?.number||0),
-                        natio:s.properties.Nationalité?.select?.name||'🇫🇷 FR',
-                        source:s.properties.Source?.select?.name||'📸 Instagram',
-                        date:s.properties.Date?.date?.start||''
-                      }); setTab('editRdv') }} style={{
-                        padding:'10px',borderRadius:'var(--r)',
-                        background:'var(--card)',border:'1.5px solid var(--border2)',
-                        color:'var(--txt2)',fontSize:'15px',cursor:'pointer'
-                      }}>✏️</button>
                     </div>
                   </div>
                 )
               })}
+
+              {/* BOUTON VOIR PLANNING */}
+              <button onClick={()=>setTab('planning')} style={{
+                width:'100%', padding:'11px', borderRadius:'var(--r)',
+                background:'var(--surface)', border:'1.5px solid var(--border2)',
+                color:'var(--txt2)', fontFamily:'var(--font-head)', fontWeight:700,
+                fontSize:'12px', cursor:'pointer', letterSpacing:'.3px',
+                display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
+                boxShadow:'var(--shadow-xs)'
+              }}>
+                <span>📅</span>
+                Voir tous les rendez-vous
+                {rdvsProchains.length > 3 && <span style={{fontSize:'10px',padding:'1px 7px',background:'var(--bg2)',borderRadius:'20px',color:'var(--txt3)'}}>{rdvsProchains.length}</span>}
+              </button>
             </>
           )}
         </div>
@@ -1083,9 +1105,52 @@ export default function TonyDashboard({ onLogout }) {
         )}
       </div>
 
-      <div style={{textAlign:'center',paddingBottom:'20px'}}>
-        <button onClick={onLogout} style={{background:'none',border:'none',color:'var(--txt3)',fontSize:'11px',cursor:'pointer'}}>Déconnexion</button>
-      </div>
+      <div style={{height:'20px'}}/>
+
+      {/* ── NAV BAR TONY ──────────────────────────── */}
+      <nav style={{
+        position:'fixed',bottom:0,left:0,right:0,
+        background:'rgba(248,245,240,.96)',
+        backdropFilter:'blur(20px) saturate(180%)',
+        WebkitBackdropFilter:'blur(20px) saturate(180%)',
+        borderTop:'1px solid var(--border)',
+        display:'flex',alignItems:'stretch',
+        paddingBottom:'max(4px, env(safe-area-inset-bottom))',
+        zIndex:100
+      }}>
+        {[
+          {id:'home',   icon:'◈', label:'Home'},
+          {id:'planning',icon:'⊡', label:'Planning'},
+          {id:'ca',     icon:'＋', label:'Saisir'},
+          {id:'histo',  icon:'≡', label:'Historique'},
+        ].map(item=>(
+          <button key={item.id} onClick={()=>setTab(item.id)} style={{
+            flex:1, display:'flex', flexDirection:'column', alignItems:'center',
+            gap:'2px', padding:'10px 4px 6px',
+            fontFamily:'var(--font-body)', fontSize:'9px', fontWeight:700,
+            letterSpacing:'.8px', textTransform:'uppercase',
+            background:'none', border:'none', cursor:'pointer',
+            color: tab===item.id ? 'var(--txt)' : 'var(--txt3)',
+            transition:'color .15s'
+          }}>
+            <span style={{
+              fontSize:'18px', lineHeight:1,
+              color: tab===item.id ? 'var(--gold-dk)' : 'var(--txt3)'
+            }}>{item.icon}</span>
+            {item.label}
+          </button>
+        ))}
+        <button onClick={onLogout} style={{
+          flex:1, display:'flex', flexDirection:'column', alignItems:'center',
+          gap:'2px', padding:'10px 4px 6px',
+          fontFamily:'var(--font-body)', fontSize:'9px', fontWeight:700,
+          letterSpacing:'.8px', textTransform:'uppercase',
+          background:'none', border:'none', cursor:'pointer', color:'var(--txt3)'
+        }}>
+          <span style={{fontSize:'18px',lineHeight:1}}>⊗</span>
+          Exit
+        </button>
+      </nav>
       {toast&&<div className="toast">{toast}</div>}
     </div>
   )
