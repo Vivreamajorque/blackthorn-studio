@@ -76,6 +76,47 @@ export default function Dashboard() {
   // Dépenses mois
   const depMois = depenses.filter(d=>(d.properties.Date?.date?.start||'').startsWith(m)).reduce((a,d)=>a+(d.properties.Montant?.number||0),0)
 
+  // ── VISION ANNUELLE ────────────────────────────
+  // Profil saisonnier Jun 2026 → Mai 2027
+  const MKEYS_ANN = ['2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12','2027-01','2027-02','2027-03','2027-04','2027-05']
+  const JOURS_ANN = [25,25,25,25,22,15,0,0,5,12,18,20]
+  const IS_ETE_ANN= [1,1,1,1,1,0,0,0,0,0,0,0]
+  // CA target MINIMUM (équilibre = 156€/j, tenir hiver en été = 234€/j)
+  const PM_MIN    = [234,234,234,234,234,200,0,0,130,130,200,200]
+  const ciblesMois= MKEYS_ANN.map((k,i)=>PM_MIN[i]*JOURS_ANN[i])
+  // CA cumulé cible par mois
+  const cibleCumul= ciblesMois.reduce((acc,v,i)=>[...acc, (acc[i-1]||0)+v],[])
+  // CA réel par mois
+  const caByMois  = {}
+  sessActifs.forEach(s=>{const d=s.properties.Date?.date?.start||''; if(d){const mk=d.substring(0,7); caByMois[mk]=(caByMois[mk]||0)+(s.properties.Prix?.number||0)}})
+  const caActifs  = MKEYS_ANN.map(k=>Math.round(caByMois[k]||0))
+  // Cumul réel
+  const caAnnuelCumul = caActifs.reduce((a,v)=>a+v,0)
+  const curIdxAnn = MKEYS_ANN.indexOf(m)
+  const cibleAujourdhui = curIdxAnn>=0 ? cibleCumul[curIdxAnn] : 0
+  const caObjectifAnnuel = cibleCumul[11]  // total annuel cible
+
+  // Réserve hiver accumulée
+  const PROV_HIVER = 5285
+  const PROV_MAX_M = 1057
+  let resAccum = 0
+  caActifs.forEach((ca,i)=>{
+    const r2 = netReel(ca)
+    const d2 = r2.net - PERSO
+    if(IS_ETE_ANN[i] && d2>0) resAccum=Math.min(PROV_HIVER,resAccum+Math.min(d2,PROV_MAX_M))
+    else if(!IS_ETE_ANN[i] && d2<0) resAccum=Math.max(0,resAccum+d2)
+  })
+  resAccum = Math.round(resAccum)
+
+  // Vitesse actuelle vs vitesse nécessaire
+  const moisEcoules = Math.max(1, curIdxAnn+1)
+  const vitActuelle = Math.round(caAnnuelCumul / moisEcoules)
+  const moisRestants= Math.max(1, 12 - moisEcoules)
+  const caRestant   = Math.max(0, caObjectifAnnuel - caAnnuelCumul)
+  const vitNecessaire = Math.round(caRestant / moisRestants)
+  const avance       = caAnnuelCumul - cibleAujourdhui
+  const surParcours  = avance >= 0
+
   // Objectif atteint
   const statusObj = caTotal >= OBJ_CONF ? 'confort'
                   : caTotal >= OBJ_HIV  ? 'hiver'
@@ -177,6 +218,85 @@ export default function Dashboard() {
             <div style={{ fontFamily:'var(--font-mono)', fontSize:'15px', color:x.c }}>{loading?'...':fmt(x.v)}</div>
           </div>
         ))}
+      </div>
+
+      {/* ══════════════════════════════════════════════
+          SECTION 1b : VISION ANNUELLE
+      ══════════════════════════════════════════════ */}
+      <div style={{ fontSize:'10px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'2px', fontWeight:600, marginBottom:'10px' }}>Tenir l'année</div>
+
+      <div className="card" style={{ marginBottom:'20px' }}>
+        {/* Verdict */}
+        <div style={{ padding:'12px 14px', borderRadius:'10px', marginBottom:'14px',
+          background:surParcours?'rgba(26,140,90,.07)':'rgba(192,57,43,.07)',
+          border:`1px solid ${surParcours?'rgba(26,140,90,.25)':'rgba(192,57,43,.25)'}` }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <div>
+              <div style={{ fontSize:'14px', fontWeight:700, color:surParcours?'#1A8C5A':'#C0392B' }}>
+                {surParcours ? '✅ Dans les clous' : '⚠️ En retard sur le parcours'}
+              </div>
+              <div style={{ fontSize:'11px', color:'var(--txt3)', marginTop:'3px' }}>
+                {surParcours
+                  ? `+${fmt(Math.abs(avance))} d'avance sur la cible`
+                  : `${fmt(Math.abs(avance))} de retard — besoin de ${fmt(vitNecessaire)}/mois`}
+              </div>
+            </div>
+            <div style={{ textAlign:'right' }}>
+              <div style={{ fontFamily:'var(--font-mono)', fontSize:'20px', fontWeight:700, color:surParcours?'#1A8C5A':'#C0392B' }}>
+                {Math.round((caAnnuelCumul/Math.max(1,caObjectifAnnuel))*100)}%
+              </div>
+              <div style={{ fontSize:'10px', color:'var(--txt3)' }}>de l'objectif annuel</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Barre cumulative */}
+        <div style={{ marginBottom:'12px' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', fontSize:'10px', color:'var(--txt3)', marginBottom:'4px' }}>
+            <span>CA cumulé</span>
+            <span style={{ fontFamily:'var(--font-mono)' }}>{fmt(caAnnuelCumul)} / {fmt(cibleAujourdhui)} attendu</span>
+          </div>
+          <div style={{ position:'relative', height:'10px', background:'var(--bg2)', borderRadius:'5px', overflow:'hidden' }}>
+            {/* Cible */}
+            <div style={{ position:'absolute', height:'100%', width:(cibleAujourdhui/caObjectifAnnuel*100)+'%', background:'rgba(0,0,0,0.08)', borderRadius:'5px' }} />
+            {/* Réel */}
+            <div style={{ position:'absolute', height:'100%', width:Math.min(100,(caAnnuelCumul/caObjectifAnnuel*100))+'%',
+              background:surParcours?'#1A8C5A':'#C0392B', borderRadius:'5px', transition:'width .5s' }} />
+          </div>
+          <div style={{ display:'flex', justifyContent:'space-between', fontSize:'9px', color:'var(--txt3)', marginTop:'3px' }}>
+            <span>Juin 2026</span>
+            <span>Objectif : {fmt(caObjectifAnnuel)}</span>
+            <span>Mai 2027</span>
+          </div>
+        </div>
+
+        {/* Réserve hiver */}
+        <div style={{ marginBottom:'12px' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', fontSize:'10px', color:'var(--txt3)', marginBottom:'4px' }}>
+            <span>Réserve hiver</span>
+            <span style={{ fontFamily:'var(--font-mono)', color:resAccum>=PROV_HIVER?'#1A8C5A':'#D4820A' }}>
+              {resAccum.toLocaleString()}€ / {PROV_HIVER.toLocaleString()}€
+            </span>
+          </div>
+          <div style={{ height:'8px', background:'var(--bg2)', borderRadius:'4px', overflow:'hidden' }}>
+            <div style={{ height:'100%', width:Math.min(100,(resAccum/PROV_HIVER)*100)+'%',
+              background:resAccum>=PROV_HIVER?'#1A8C5A':'#D4820A', borderRadius:'4px', transition:'width .5s' }} />
+          </div>
+        </div>
+
+        {/* 3 indicateurs clés */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px' }}>
+          {[
+            { l:'Rythme actuel', v:fmt(vitActuelle)+'/mois', ok: vitActuelle >= vitNecessaire },
+            { l:'Besoin restant', v:fmt(vitNecessaire)+'/mois', ok: vitActuelle >= vitNecessaire },
+            { l:'Mois restants', v:String(moisRestants), ok: true },
+          ].map(x=>(
+            <div key={x.l} style={{ textAlign:'center', padding:'8px 4px', background:'var(--bg)', borderRadius:'var(--r)' }}>
+              <div style={{ fontSize:'9px', color:'var(--txt3)', textTransform:'uppercase', marginBottom:'3px', lineHeight:1.3 }}>{x.l}</div>
+              <div style={{ fontFamily:'var(--font-mono)', fontSize:'14px', fontWeight:600, color:x.ok?'#1A8C5A':'#C0392B' }}>{x.v}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ══════════════════════════════════════════════
