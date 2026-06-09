@@ -1,325 +1,417 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { notion, parsePaiement } from '../lib/notion'
 
-// ── MODÈLE RÉEL : IRPF 20% + IVA nette ──────────────
-const FIXES    = 956      // loyer 867 + RETA 89
-const MATOS    = 0.08
-const IVA_FL   = 150.47   // IVA loyer récupérable
-const PERSO    = 1500
-const PROV_MOIS = 1057
+const FIXES   = 956
+const IVA_FL  = 150.47
+const PERSO   = 1500
 
-const calcNet = (ca) => {
-  const matos   = ca * MATOS
-  const ben     = ca - FIXES - matos
-  const irpf    = Math.max(0, ben * 0.20)
-  const iva_net = Math.max(0, ca * 0.21 - IVA_FL - matos * 0.21)
-  return {
-    matos : Math.round(matos),
-    ben   : Math.round(ben),
-    irpf  : Math.round(irpf),
-    iva   : Math.round(iva_net),
-    net   : Math.max(0, Math.round(ben - irpf - iva_net)),
-    dispo : Math.max(0, Math.round(ben - irpf - iva_net)) - PERSO
-  }
+const calcFin = (ca) => {
+  const matos = ca * 0.08
+  const ben   = ca - FIXES - matos
+  const irpf  = Math.max(0, Math.round(ben * 0.20))
+  const ivaColl = Math.round(ca * 0.21)
+  const ivaRecup = Math.round(IVA_FL + matos * 0.21)
+  const ivaNette = Math.max(0, ivaColl - ivaRecup)
+  const net   = Math.max(0, Math.round(ben - irpf - ivaNette))
+  return { matos: Math.round(matos), ben: Math.round(ben), irpf, ivaColl, ivaRecup, ivaNette, net }
 }
 
-const fmt  = n => { const a=Math.abs(Math.round(n)); return (n<0?'-':'')+(a>=1000?(a/1000).toFixed(1)+'k€':a+'€') }
-const fmts = n => (n>=0?'+':'')+fmt(n)
+const fmt = (n, sign=false) => {
+  const a=Math.abs(Math.round(n))
+  const s=(n<0?'-':(sign&&n>0?'+':''))
+  return s+(a>=1000?(a/1000).toFixed(1)+'k€':a+'€')
+}
 
+const MOIS_LABELS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
 const thisMonth = () => new Date().toISOString().substring(0,7)
 
-// ── SAISIE REVENU AMELY ──────────────────────────────
-function SaisieRevenu({ onSaved }) {
-  const [form, setForm] = useState({ montant:'', source:'VAM', date:new Date().toISOString().split('T')[0], notes:'' })
-  const [saving, setSaving] = useState(false)
-  const [toast, setToast] = useState('')
-  const SOURCES = ['VAM','La Ligne','Consultation','Autre']
-
-  const submit = async () => {
-    if (!form.montant) return
-    setSaving(true)
-    try {
-      await notion.addSession({
-        session: `Amely · ${form.date} · ${form.montant}€`,
-        type: '💚 Revenu Amely',
-        client:'', natio:'—', style:'', paiement:'cash',
-        prix: parseFloat(form.montant), acompte:0, solde: parseFloat(form.montant),
-        notes: `${form.source}${form.notes ? ' — ' + form.notes : ''}`, date: form.date, avis: false
-      })
-      setToast('✓ Revenu enregistré')
-      setForm({ montant:'', source:'VAM', date:new Date().toISOString().split('T')[0], notes:'' })
-      setTimeout(() => { setToast(''); onSaved && onSaved() }, 1500)
-    } catch(e) { setToast('Erreur') }
-    setSaving(false)
-  }
-
+// Ligne du tableau
+function Row({ label, value, sub, color='var(--txt)', bold, indent, right, bg }) {
   return (
-    <div>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'12px' }}>
-        <div className="form-group" style={{ margin:0 }}>
-          <label>Montant (€ HT)</label>
-          <input type="number" inputMode="decimal" placeholder="0"
-            value={form.montant} onChange={e=>setForm({...form,montant:e.target.value})}
-            style={{ fontSize:'20px', textAlign:'center', fontFamily:'var(--font-mono)' }} />
-        </div>
-        <div className="form-group" style={{ margin:0 }}>
-          <label>Source</label>
-          <select value={form.source} onChange={e=>setForm({...form,source:e.target.value})}>
-            {SOURCES.map(s=><option key={s}>{s}</option>)}
-          </select>
-        </div>
-      </div>
-      <div className="form-group" style={{ marginBottom:'10px' }}>
-        <label>Date</label>
-        <input type="date" min="2026-06-01" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} />
-      </div>
-      <div className="form-group" style={{ marginBottom:'14px' }}>
-        <label>Notes</label>
-        <input placeholder="Client, projet..." value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} />
-      </div>
-      <button className="btn btn-primary" onClick={submit} disabled={saving||!form.montant} style={{ width:'100%', padding:'14px' }}>
-        {saving ? 'Enregistrement...' : '+ Ajouter mon revenu'}
-      </button>
-      {toast && <div className="toast">{toast}</div>}
-    </div>
-  )
-}
-
-// ── SIMULATEUR P&L ───────────────────────────────────
-function PLSimulateur({ ca }) {
-  const r = calcNet(ca)
-  const pct = Math.min(100, Math.round((ca / 3895) * 100))
-  const label = r.net >= PERSO + PROV_MOIS
-    ? { t:`✅ Équilibre + réserve hiver`, c:'var(--vert)' }
-    : r.net >= PERSO
-    ? { t:`✅ Charges couvertes — ${fmts(r.dispo)} libre`, c:'var(--jaune)' }
-    : { t:`⚠️ Déficit — manque ${fmt(PERSO-r.net)}`, c:'var(--rouge)' }
-
-  return (
-    <div>
-      <div style={{ background:'var(--noir3)', borderRadius:'var(--r)', padding:'12px 16px', marginBottom:'14px', borderLeft:`3px solid ${label.c}` }}>
-        <div style={{ fontSize:'13px', color:label.c, fontWeight:600 }}>{label.t}</div>
-      </div>
-      <div style={{ marginBottom:'14px' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'5px' }}>
-          <span style={{ fontSize:'11px', color:'var(--gris)', textTransform:'uppercase', letterSpacing:'1px' }}>vs équilibre (156€/j)</span>
-          <span style={{ fontFamily:'var(--font-mono)', fontSize:'12px', color:'var(--pierre)' }}>{pct}%</span>
-        </div>
-        <div style={{ height:'7px', background:'var(--noir3)', borderRadius:'4px', overflow:'hidden' }}>
-          <div style={{ height:'100%', width:`${pct}%`, background:r.net>=PERSO?'var(--vert)':pct>70?'var(--jaune)':'var(--rouge)', borderRadius:'4px', transition:'width .4s' }} />
-        </div>
-        <div style={{ display:'flex', justifyContent:'space-between', marginTop:'3px', fontSize:'10px', color:'var(--gris2)' }}>
-          <span>0€</span><span>Équilibre 3 895€</span>
-        </div>
-      </div>
-      <div className="card" style={{ marginBottom:'10px' }}>
-        {[
-          { l:`CA HT  (${Math.round(ca/25)}€/j × 25j)`,        v:fmt(ca),            c:'var(--vert)' },
-          { l:'Charges (fixes 956€ + matos 8%)',                v:`-${fmt(FIXES+r.matos)}`, c:'var(--gris)' },
-          { l:'Bénéfice brut',                                  v:r.ben>0?fmt(r.ben):`-${fmt(Math.abs(r.ben))}`, c:r.ben>=0?'var(--pierre)':'var(--rouge)' },
-          { l:'IRPF (20%)',                                     v:`-${fmt(r.irpf)}`,  c:'var(--jaune)' },
-          { l:'IVA nette à reverser',                           v:`-${fmt(r.iva)}`,   c:'var(--jaune)' },
-          { l:'Net disponible',                                 v:fmt(r.net),         c:r.net>=PERSO?'var(--vert)':'var(--rouge)', bold:true },
-          { l:'Charges ménage',                                 v:`-${PERSO}€`,       c:'var(--gris)' },
-          { l:'Dispo libre',                                    v:fmts(r.dispo),      c:r.dispo>=0?'var(--vert)':'var(--rouge)', bold:true },
-        ].map(row=>(
-          <div key={row.l} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid var(--noir3)' }}>
-            <span style={{ fontSize:'12px', color:'var(--gris)' }}>{row.l}</span>
-            <span style={{ fontFamily:'var(--font-mono)', fontSize:row.bold?'14px':'13px', color:row.c, fontWeight:row.bold?700:400 }}>{row.v}</span>
-          </div>
-        ))}
-      </div>
-      <div className="card">
-        <div className="section-title">IVA — Modelo 303</div>
-        {[
-          { l:`Collecté (${fmt(ca)} × 21%)`, v:fmt(Math.round(ca*0.21)) },
-          { l:'Nette trimestrielle (× 3)', v:fmt(r.iva*3), bold:true },
-        ].map(row=>(
-          <div key={row.l} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:'1px solid var(--noir3)' }}>
-            <span style={{ fontSize:'12px', color:'var(--gris)' }}>{row.l}</span>
-            <span style={{ fontFamily:'var(--font-mono)', fontSize:'13px', color:row.bold?'var(--rouge)':'var(--blanc)', fontWeight:row.bold?700:400 }}>{row.v}</span>
-          </div>
-        ))}
+    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0',
+      borderBottom:'1px solid var(--border)', background: bg||'transparent' }}>
+      <span style={{ fontSize:'13px', color:indent?'var(--txt3)':'var(--txt2)', paddingLeft:indent?14:0, fontWeight:bold?600:400 }}>{label}</span>
+      <div style={{ textAlign:'right' }}>
+        <span style={{ fontFamily:'var(--font-mono)', fontSize:bold?'15px':'13px', color, fontWeight:bold?600:400 }}>{value}</span>
+        {sub && <div style={{ fontSize:'10px', color:'var(--txt3)', marginTop:'1px' }}>{sub}</div>}
       </div>
     </div>
   )
 }
 
-// ── PAGE PRINCIPALE ──────────────────────────────────
+// Badge paiement
+function PayBadge({ isCash }) {
+  return (
+    <span style={{ fontSize:'9px', padding:'2px 6px', borderRadius:'6px', fontWeight:700,
+      background:isCash?'rgba(26,140,90,.1)':'rgba(41,128,185,.1)',
+      color:isCash?'#1A8C5A':'#2980B9', whiteSpace:'nowrap' }}>
+      {isCash?'CASH':'CARTE'}
+    </span>
+  )
+}
+
 export default function Comptabilite() {
-  const [sessions, setSessions] = useState([])
-  const [loading, setLoading]   = useState(true)
-  const [caInput, setCaInput]   = useState('')
-  const [tab, setTab]           = useState('amelys')   // amelys | simulateur | charges | fiscal
+  const [sessions,  setSessions]  = useState([])
+  const [depenses,  setDepenses]  = useState([])
+  const [loading,   setLoading]   = useState(true)
+  const [tab,       setTab]       = useState('resume')
+  const [moisSelect,setMoisSelect]= useState(thisMonth())
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const s = await notion.getSessions()
+      const [s,d] = await Promise.all([notion.getSessions(), notion.getDepenses()])
       if (s.results) setSessions(s.results)
+      if (d.results) setDepenses(d.results)
     } catch(e) {}
     setLoading(false)
   }, [])
   useEffect(() => { load() }, [load])
 
-  const m      = thisMonth()
-  // Séparer revenus Tony vs Amely
-  const sessM  = sessions.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
-  const tonyM  = sessM.filter(s=>(s.properties.Type?.select?.name||'').includes('Tony')||(s.properties.Type?.select?.name||'').includes('Tattoo')||(!(s.properties.Type?.select?.name||'').includes('Amely')))
-  const amelyM = sessM.filter(s=>(s.properties.Type?.select?.name||'').includes('Amely'))
-  const caTony  = tonyM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const caAmely = amelyM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const caTotal = sessM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  // Filtres par mois sélectionné
+  const sessM = sessions.filter(s=>{
+    const d=s.properties.Date?.date?.start||''
+    const isAmely=(s.properties.Type?.select?.name||'').includes('Amely')
+    return d.startsWith(moisSelect) && !isAmely
+  })
+  const depM = depenses.filter(d=>(d.properties.Date?.date?.start||'').startsWith(moisSelect))
+
+  // Calculs CA
+  const caMois    = sessM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const caCash    = sessM.filter(s=>parsePaiement(s)==='cash').reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const caCarte   = sessM.filter(s=>parsePaiement(s)!=='cash').reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const nbSess    = sessM.length
+
+  // Calculs charges
+  const totalDep  = depM.reduce((a,d)=>a+(d.properties.Montant?.number||0),0)
+  const totalIvaRecup = depM.filter(d=>d.properties['IVA récupérable']?.checkbox).reduce((a,d)=>a+(d.properties['Montant IVA']?.number||0),0)
+
+  // Financier
+  const fin = calcFin(caMois)
+
+  // IVA compte
+  const ivaCollectee = fin.ivaColl
+  const ivaRecuperee = fin.ivaRecup + totalIvaRecup
+  const ivaARegler   = Math.max(0, ivaCollectee - ivaRecuperee)
+
+  // Catégories dépenses
+  const catDep = {}
+  depM.forEach(d=>{
+    const cat=d.properties.Catégorie?.select?.name||'Autre'
+    const m=d.properties.Montant?.number||0
+    catDep[cat]=(catDep[cat]||0)+m
+  })
+
+  // Disponible pour les mois passés
+  const moisDisponibles = (() => {
+    const set = new Set()
+    sessions.forEach(s=>{ const d=s.properties.Date?.date?.start||''; if(d) set.add(d.substring(0,7)) })
+    depenses.forEach(d=>{ const d2=d.properties.Date?.date?.start||''; if(d2) set.add(d2.substring(0,7)) })
+    set.add(thisMonth())
+    return [...set].sort().reverse().slice(0,12)
+  })()
 
   const TABS = [
-    { id:'amelys', label:'Mon revenu' },
-    { id:'simulateur', label:'Simulateur' },
-    { id:'charges', label:'Charges' },
-    { id:'fiscal', label:'Fiscal' },
+    { id:'resume', l:'Résumé P&L' },
+    { id:'ca',     l:'CA détaillé' },
+    { id:'charges',l:'Charges' },
+    { id:'fiscal', l:'Fiscal' },
   ]
 
   return (
-    <div style={{ padding:'24px 16px 8px' }}>
-      <div style={{ fontFamily:'var(--font-head)', fontSize:'18px', fontWeight:700, marginBottom:'16px' }}>Comptabilité</div>
+    <div style={{ padding:'20px 16px 90px', background:'var(--bg)', minHeight:'100vh' }}>
 
-      {/* Seuils */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'20px' }}>
-        {[
-          { l:'Équilibre mensuel', v:'156€/j', c:'var(--jaune)' },
-          { l:'Tenir l\'hiver', v:'234€/j', c:'var(--pierre)' },
-          { l:'Confort', v:'300€/j', c:'var(--vert)' },
-        ].map(s=>(
-          <div key={s.l} style={{ background:'var(--noir2)', border:`1px solid ${s.c}33`, borderRadius:'var(--r)', padding:'10px 8px', textAlign:'center' }}>
-            <div style={{ fontSize:'9px', color:'var(--gris)', textTransform:'uppercase', marginBottom:'4px', lineHeight:1.3 }}>{s.l}</div>
-            <div style={{ fontFamily:'var(--font-mono)', fontSize:'17px', color:s.c }}>{s.v}</div>
-          </div>
-        ))}
+      {/* Header */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px' }}>
+        <div style={{ fontFamily:'var(--font-head)', fontSize:'18px', fontWeight:800 }}>Comptabilité</div>
+        <button onClick={load} style={{ background:'none', border:'none', fontSize:'16px', color:'var(--txt3)', cursor:'pointer' }}>↻</button>
       </div>
 
-      {/* Revenus mois courant */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'20px' }}>
-        {[
-          { l:'Tony mois', v:loading?'...':Math.round(caTony)+'€', c:'var(--pierre)' },
-          { l:'Amely mois', v:loading?'...':Math.round(caAmely)+'€', c:'#2ecc71' },
-          { l:'Total', v:loading?'...':Math.round(caTotal)+'€', c:'var(--blanc)' },
-        ].map(s=>(
-          <div key={s.l} className="stat-card" style={{ textAlign:'center' }}>
-            <div className="label">{s.l}</div>
-            <div style={{ fontFamily:'var(--font-mono)', fontSize:'18px', color:s.c }}>{s.v}</div>
-          </div>
-        ))}
+      {/* Sélecteur de mois */}
+      <div style={{ marginBottom:'16px' }}>
+        <select value={moisSelect} onChange={e=>setMoisSelect(e.target.value)} style={{ fontFamily:'var(--font-head)', fontWeight:600, fontSize:'14px' }}>
+          {moisDisponibles.map(m=>{
+            const [y,mo]=m.split('-')
+            return <option key={m} value={m}>{MOIS_LABELS[parseInt(mo)-1]} {y}</option>
+          })}
+        </select>
       </div>
 
       {/* Tabs */}
-      <div style={{ display:'flex', gap:'6px', marginBottom:'20px', overflowX:'auto' }}>
+      <div style={{ display:'flex', gap:'6px', marginBottom:'18px', overflowX:'auto', paddingBottom:'2px' }}>
         {TABS.map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)} style={{
-            flexShrink:0, padding:'8px 12px', borderRadius:'var(--r)', fontSize:'11px',
-            background:tab===t.id?'var(--pierre)':'var(--noir2)',
-            color:tab===t.id?'var(--noir)':'var(--gris)',
-            border:tab===t.id?'none':'1px solid var(--noir3)',
-            fontFamily:'var(--font-head)', fontWeight:600, cursor:'pointer', whiteSpace:'nowrap'
-          }}>{t.label}</button>
+            flexShrink:0, padding:'8px 14px', borderRadius:'20px', fontSize:'12px', cursor:'pointer',
+            background:tab===t.id?'var(--txt)':'var(--card)',
+            color:tab===t.id?'var(--bg)':'var(--txt2)',
+            border:tab===t.id?'none':'1px solid var(--border2)',
+            fontFamily:'var(--font-head)', fontWeight:600, transition:'all .2s',
+            boxShadow:tab===t.id?'var(--shadow)':'none'
+          }}>{t.l}</button>
         ))}
       </div>
 
-      {/* MON REVENU */}
-      {tab === 'amelys' && (
+      {loading && <div style={{ textAlign:'center', padding:'40px', color:'var(--txt3)', fontSize:'13px' }}>Chargement...</div>}
+
+      {/* ── RÉSUMÉ P&L ─────────────────────────────── */}
+      {!loading && tab==='resume' && (
         <div>
-          <div style={{ fontSize:'12px', color:'var(--gris)', marginBottom:'16px', lineHeight:1.6 }}>
-            Saisis ici tes revenus VAM, La Ligne, consultations. Ils apparaissent dans le hub et les métriques.
+          {/* Résultat net en grand */}
+          <div className="card" style={{ textAlign:'center', padding:'20px', marginBottom:'16px',
+            borderColor: fin.net>=PERSO?'rgba(26,140,90,.3)':'rgba(192,57,43,.3)',
+            background: fin.net>=PERSO?'rgba(26,140,90,.03)':'rgba(192,57,43,.03)' }}>
+            <div style={{ fontSize:'11px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'6px' }}>Résultat net du mois</div>
+            <div style={{ fontFamily:'var(--font-mono)', fontSize:'36px', fontWeight:500, color:fin.net>=PERSO?'#1A8C5A':'#C0392B' }}>
+              {fmt(fin.net)}
+            </div>
+            <div style={{ fontSize:'12px', color:'var(--txt3)', marginTop:'6px' }}>
+              {fin.net>=PERSO
+                ? `✅ Charges couvertes — ${fmt(fin.net-PERSO)} dispo`
+                : `⚠️ Déficit de ${fmt(PERSO-fin.net)}`}
+            </div>
           </div>
-          <SaisieRevenu onSaved={load} />
-          {amelyM.length > 0 && (
-            <div style={{ marginTop:'16px' }}>
-              <div className="section-title">Mes revenus ce mois</div>
-              {amelyM.map(s=>{
-                const prix = s.properties.Prix?.number||0
-                const date = s.properties.Date?.date?.start||''
-                const type = s.properties.Type?.select?.name||''
-                return (
-                  <div key={s.id} className="card" style={{ display:'flex', justifyContent:'space-between', marginBottom:'8px', padding:'10px 14px' }}>
-                    <div>
-                      <div style={{ fontSize:'12px' }}>{type.replace('💚 Revenu Amely — ','')}</div>
-                      <div style={{ fontSize:'11px', color:'var(--gris)', marginTop:'2px' }}>{date}</div>
-                    </div>
-                    <span style={{ fontFamily:'var(--font-mono)', fontSize:'16px', color:'#2ecc71' }}>{prix}€</span>
+
+          {/* P&L complet */}
+          <div className="card" style={{ marginBottom:'14px' }}>
+            <div style={{ fontSize:'10px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', fontWeight:600, padding:'4px 0 8px' }}>ENTRÉES</div>
+            <Row label="CA total HT" value={fmt(caMois)} bold color={caMois>0?'#1A8C5A':'var(--txt3)'} />
+            <Row label="↳ Cash" value={fmt(caCash)} indent sub={nbSess>0?`${Math.round(caCash/caMois*100||0)}%`:undefined} />
+            <Row label="↳ Carte / virement" value={fmt(caCarte)} indent sub={nbSess>0?`${Math.round(caCarte/caMois*100||0)}%`:undefined} />
+
+            <div style={{ fontSize:'10px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', fontWeight:600, padding:'12px 0 8px' }}>CHARGES OPÉRATIONNELLES</div>
+            <Row label="Loyer + RETA (fixes)" value={`-${fmt(FIXES)}`} />
+            <Row label="Matériel ~8% CA" value={`-${fmt(fin.matos)}`} />
+            <Row label="Bénéfice brut" value={fmt(fin.ben)} bold color={fin.ben>0?'var(--txt)':'#C0392B'} />
+
+            <div style={{ fontSize:'10px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', fontWeight:600, padding:'12px 0 8px' }}>IMPÔTS</div>
+            <Row label="IRPF (20% bénéfice)" value={`-${fmt(fin.irpf)}`} color='#D4820A' sub="→ provision" />
+            <Row label="IVA collectée" value={fmt(fin.ivaColl)} color='var(--txt3)' />
+            <Row label="IVA récupérable" value={`-${fmt(fin.ivaRecup)}`} color='var(--txt3)' indent />
+            <Row label="IVA nette à reverser" value={`-${fmt(fin.ivaNette)}`} color='#D4820A' bold sub="→ provision" />
+
+            <div style={{ fontSize:'10px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', fontWeight:600, padding:'12px 0 8px' }}>RÉSULTAT</div>
+            <Row label="Net disponible" value={fmt(fin.net)} bold color={fin.net>=PERSO?'#1A8C5A':'#C0392B'} />
+            <Row label="Charges ménage" value="-1 500€" />
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 0 4px', borderTop:'1px solid var(--border)', marginTop:'4px' }}>
+              <span style={{ fontSize:'14px', fontWeight:700 }}>Dispo libre</span>
+              <span style={{ fontFamily:'var(--font-mono)', fontSize:'18px', fontWeight:700, color:fin.net-PERSO>=0?'#1A8C5A':'#C0392B' }}>
+                {fmt(fin.net-PERSO, true)}
+              </span>
+            </div>
+          </div>
+
+          {/* Cash vs Carte */}
+          <div className="card" style={{ marginBottom:'14px' }}>
+            <div style={{ fontSize:'10px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', fontWeight:600, marginBottom:'10px' }}>Répartition paiements</div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
+              {[
+                { l:'💵 Cash', v:caCash, pct:caMois>0?Math.round(caCash/caMois*100):0, c:'#1A8C5A' },
+                { l:'💳 Carte', v:caCarte, pct:caMois>0?Math.round(caCarte/caMois*100):0, c:'#2980B9' }
+              ].map(x=>(
+                <div key={x.l} style={{ textAlign:'center', padding:'10px', background:'var(--bg)', borderRadius:'var(--r)' }}>
+                  <div style={{ fontSize:'11px', fontWeight:700, color:x.c, marginBottom:'4px' }}>{x.l}</div>
+                  <div style={{ fontFamily:'var(--font-mono)', fontSize:'20px', fontWeight:500 }}>{fmt(x.v)}</div>
+                  <div style={{ fontSize:'11px', color:'var(--txt3)', marginTop:'2px' }}>{x.pct}%</div>
+                  <div style={{ height:'4px', background:'var(--border)', borderRadius:'2px', marginTop:'6px', overflow:'hidden' }}>
+                    <div style={{ height:'100%', width:x.pct+'%', background:x.c, borderRadius:'2px' }} />
                   </div>
-                )
-              })}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CA DÉTAILLÉ ─────────────────────────────── */}
+      {!loading && tab==='ca' && (
+        <div>
+          {/* Synthèse */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'8px', marginBottom:'14px' }}>
+            {[
+              { l:'Sessions', v:nbSess, unit:'' },
+              { l:'CA total', v:fmt(caMois), unit:'' },
+              { l:'Panier moyen', v:nbSess>0?Math.round(caMois/nbSess)+'€':'—', unit:'' },
+            ].map(x=>(
+              <div key={x.l} className="card" style={{ textAlign:'center', padding:'10px 6px' }}>
+                <div style={{ fontSize:'9px', color:'var(--txt3)', textTransform:'uppercase', marginBottom:'4px' }}>{x.l}</div>
+                <div style={{ fontFamily:'var(--font-mono)', fontSize:'18px', fontWeight:500 }}>{x.v}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Liste des sessions */}
+          {sessM.length === 0
+            ? <div style={{ textAlign:'center', padding:'40px 0', color:'var(--txt3)', fontSize:'13px' }}>Aucune session ce mois</div>
+            : sessM.sort((a,b)=>(b.properties.Date?.date?.start||'').localeCompare(a.properties.Date?.date?.start||'')).map(s => {
+              const ca     = s.properties.Prix?.number||0
+              const date   = s.properties.Date?.date?.start||''
+              const notes  = s.properties.Notes?.rich_text?.[0]?.plain_text||''
+              const type   = s.properties.Type?.select?.name||''
+              const isCash = parsePaiement(s)==='cash'
+              return (
+                <div key={s.id} className="card" style={{ marginBottom:'8px', padding:'12px 14px' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'3px' }}>
+                        <span style={{ fontSize:'13px', fontWeight:600 }}>{date}</span>
+                        <PayBadge isCash={isCash} />
+                      </div>
+                      {notes && <div style={{ fontSize:'11px', color:'var(--txt3)' }}>{notes}</div>}
+                      {type && <div style={{ fontSize:'10px', color:'var(--txt3)', marginTop:'2px' }}>{type}</div>}
+                    </div>
+                    <div style={{ fontFamily:'var(--font-mono)', fontSize:'18px', fontWeight:600, color:ca>=156?'#1A8C5A':'var(--txt)' }}>
+                      {ca}€
+                    </div>
+                  </div>
+                </div>
+              )
+            })
+          }
+        </div>
+      )}
+
+      {/* ── CHARGES ─────────────────────────────────── */}
+      {!loading && tab==='charges' && (
+        <div>
+          {/* Synthèse */}
+          <div className="card" style={{ marginBottom:'14px', padding:'14px' }}>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', textAlign:'center' }}>
+              {[
+                { l:'Total charges', v:fmt(totalDep+FIXES), c:'#C0392B' },
+                { l:'Dépenses saisies', v:fmt(totalDep), c:'var(--txt)' },
+                { l:'IVA récup.', v:fmt(totalIvaRecup), c:'#1A8C5A' },
+              ].map(x=>(
+                <div key={x.l} style={{ padding:'8px', background:'var(--bg)', borderRadius:'var(--r)' }}>
+                  <div style={{ fontSize:'9px', color:'var(--txt3)', textTransform:'uppercase', marginBottom:'4px', lineHeight:1.3 }}>{x.l}</div>
+                  <div style={{ fontFamily:'var(--font-mono)', fontSize:'16px', fontWeight:500, color:x.c }}>{x.v}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Fixes */}
+          <div className="card" style={{ marginBottom:'10px' }}>
+            <div style={{ fontSize:'10px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', fontWeight:600, marginBottom:'8px' }}>Charges fixes (mensuelles)</div>
+            {[{l:'Loyer studio TTC',v:'867€'},{l:'RETA Tony',v:'89€'}].map(r=>(
+              <div key={r.l} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid var(--border)', fontSize:'13px' }}>
+                <span style={{ color:'var(--txt2)' }}>{r.l}</span>
+                <span style={{ fontFamily:'var(--font-mono)', color:'#C0392B' }}>-{r.v}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Par catégorie */}
+          {Object.keys(catDep).length > 0 && (
+            <div className="card" style={{ marginBottom:'10px' }}>
+              <div style={{ fontSize:'10px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', fontWeight:600, marginBottom:'8px' }}>Par catégorie</div>
+              {Object.entries(catDep).sort(([,a],[,b])=>b-a).map(([cat,val])=>(
+                <div key={cat} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid var(--border)', fontSize:'13px', alignItems:'center' }}>
+                  <span style={{ color:'var(--txt2)' }}>{cat}</span>
+                  <span style={{ fontFamily:'var(--font-mono)', color:'#C0392B' }}>-{fmt(val)}</span>
+                </div>
+              ))}
             </div>
           )}
-        </div>
-      )}
 
-      {/* SIMULATEUR */}
-      {tab === 'simulateur' && (
-        <div>
-          <div className="form-group">
-            <label>CA Tony ce mois (€ HT)</label>
-            <input type="number" placeholder="3895" value={caInput}
-              onChange={e=>setCaInput(e.target.value)}
-              style={{ fontSize:'22px', textAlign:'center', fontFamily:'var(--font-mono)' }} />
-          </div>
-          <PLSimulateur ca={parseFloat(caInput)||3895} />
-        </div>
-      )}
-
-      {/* CHARGES */}
-      {tab === 'charges' && (
-        <div>
-          <div className="card" style={{ marginBottom:'12px' }}>
-            <div style={{ fontSize:'12px', color:'var(--gris)', lineHeight:1.8 }}>
-              <strong style={{ color:'var(--rouge)' }}>Fixes (dues même à 0 CA) :</strong> loyer 867€ + RETA 89€ = <strong style={{ color:'var(--pierre)' }}>956€/mois</strong><br/>
-              <strong style={{ color:'var(--gris)' }}>Variables :</strong> matériel ~8% du CA
-            </div>
-          </div>
-          <div className="card">
-            <div className="section-title">Net selon panier (Tony seul, IRPF+IVA)</div>
-            {[100,123,150,156,200,234,250,300,350,400].map(pm=>{
-              const r=calcNet(pm*25)
-              const icon=r.dispo>=PROV_MOIS?'✅':r.dispo>=0?'🟡':'🔴'
+          {/* Liste dépenses */}
+          <div className="section-title">Toutes les dépenses</div>
+          {depM.length === 0
+            ? <div style={{ textAlign:'center', padding:'30px 0', color:'var(--txt3)', fontSize:'13px' }}>Aucune dépense enregistrée</div>
+            : depM.sort((a,b)=>(b.properties.Date?.date?.start||'').localeCompare(a.properties.Date?.date?.start||'')).map(d => {
+              const m2  = d.properties.Montant?.number||0
+              const cat = d.properties.Catégorie?.select?.name||''
+              const date= d.properties.Date?.date?.start||''
+              const four= d.properties.Fournisseur?.rich_text?.[0]?.plain_text||''
+              const ivaR= d.properties['IVA récupérable']?.checkbox
+              const ivaM= d.properties['Montant IVA']?.number||0
+              const par = d.properties['Saisi par']?.select?.name||''
               return (
-                <div key={pm} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid var(--noir3)', alignItems:'center' }}>
-                  <div>
-                    <span style={{ fontFamily:'var(--font-mono)', fontSize:'13px' }}>{pm}€/j</span>
-                    {pm===156&&<span style={{ fontSize:'9px', color:'var(--jaune)', marginLeft:'6px' }}>équil.</span>}
-                    {pm===234&&<span style={{ fontSize:'9px', color:'var(--pierre)', marginLeft:'6px' }}>hiver</span>}
+                <div key={d.id} className="card" style={{ marginBottom:'8px', padding:'12px 14px' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'3px', flexWrap:'wrap' }}>
+                        <span style={{ fontSize:'12px', fontWeight:600 }}>{date}</span>
+                        <span style={{ fontSize:'10px', padding:'2px 6px', borderRadius:'6px', background:'var(--bg2)', color:'var(--txt3)', fontWeight:600 }}>{cat.replace(/^[^\s]+ /,'')}</span>
+                        {par && <span style={{ fontSize:'10px', color:'var(--txt3)' }}>{par}</span>}
+                      </div>
+                      {four && <div style={{ fontSize:'11px', color:'var(--txt2)' }}>{four}</div>}
+                      {ivaR && <div style={{ fontSize:'10px', color:'#1A8C5A', marginTop:'2px' }}>IVA récup. {fmt(ivaM)}</div>}
+                    </div>
+                    <div style={{ fontFamily:'var(--font-mono)', fontSize:'16px', fontWeight:600, color:'#C0392B', flexShrink:0, marginLeft:'12px' }}>
+                      -{fmt(m2)}
+                    </div>
                   </div>
-                  <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
-                    <span style={{ fontFamily:'var(--font-mono)', fontSize:'12px', color:r.dispo>=0?'var(--vert)':'var(--rouge)' }}>
-                      {r.dispo>=0?'+':''}{Math.round(r.dispo)}€
-                    </span>
-                    <span>{icon}</span>
+                </div>
+              )
+            })
+          }
+        </div>
+      )}
+
+      {/* ── FISCAL ──────────────────────────────────── */}
+      {!loading && tab==='fiscal' && (
+        <div>
+          {/* IVA */}
+          <div className="card" style={{ marginBottom:'14px' }}>
+            <div style={{ fontSize:'10px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', fontWeight:600, marginBottom:'10px' }}>Tableau IVA</div>
+            {[
+              { l:'IVA collectée (CA × 21%)', v:fmt(ivaCollectee), c:'#C0392B' },
+              { l:'IVA récupérable (loyer + charges)', v:`-${fmt(ivaRecuperee)}`, c:'#1A8C5A' },
+              { l:'IVA nette à reverser', v:fmt(ivaARegler), c:'#D4820A', bold:true },
+              { l:'IVA trimestrielle estimée (×3)', v:fmt(ivaARegler*3), c:'#D4820A', bold:true },
+            ].map(r=>(
+              <div key={r.l} style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid var(--border)' }}>
+                <span style={{ fontSize:'12px', color:'var(--txt2)' }}>{r.l}</span>
+                <span style={{ fontFamily:'var(--font-mono)', fontSize:r.bold?'15px':'13px', fontWeight:r.bold?700:400, color:r.c }}>{r.v}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* IRPF */}
+          <div className="card" style={{ marginBottom:'14px' }}>
+            <div style={{ fontSize:'10px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', fontWeight:600, marginBottom:'10px' }}>IRPF — Modelo 130</div>
+            {[
+              { l:'Bénéfice brut', v:fmt(fin.ben) },
+              { l:'IRPF mensuel (20%)', v:fmt(fin.irpf), bold:true, c:'#D4820A' },
+              { l:'IRPF trimestriel (×3)', v:fmt(fin.irpf*3), bold:true, c:'#D4820A' },
+            ].map(r=>(
+              <div key={r.l} style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid var(--border)' }}>
+                <span style={{ fontSize:'12px', color:'var(--txt2)' }}>{r.l}</span>
+                <span style={{ fontFamily:'var(--font-mono)', fontSize:r.bold?'15px':'13px', fontWeight:r.bold?700:400, color:r.c||'var(--txt)' }}>{r.v}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Échéances */}
+          <div className="card">
+            <div style={{ fontSize:'10px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', fontWeight:600, marginBottom:'10px' }}>Échéances 2026</div>
+            {[
+              { d:'2026-07-20', l:'Modelo 303 + 130 — T2', p:'Avr-Juin 2026' },
+              { d:'2026-10-20', l:'Modelo 303 + 130 — T3', p:'Jul-Sep 2026' },
+              { d:'2027-01-30', l:'Modelo 303 + 130 — T4', p:'Oct-Déc 2026' },
+              { d:'2026-10-31', l:'Renta IRPF 2025', p:'Déclaration annuelle' },
+            ].map((e,i)=>{
+              const days=Math.round((new Date(e.d)-new Date())/86400000)
+              const isPast=days<0
+              const isUrgent=days>=0&&days<=30
+              return (
+                <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid var(--border)' }}>
+                  <div>
+                    <div style={{ fontSize:'12px', fontWeight:600, color:isPast?'var(--txt3)':'var(--txt)' }}>{e.l}</div>
+                    <div style={{ fontSize:'10px', color:'var(--txt3)', marginTop:'1px' }}>{e.p}</div>
+                  </div>
+                  <div style={{ textAlign:'right' }}>
+                    <div style={{ fontSize:'11px', fontFamily:'var(--font-mono)', color:isPast?'var(--txt3)':'var(--txt2)' }}>
+                      {new Date(e.d).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}
+                    </div>
+                    <div style={{ fontSize:'10px', fontWeight:600, marginTop:'2px',
+                      color:isPast?'var(--txt3)':days<=14?'#C0392B':isUrgent?'#D4820A':'#1A8C5A' }}>
+                      {isPast?'Passé':days===0?"Aujourd'hui !":`J-${days}`}
+                    </div>
                   </div>
                 </div>
               )
             })}
-          </div>
-        </div>
-      )}
-
-      {/* FISCAL */}
-      {tab === 'fiscal' && (
-        <div>
-          <div className="section-title">Échéances 2026</div>
-          {[{p:'T2 (avr-juin)',d:'20 juillet'},{p:'T3 (juil-sept)',d:'20 octobre'},{p:'T4 (oct-déc)',d:'30 janv. 2027'}].map((t,i)=>(
-            <div key={i} className="card" style={{ marginBottom:'8px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <div>
-                <div style={{ fontSize:'12px', fontWeight:600 }}>Modelo 303 + 130</div>
-                <div style={{ fontSize:'11px', color:'var(--gris)', marginTop:'2px' }}>{t.p}</div>
-              </div>
-              <span className="tag tag-warn">{t.d}</span>
-            </div>
-          ))}
-          <div className="card" style={{ marginTop:'8px' }}>
-            <div className="section-title">Hiver (déc+jan = 0€ CA)</div>
-            <div style={{ fontSize:'13px', color:'var(--gris)', lineHeight:1.9 }}>
-              Loyer 867€ + RETA 89€ + ménage 1 500€<br/>
-              = <strong style={{ color:'var(--rouge)' }}>2 456€/mois × 2 = 4 912€</strong><br/>
-              Réserve à constituer : <strong style={{ color:'var(--pierre)' }}>5 285€</strong><br/>
-              Mettre de côté en été : <strong style={{ color:'var(--pierre)' }}>1 057€/mois</strong>
-            </div>
           </div>
         </div>
       )}
