@@ -370,16 +370,20 @@ export default function TonyDashboard({ onLogout }) {
         const isCash = !title.includes('[CARTE]')
         const ok = ca >= OBJ_JOUR
         return (
-          <div key={s.id} className="card" style={{ marginBottom:'8px', display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 14px' }}>
+          <div key={s.id} className="card" onClick={()=>{ setEditing({ id:s.id, ca:String(ca), paiement:isCash?'cash':'carte', date:date||todayStr(), notes }); setTab('edit') }}
+            style={{ marginBottom:'8px', display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 14px', cursor:'pointer', activeOpacity:0.7 }}>
             <div>
               <div style={{ fontSize:'12px', color:'var(--gris)' }}>{date}</div>
               {notes && <div style={{ fontSize:'11px', color:'var(--gris2)', marginTop:'2px', maxWidth:'180px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{notes}</div>}
             </div>
-            <div style={{ display:'flex', alignItems:'center', gap:'8px', flexDirection:'column', alignItems:'flex-end' }}>
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'4px' }}>
               <span style={{ fontFamily:'var(--font-mono)', fontSize:'16px', color:ok?'var(--vert)':'var(--pierre)' }}>{ca}€</span>
-              <span style={{ fontSize:'9px', padding:'2px 5px', borderRadius:'8px', background:isCash?'rgba(39,174,96,.2)':'rgba(41,128,185,.2)', color:isCash?'#2ecc71':'#5dade2' }}>
-                {isCash?'CASH':'CARTE'}
-              </span>
+              <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                <span style={{ fontSize:'9px', padding:'2px 5px', borderRadius:'8px', background:isCash?'rgba(39,174,96,.2)':'rgba(41,128,185,.2)', color:isCash?'#2ecc71':'#5dade2' }}>
+                  {isCash?'CASH':'CARTE'}
+                </span>
+                <span style={{ fontSize:'11px', color:'var(--gris2)' }}>✏️</span>
+              </div>
             </div>
           </div>
         )
@@ -417,33 +421,68 @@ export default function TonyDashboard({ onLogout }) {
         <button onClick={load} style={{ background:'none', border:'none', color:'var(--gris)', fontSize:'18px', cursor:'pointer' }}>↻</button>
       </div>
 
-      {/* Statut équilibre */}
-      <div className="card" style={{ marginBottom:'14px', borderColor:r.net>=PERSO+PROV_MOIS?'var(--epine2)':r.net>=PERSO?'rgba(186,117,23,.4)':'rgba(192,57,43,.4)' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
-          <div style={{ fontSize:'11px', color:'var(--gris)', textTransform:'uppercase', letterSpacing:'1px' }}>Statut du mois</div>
+      {/* Statut équilibre + jauge */}
+      <div className="card" style={{ marginBottom:'14px' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px' }}>
+          <div style={{ fontSize:'11px', color:'var(--gris)', textTransform:'uppercase', letterSpacing:'1px' }}>CA du mois</div>
           <span style={{ fontSize:'20px' }}>{status}</span>
         </div>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px' }}>
+
+        {/* Chiffres aujourd'hui / mois */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px', marginBottom:'14px' }}>
           <div style={{ textAlign:'center', padding:'8px', background:'var(--noir3)', borderRadius:'var(--r)' }}>
             <div style={{ fontSize:'9px', color:'var(--gris)', textTransform:'uppercase', marginBottom:'3px' }}>Aujourd'hui</div>
-            <div style={{ fontFamily:'var(--font-mono)', fontSize:'18px', color:caJour>=OBJ_JOUR?'var(--vert)':caJour>0?'var(--pierre)':'var(--gris2)' }}>
+            <div style={{ fontFamily:'var(--font-mono)', fontSize:'20px', color:caJour>=OBJ_JOUR?'var(--vert)':caJour>0?'var(--pierre)':'var(--gris2)' }}>
               {caJour > 0 ? caJour+'€' : '—'}
             </div>
           </div>
           <div style={{ textAlign:'center', padding:'8px', background:'var(--noir3)', borderRadius:'var(--r)' }}>
             <div style={{ fontSize:'9px', color:'var(--gris)', textTransform:'uppercase', marginBottom:'3px' }}>Ce mois</div>
-            <div style={{ fontFamily:'var(--font-mono)', fontSize:'18px', color:caMois>=3895?'var(--vert)':caMois>0?'var(--pierre)':'var(--gris2)' }}>
+            <div style={{ fontFamily:'var(--font-mono)', fontSize:'20px', color:caMois>=5850?'var(--vert)':caMois>=3895?'var(--jaune)':caMois>0?'var(--pierre)':'var(--gris2)' }}>
               {caMois > 0 ? fmtE(caMois) : '—'}
             </div>
           </div>
         </div>
-        {/* Barre équilibre */}
-        <div style={{ height:'5px', background:'var(--noir3)', borderRadius:'3px', overflow:'hidden', marginBottom:'4px' }}>
-          <div style={{ height:'100%', width:Math.min(100,(caMois/3895)*100)+'%', background:caMois>=3895?'var(--vert)':'var(--pierre)', borderRadius:'3px', transition:'width .5s' }} />
-        </div>
-        <div style={{ fontSize:'10px', color:'var(--gris2)' }}>
-          {Math.round((caMois/3895)*100)}% de l'équilibre mensuel (3 895€ · 156€/j)
-        </div>
+
+        {/* Jauge avec 3 seuils */}
+        {(() => {
+          const MAX = 8000
+          const pct = v => Math.min(100, Math.round((v/MAX)*100))
+          const cur = pct(caMois)
+          const eq  = pct(3895)
+          const hiv = pct(5850)
+          const conf= pct(7500)
+          const barColor = caMois >= 5850 ? '#1D9E75' : caMois >= 3895 ? '#BA7517' : '#E24B4A'
+          return (
+            <div>
+              <div style={{ position:'relative', height:'28px', marginBottom:'4px' }}>
+                {/* Barre fond */}
+                <div style={{ position:'absolute', top:'50%', transform:'translateY(-50%)', left:0, right:0, height:'8px', background:'var(--noir3)', borderRadius:'4px', overflow:'hidden' }}>
+                  <div style={{ height:'100%', width:cur+'%', background:barColor, borderRadius:'4px', transition:'width .6s ease' }} />
+                </div>
+                {/* Marqueurs */}
+                {[{v:eq, label:'156€/j', color:'var(--jaune)'}, {v:hiv, label:'234€/j', color:'var(--pierre)'}, {v:conf, label:'300€/j', color:'var(--vert)'}].map(m=>(
+                  <div key={m.label} style={{ position:'absolute', left:m.v+'%', top:0, transform:'translateX(-50%)' }}>
+                    <div style={{ width:'2px', height:'28px', background:m.color, opacity:0.7, margin:'0 auto' }} />
+                  </div>
+                ))}
+              </div>
+              {/* Labels */}
+              <div style={{ position:'relative', height:'16px' }}>
+                {[{v:eq, label:'Équil.', color:'var(--jaune)'}, {v:hiv, label:'Hiver', color:'var(--pierre)'}, {v:conf, label:'Confort', color:'var(--vert)'}].map(m=>(
+                  <div key={m.label} style={{ position:'absolute', left:m.v+'%', transform:'translateX(-50%)', fontSize:'9px', color:m.color, textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px', fontWeight:600 }}>
+                    {m.label}
+                  </div>
+                ))}
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between', marginTop:'6px', fontSize:'9px', color:'var(--gris2)' }}>
+                <span>0€</span>
+                <span style={{ fontFamily:'var(--font-mono)', color:barColor, fontWeight:600 }}>{caMois > 0 ? fmtE(caMois) : '—'}</span>
+                <span>8k€</span>
+              </div>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Impôts du mois */}
