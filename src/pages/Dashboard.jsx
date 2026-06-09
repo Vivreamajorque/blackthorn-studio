@@ -107,7 +107,17 @@ export default function Dashboard() {
   // ── VISION ANNUELLE
   const caAnnee = sessConf.reduce((a,s)=>{const d=s.properties.Date?.date?.start||''; return d?a+(s.properties.Prix?.number||0):a},0)
   const curMIdx = MKEYS.indexOf(m)
-  const cibleDate = curMIdx>=0 ? PM_MOIS.slice(0,curMIdx+1).reduce((a,[pm,j])=>a+pm*j/25,0) : 0
+
+  // Cible proratisée : mois passés en entier + mois courant au prorata du jour
+  const today_d  = new Date()
+  const daysInM  = new Date(today_d.getFullYear(), today_d.getMonth()+1, 0).getDate()
+  const dayOfM   = today_d.getDate()
+  const ratioM   = dayOfM / daysInM  // ex: 9/30 = 0.30 le 9 juin
+
+  const cibleDate = curMIdx>=0
+    ? PM_MOIS.slice(0, curMIdx).reduce((a,[pm,j])=>a+pm*j/25, 0)          // mois passés entiers
+      + PM_MOIS[curMIdx][0] * PM_MOIS[curMIdx][1] / 25 * ratioM           // mois courant proraté
+    : 0
   const caByM = {}
   sessConf.forEach(s=>{const d=s.properties.Date?.date?.start||''; if(d){const mk=d.substring(0,7); caByM[mk]=(caByM[mk]||0)+(s.properties.Prix?.number||0)}})
   const prevByM = {}
@@ -391,7 +401,7 @@ export default function Dashboard() {
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'6px',marginTop:'10px'}}>
               {[
                 {l:'CA cumulé',v:fmt(caAnnee),c:'var(--txt)'},
-                {l:'Cible à date',v:fmt(cibleDate),c:caAnnee>=cibleDate?'var(--green)':'var(--red)'},
+                {l:'Cible J-'+new Date().getDate(),v:fmt(cibleDate),c:caAnnee>=cibleDate?'var(--green)':'var(--red)'},
                 {l:'Avance/retard',v:fmt(caAnnee-cibleDate),c:caAnnee>=cibleDate?'var(--green)':'var(--red)'},
               ].map(x=>(
                 <div key={x.l} style={{textAlign:'center',padding:'6px 4px',background:'var(--bg)',borderRadius:'var(--r)'}}>
