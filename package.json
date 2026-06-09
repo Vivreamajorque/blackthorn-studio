@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node inject-sw-version.cjs && vite build",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -1,0 +1,5 @@
+const fs = require('fs')
+const ts = Date.now()
+const sw = fs.readFileSync('public/sw.js', 'utf8').replace('__BUILD__', ts)
+fs.writeFileSync('public/sw.js', sw)
+console.log(`SW version: blackthorn-${ts}`)

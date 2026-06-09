@@ -9,6 +9,69 @@ import Communication  from './pages/Communication'
 const PIN_AMELY = import.meta.env.VITE_APP_PIN  || '2026'
 const PIN_TONY  = import.meta.env.VITE_TONY_PIN || '1111'
 
+
+function UpdateBanner() {
+  const [waiting, setWaiting] = React.useState(null)
+  const [visible, setVisible] = React.useState(false)
+
+  React.useEffect(() => {
+    const handler = (e) => {
+      setWaiting(e.detail)
+      setVisible(true)
+    }
+    window.addEventListener('sw-update', handler)
+    return () => window.removeEventListener('sw-update', handler)
+  }, [])
+
+  const doUpdate = () => {
+    if (waiting) {
+      waiting.postMessage('skipWaiting')
+    } else {
+      window.location.reload()
+    }
+    setVisible(false)
+  }
+
+  if (!visible) return null
+
+  return (
+    <div style={{
+      position:'fixed', top:0, left:0, right:0, zIndex:9999,
+      background:'#1A1209', color:'#F8F5F0',
+      display:'flex', alignItems:'center', justifyContent:'space-between',
+      padding:'12px 16px',
+      boxShadow:'0 4px 20px rgba(26,18,9,.4)',
+      animation:'bannerSlide .3s cubic-bezier(.32,0,.15,1)'
+    }}>
+      <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+        <span style={{fontSize:'16px'}}>🆕</span>
+        <div>
+          <div style={{fontSize:'13px',fontWeight:700,fontFamily:'var(--font-head)',letterSpacing:'-.2px'}}>
+            Mise à jour disponible
+          </div>
+          <div style={{fontSize:'11px',color:'rgba(248,245,240,.55)',marginTop:'1px'}}>
+            Une nouvelle version est prête
+          </div>
+        </div>
+      </div>
+      <div style={{display:'flex',gap:'8px',flexShrink:0}}>
+        <button onClick={()=>setVisible(false)} style={{
+          padding:'6px 12px', borderRadius:'8px', fontSize:'12px',
+          background:'transparent', border:'1px solid rgba(248,245,240,.2)',
+          color:'rgba(248,245,240,.55)', cursor:'pointer', fontFamily:'var(--font-head)', fontWeight:600
+        }}>Plus tard</button>
+        <button onClick={doUpdate} style={{
+          padding:'6px 14px', borderRadius:'8px', fontSize:'12px',
+          background:'#C4A882', border:'none',
+          color:'#1A1209', cursor:'pointer', fontFamily:'var(--font-head)', fontWeight:700,
+          boxShadow:'0 2px 8px rgba(196,168,130,.4)'
+        }}>Mettre à jour</button>
+      </div>
+      <style>{`@keyframes bannerSlide{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
+    </div>
+  )
+}
+
 function PinScreen({ onUnlock }) {
   const [digits, setDigits] = useState([])
   const [shake,  setShake]  = useState(false)
@@ -107,10 +170,12 @@ export default function App() {
   const unlock = (r) => { sessionStorage.setItem('bt_role', r); setRole(r) }
   const logout = () => { sessionStorage.removeItem('bt_role'); setRole(null) }
 
-  if (!role) return <PinScreen onUnlock={unlock} />
-  if (role === 'tony') return <TonyDashboard onLogout={logout} />
+  if (!role) return <><UpdateBanner /><PinScreen onUnlock={unlock} /></>
+  if (role === 'tony') return <><UpdateBanner /><TonyDashboard onLogout={logout} /></>
 
   return (
+    <>
+    <UpdateBanner />
     <div style={{ paddingBottom:'72px' }}>
       <Routes>
           <Route path="/"          element={<Dashboard />} />
@@ -120,5 +185,6 @@ export default function App() {
       </Routes>
       <NavBar onLogout={logout}/>
     </div>
+    </>
   )
 }
