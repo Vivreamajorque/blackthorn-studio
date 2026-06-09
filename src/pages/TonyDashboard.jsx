@@ -86,7 +86,7 @@ export default function TonyDashboard({ onLogout }) {
   const [analyzing,setAnalyzing]= useState(false)
   const [uploading,setUploading]= useState(false)
   // RDV
-  const [rdvForm,  setRdvForm]  = useState({ client:'', style:'', prixEstime:'', sessions:'1', acompte:'0', natio:'🇫🇷 FR', source:'📸 Instagram', date:'', heure:'', duree:'120' })
+  const [rdvForm,  setRdvForm]  = useState({ client:'', style:'', prixEstime:'', sessions:'1', acompte:'0', natio:'🇫🇷 FR', source:'📸 Instagram', date:'', heure:'10:00', duree:'120' })
   const [rdvSaving,setRdvSaving]= useState(false)
   const [confirming,setConfirming] = useState(null)
   const [editRdv,  setEditRdv]    = useState(null)   // RDV prévu à modifier
@@ -207,7 +207,7 @@ export default function TonyDashboard({ onLogout }) {
     try {
       await notion.addAppointment({...rdvForm, sessions:parseInt(rdvForm.sessions)||1, heureFin:heureFin(rdvForm.heure,rdvForm.duree)})
       showToast('📅 RDV enregistré')
-      setRdvForm({client:'',style:'',prixEstime:'',acompte:'0',natio:'🇫🇷 FR',date:''})
+      setRdvForm({client:'',style:'',prixEstime:'',sessions:'1',acompte:'0',natio:'🇫🇷 FR',source:'📸 Instagram',date:'',heure:'10:00',duree:'120'})
       setTab('home'); load()
     } catch(e) { showToast('Erreur — réessaie') }
     setRdvSaving(false)

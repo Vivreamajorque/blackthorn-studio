@@ -261,13 +261,14 @@ export default function Planning({ onBack, onEditRdv }) {
                   return (
                     <div key={s.id} style={{ marginLeft:'46px', marginBottom:'8px' }}>
                       <div className="card" style={{ padding:'12px 14px', borderLeft:`3px solid ${isPast?'var(--red)':isToday?'var(--gold)':'var(--pierre)'}`, boxShadow:isToday?'var(--shadow)':'var(--shadow-sm)' }}>
-                        {/* Heure — grand et visible */}
-                        {heure && (
-                          <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'8px' }}>
-                            <span style={{ fontFamily:'var(--font-mono)', fontSize:'22px', fontWeight:600, color:'var(--txt)', letterSpacing:'-0.5px' }}>{heure}</span>
-                            {isPast && <span style={{ fontSize:'9px', padding:'2px 8px', background:'var(--red-bg)', color:'var(--red)', borderRadius:'10px', fontWeight:700, letterSpacing:'.5px' }}>À VALIDER</span>}
-                          </div>
-                        )}
+                        {/* Heure — toujours visible */}
+                        <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'8px' }}>
+                          {heure
+                            ? <span style={{ fontFamily:'var(--font-mono)', fontSize:'24px', fontWeight:700, color:'var(--txt)', letterSpacing:'-0.5px' }}>{heure}</span>
+                            : <span style={{ fontFamily:'var(--font-mono)', fontSize:'16px', fontWeight:600, color:'var(--amber)', background:'rgba(212,130,10,.08)', padding:'3px 10px', borderRadius:'8px', border:'1px dashed var(--amber)' }}>⏰ Heure ?</span>
+                          }
+                          {isPast && <span style={{ fontSize:'9px', padding:'2px 8px', background:'var(--red-bg)', color:'var(--red)', borderRadius:'10px', fontWeight:700, letterSpacing:'.5px' }}>À VALIDER</span>}
+                        </div>
                         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'8px' }}>
                           <div style={{ flex:1 }}>
                             {!heure && isPast && <div style={{ marginBottom:'4px' }}><span style={{ fontSize:'9px', padding:'2px 8px', background:'var(--red-bg)', color:'var(--red)', borderRadius:'10px', fontWeight:700 }}>À VALIDER</span></div>}
