@@ -154,7 +154,7 @@ export default function TonyDashboard({ onLogout }) {
   const panier   = totalSessM>0 ? Math.round(caMois/totalSessM) : 0
 
   const r = netReel(caMois)
-  const OBJ_SEM = Math.round(OBJ_HIV/4.3)
+  const OBJ_SEM = Math.round(OBJ_CONF/4.3)
   const colSem  = caSem>=OBJ_SEM?'#1A8C5A':caSem>=OBJ_SEM*0.6?'#D4820A':'#C0392B'
   const colMois = caMois>=OBJ_CONF?'var(--green)':caMois>=OBJ_EQ?'var(--amber)':'var(--red)'
   const pctConfort = Math.round(caMois/OBJ_CONF*100)
@@ -861,14 +861,14 @@ export default function TonyDashboard({ onLogout }) {
               <div className="card" style={{marginBottom:'8px',padding:'14px'}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
                   <div style={{fontSize:'10px',color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1.5px',fontWeight:600}}>
-                    {new Date().toLocaleDateString('fr-FR',{month:'long'})} — objectif hiver
+                    {new Date().toLocaleDateString('fr-FR',{month:'long'})} — objectif confort
                   </div>
-                  <span style={{fontSize:'11px',fontFamily:'var(--font-mono)',color:'var(--txt3)'}}>{fmt(OBJ_HIV)}</span>
+                  <span style={{fontSize:'11px',fontFamily:'var(--font-mono)',color:'var(--txt3)'}}>{fmt(OBJ_CONF)}</span>
                 </div>
                 {/* Barre double */}
                 <div style={{position:'relative',height:'12px',background:'var(--bg2)',borderRadius:'6px',overflow:'hidden',marginBottom:'8px'}}>
                   {pctPrev>0&&<div style={{position:'absolute',left:pctConf+'%',top:0,bottom:0,width:pctPrev+'%',background:'rgba(41,128,185,.35)',backgroundImage:'repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(255,255,255,.3) 3px,rgba(255,255,255,.3) 6px)'}}/>}
-                  <div style={{position:'absolute',left:0,top:0,bottom:0,width:pctConf+'%',background:caMois>=OBJ_HIV?'#1A8C5A':caMois>=3895?'#D4820A':'#C0392B',borderRadius:'6px',transition:'width .5s'}}/>
+                  <div style={{position:'absolute',left:0,top:0,bottom:0,width:pctConf+'%',background:caMois>=OBJ_CONF?'var(--green)':caMois>=OBJ_EQ?'var(--amber)':'var(--red)',borderRadius:'6px',transition:'width .5s'}}/>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'6px',marginBottom:'10px'}}>
                   {[
@@ -884,7 +884,7 @@ export default function TonyDashboard({ onLogout }) {
                 </div>
                 <div style={{padding:'7px 10px',borderRadius:'var(--r)',background:depasse?'rgba(26,140,90,.08)':'rgba(192,57,43,.05)',borderLeft:`3px solid ${depasse?'#1A8C5A':restant<1000?'#D4820A':'#C0392B'}`}}>
                   {depasse
-                    ? <span style={{fontSize:'12px',fontWeight:600,color:'#1A8C5A'}}>✅ Objectif hiver couvert — {fmt(totalPrevu-OBJ_HIV)} de marge</span>
+                    ? <span style={{fontSize:'12px',fontWeight:600,color:'var(--green)'}}>🎯 Objectif confort atteint — {fmt(totalPrevu-OBJ_CONF)} de marge !</span>
                     : <span style={{fontSize:'12px',fontWeight:600,color:restant<1000?'var(--amber)':'var(--red)'}}>{totalPrevu>=OBJ_EQ?`⚖️ À l'équilibre — ${Math.round(totalPrevu/OBJ_CONF*100)}% de l'objectif confort`:`📍 En retard — encore ${fmt(OBJ_EQ-totalPrevu)} pour l'équilibre`}{caPrevMois>0?` (+${fmt(caPrevMois)} planifié)`:''}</span>
                   }
                 </div>
@@ -943,7 +943,7 @@ export default function TonyDashboard({ onLogout }) {
               sub2={caSem>=OBJ_SEM?'✓ Objectif atteint':caSem>0?`encore ${fmt(OBJ_SEM-caSem)}`:null}/>
             <Arc pct={Math.min(100,Math.round(caMois/OBJ_CONF*100))} color={colMois} label="Mois"
               value={caMois>0?fmt(caMois):'—'} sub={caMois>0?`${Math.round(caMois/OBJ_CONF*100)}%`:null}
-              sub2={caMois>=OBJ_EQ?(caMois>=OBJ_HIV?'✓ Hiver couvert':'⚖️ Équilibre'):caMois>0?`encore ${fmt(OBJ_EQ-caMois)}`:null}/>
+              sub2={caMois>=OBJ_CONF?'🎯 Confort atteint':caMois>=OBJ_EQ?`⚖️ ${Math.round(caMois/OBJ_CONF*100)}% confort`:caMois>0?`encore ${fmt(OBJ_EQ-caMois)}`:null}/>
           </div>
           <div style={{padding:'10px 14px',background:msgMois.c+'15',borderRadius:'var(--r)',borderLeft:`3px solid ${msgMois.c}`}}>
             <span style={{fontSize:'12px',fontWeight:600,color:msgMois.c}}>{msgMois.icon} {msgMois.text}</span>
@@ -993,7 +993,7 @@ export default function TonyDashboard({ onLogout }) {
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
                 <div style={{fontSize:'10px',color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',fontWeight:600}}>Avancée mensuelle</div>
                 <div style={{display:'flex',gap:'10px',fontSize:'9px',color:'var(--txt3)'}}>
-                  {[{c:'#1A8C5A',l:'>5850€'},{c:'#D4820A',l:'3895-5850'},{c:'#C0392B',l:'<3895'},{c:'rgba(41,128,185,.25)',l:'Prévu'}].map(x=>(
+                  {[{c:'var(--green)',l:'>7500€'},{c:'var(--amber)',l:'3895-7500'},{c:'var(--red)',l:'<3895'},{c:'rgba(41,128,185,.25)',l:'Prévu'}].map(x=>(
                     <span key={x.l} style={{display:'flex',alignItems:'center',gap:'3px'}}>
                       <span style={{width:7,height:7,borderRadius:1,background:x.c,display:'inline-block',flexShrink:0}}/>
                       {x.l}
@@ -1005,8 +1005,8 @@ export default function TonyDashboard({ onLogout }) {
               {/* Ligne cible */}
               <div style={{position:'relative'}}>
                 <div style={{position:'relative',height:CHART_H,marginBottom:'2px'}}>
-                  {/* Ligne cible OBJ_HIV */}
-                  <div style={{position:'absolute',top:(1-(OBJ_HIV/MAX))*CHART_H+'px',left:0,right:0,height:'1px',background:'rgba(186,117,23,.4)',zIndex:2}}>
+                  {/* Ligne cible OBJ_CONF (confort) */}
+                  <div style={{position:'absolute',top:(1-(OBJ_CONF/MAX))*CHART_H+'px',left:0,right:0,height:'1px',background:'rgba(186,117,23,.4)',zIndex:2}}>
                     
                   </div>
                   {/* Ligne cible OBJ_EQ */}
