@@ -162,7 +162,10 @@ export default function Planning({ onBack }) {
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'16px 16px 12px' }}>
           <button onClick={onBack} style={{ background:'none', border:'none', color:'var(--txt3)', fontSize:'13px', fontWeight:600, cursor:'pointer', padding:'4px 0' }}>← Retour</button>
           <div style={{ fontFamily:'var(--font-head)', fontSize:'15px', fontWeight:800 }}>Planning</div>
+          <div style={{display:'flex',gap:'6px'}}>
+          <a href="https://calendar.google.com" target="_blank" rel="noopener noreferrer" style={{ width:30, height:30, borderRadius:'50%', background:'var(--gold-lt)', border:'1px solid var(--gold)', fontSize:'13px', color:'var(--gold-dk)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', textDecoration:'none' }} title="Ouvrir Google Calendar">📅</a>
           <button onClick={load} style={{ width:30, height:30, borderRadius:'50%', background:'var(--bg)', border:'1px solid var(--border2)', fontSize:'13px', color:'var(--txt3)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>↻</button>
+        </div>
         </div>
         {/* Navigation semaine */}
         <div style={{ display:'flex', alignItems:'center', gap:'8px', padding:'0 16px 12px' }}>

@@ -7,8 +7,8 @@ const MATOS    = 0.08
 const IVA_FL   = 150.47
 const PERSO    = 1500
 const OBJ_EQ   = 3895   // équilibre mensuel
-const OBJ_HIV  = 5850   // tenir hiver
-const OBJ_CONF = 7500   // confort
+const OBJ_CONF = 7500   // objectif confort (cible principale)
+const OBJ_HIV_OLD  = 5850   // palier intermédiaire (gardé pour le calcul réserve hiver)
 
 const netReel = (ca) => {
   const m = ca * MATOS, b = ca - FIXES - m
@@ -146,13 +146,13 @@ export default function Dashboard() {
 
   // Objectif atteint
   const statusObj = caTotal >= OBJ_CONF ? 'confort'
-                  : caTotal >= OBJ_HIV  ? 'hiver'
+                  : caTotal >= OBJ_HIV_OLD  ? 'hiver'
                   : caTotal >= OBJ_EQ   ? 'equil'
                   : 'below'
 
   const STATUS_CFG = {
     below: { icon:'🔴', color:'#E24B4A', bg:'rgba(226,75,74,.1)', label:'Pas encore à l\'équilibre', sub:`Encore ${fmt(OBJ_EQ - caTotal)} pour couvrir les charges` },
-    equil: { icon:'⚖️', color:'#E8A020', bg:'rgba(232,160,32,.1)', label:'À l\'équilibre', sub:`Encore ${fmt(OBJ_HIV - caTotal)} pour tenir l'hiver` },
+    equil: { icon:'⚖️', color:'#E8A020', bg:'rgba(232,160,32,.1)', label:'À l\'équilibre', sub:`Encore ${fmt(OBJ_HIV_OLD - caTotal)} pour tenir l'hiver` },
     hiver: { icon:'🌊', color:'#BA7517', bg:'rgba(186,117,23,.1)', label:'Vous tenez l\'hiver', sub:`Encore ${fmt(OBJ_CONF - caTotal)} pour être confortable` },
     confort:{ icon:'✅', color:'#1D9E75', bg:'rgba(29,158,117,.1)', label:'Vous êtes confortables', sub:`+${fmt(caTotal - OBJ_CONF)} au-dessus du confort` },
   }
@@ -181,7 +181,7 @@ export default function Dashboard() {
       {/* 3 chiffres clés */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'14px' }}>
         {[
-          { l:'Semaine', v:caSemaine, max:OBJ_HIV/4 },
+          { l:'Semaine', v:caSemaine, max:OBJ_HIV_OLD/4 },
           { l:'Mois',    v:caTotal,   max:OBJ_CONF },
           { l:'Année',   v:caAnnee,   max:47208 },
         ].map(({ l, v, max }) => (
@@ -204,8 +204,8 @@ export default function Dashboard() {
           {/* Zones colorées */}
           <div style={{ position:'absolute', inset:0, borderRadius:'6px', overflow:'hidden', display:'flex' }}>
             <div style={{ width:(OBJ_EQ/OBJ_CONF/1.2)*100+'%', background:'rgba(226,75,74,.2)' }} />
-            <div style={{ width:((OBJ_HIV-OBJ_EQ)/OBJ_CONF/1.2)*100+'%', background:'rgba(232,160,32,.2)' }} />
-            <div style={{ width:((OBJ_CONF-OBJ_HIV)/OBJ_CONF/1.2)*100+'%', background:'rgba(186,117,23,.2)' }} />
+            <div style={{ width:((OBJ_HIV_OLD-OBJ_EQ)/OBJ_CONF/1.2)*100+'%', background:'rgba(232,160,32,.2)' }} />
+            <div style={{ width:((OBJ_CONF-OBJ_HIV_OLD)/OBJ_CONF/1.2)*100+'%', background:'rgba(186,117,23,.2)' }} />
             <div style={{ flex:1, background:'rgba(29,158,117,.2)' }} />
           </div>
           {/* Remplissage actuel */}
@@ -213,7 +213,7 @@ export default function Dashboard() {
             <div style={{ height:'100%', width:Math.min(100,(caTotal/(OBJ_CONF*1.2))*100)+'%', background:st.color, opacity:0.85, transition:'width .6s ease' }} />
           </div>
           {/* Marqueurs */}
-          {[{v:OBJ_EQ,l:'Équil.'},{v:OBJ_HIV,l:'Hiver'},{v:OBJ_CONF,l:'Confort'}].map(mk=>(
+          {[{v:OBJ_EQ,l:'Équil.'},{v:OBJ_HIV_OLD,l:'Hiver'},{v:OBJ_CONF,l:'Confort'}].map(mk=>(
             <div key={mk.l} style={{ position:'absolute', top:0, bottom:0, left:(mk.v/(OBJ_CONF*1.2))*100+'%', width:'1px', background:'rgba(255,255,255,.3)', zIndex:2 }}>
               <div style={{ position:'absolute', top:'50%', left:'3px', transform:'translateY(-50%)', fontSize:'8px', color:'rgba(255,255,255,.6)', whiteSpace:'nowrap', fontWeight:600 }}>{mk.l}</div>
             </div>
@@ -382,7 +382,7 @@ export default function Dashboard() {
                   background:depasse?'rgba(26,140,90,.08)':'rgba(192,57,43,.05)',
                   borderLeft:`3px solid ${depasse?'#1A8C5A':restant<1000?'#D4820A':'#C0392B'}` }}>
                   {depasse ? (
-                    <span style={{ fontSize:'12px', fontWeight:600, color:'#1A8C5A' }}>✅ Objectif hiver couvert avec {fmt(totalPrevu-5850)} de marge</span>
+                    <span style={{ fontSize:'12px', fontWeight:600, color:'#1A8C5A' }}>✅ Objectif  avec {fmt(totalPrevu-5850)} de marge</span>
                   ) : (
                     <span style={{ fontSize:'12px', fontWeight:600, color:restant<1000?'#D4820A':'#C0392B' }}>
                       📍 Encore {fmt(restant)} à réaliser ce mois

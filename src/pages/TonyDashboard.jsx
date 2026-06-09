@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import Planning from './Planning'
 import { notion, parsePaiement, getNbSess } from '../lib/notion'
 
-const OBJ_EQ   = 3895
-const OBJ_HIV  = 5850
-const OBJ_CONF = 7500
+const OBJ_EQ   = 3895   // équilibre
+const OBJ_CONF = 7500   // objectif confort = cible principale
+const OBJ_HIV  = 5850   // palier intermédiaire (réserve hiver)
 const PERSO    = 1500
 const FIXES    = 956
 const IVA_FL   = 150.47
@@ -156,14 +156,13 @@ export default function TonyDashboard({ onLogout }) {
   const r = netReel(caMois)
   const OBJ_SEM = Math.round(OBJ_HIV/4.3)
   const colSem  = caSem>=OBJ_SEM?'#1A8C5A':caSem>=OBJ_SEM*0.6?'#D4820A':'#C0392B'
-  const colMois = caMois>=OBJ_CONF?'#1A8C5A':caMois>=OBJ_HIV?'#BA7517':caMois>=OBJ_EQ?'#D4820A':'#C0392B'
+  const colMois = caMois>=OBJ_CONF?'var(--green)':caMois>=OBJ_EQ?'var(--amber)':'var(--red)'
+  const pctConfort = Math.round(caMois/OBJ_CONF*100)
   const msgMois = caMois>=OBJ_CONF
-    ? {icon:'✅',text:'Confort atteint',c:'#1A8C5A'}
-    : caMois>=OBJ_HIV
-    ? {icon:'🌊',text:`Hiver couvert — encore ${fmt(OBJ_CONF-caMois)} pour le confort`,c:'#BA7517'}
+    ? {icon:'🎯',text:'Objectif confort atteint !',c:'var(--green)'}
     : caMois>=OBJ_EQ
-    ? {icon:'⚖️',text:`Équilibre — encore ${fmt(OBJ_HIV-caMois)} pour tenir l'hiver`,c:'#D4820A'}
-    : {icon:'📍',text:`Encore ${fmt(OBJ_EQ-caMois)} pour l'équilibre`,c:'#C0392B'}
+    ? {icon:'⚖️',text:`À l'équilibre — ${pctConfort}% de l'objectif confort`,c:'var(--amber)'}
+    : {icon:'📍',text:`En retard — encore ${fmt(OBJ_EQ-caMois)} pour l'équilibre`,c:'var(--red)'}
 
   // CA prévisionnel (RDV planifiés)
   const caPrevMois = sessPrevu.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m)).reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
@@ -834,10 +833,10 @@ export default function TonyDashboard({ onLogout }) {
         {(()=>{
           // Mois courant
           const totalPrevu   = caMois + caPrevMois
-          const restant      = Math.max(0, OBJ_HIV - totalPrevu)
-          const pctConf      = Math.min(100, (caMois   / OBJ_HIV) * 100)
-          const pctPrev      = Math.min(100 - pctConf, (caPrevMois / OBJ_HIV) * 100)
-          const depasse      = totalPrevu >= OBJ_HIV
+          const restant      = Math.max(0, OBJ_CONF - totalPrevu)
+          const pctConf      = Math.min(100, (caMois   / OBJ_CONF) * 100)
+          const pctPrev      = Math.min(100 - pctConf, (caPrevMois / OBJ_CONF) * 100)
+          const depasse      = totalPrevu >= OBJ_CONF
 
           // Prévisionnel mois futurs
           const futMonths = (() => {
@@ -886,7 +885,7 @@ export default function TonyDashboard({ onLogout }) {
                 <div style={{padding:'7px 10px',borderRadius:'var(--r)',background:depasse?'rgba(26,140,90,.08)':'rgba(192,57,43,.05)',borderLeft:`3px solid ${depasse?'#1A8C5A':restant<1000?'#D4820A':'#C0392B'}`}}>
                   {depasse
                     ? <span style={{fontSize:'12px',fontWeight:600,color:'#1A8C5A'}}>✅ Objectif hiver couvert — {fmt(totalPrevu-OBJ_HIV)} de marge</span>
-                    : <span style={{fontSize:'12px',fontWeight:600,color:restant<1000?'#D4820A':'#C0392B'}}>📍 Encore {fmt(restant)} à réaliser{caPrevMois>0?` (${fmt(caPrevMois)} planifié)`:''}</span>
+                    : <span style={{fontSize:'12px',fontWeight:600,color:restant<1000?'var(--amber)':'var(--red)'}}>{totalPrevu>=OBJ_EQ?`⚖️ À l'équilibre — ${Math.round(totalPrevu/OBJ_CONF*100)}% de l'objectif confort`:`📍 En retard — encore ${fmt(OBJ_EQ-totalPrevu)} pour l'équilibre`}{caPrevMois>0?` (+${fmt(caPrevMois)} planifié)`:''}</span>
                   }
                 </div>
               </div>
@@ -900,8 +899,8 @@ export default function TonyDashboard({ onLogout }) {
                   {futMonths.map(([mk, data]) => {
                     const [year, mo] = mk.split('-')
                     const label = `${MOIS_LABELS[mo]} ${year}`
-                    const pct = Math.min(100, (data.ca / OBJ_HIV) * 100)
-                    const col = data.ca >= OBJ_HIV ? '#1A8C5A' : data.ca >= OBJ_EQ ? '#D4820A' : '#2980B9'
+                    const pct = Math.min(100, (data.ca / OBJ_CONF) * 100)
+                    const col = data.ca >= OBJ_CONF ? 'var(--green)' : data.ca >= OBJ_EQ ? 'var(--amber)' : 'var(--blue)'
                     return (
                       <div key={mk} className="card" style={{marginBottom:'6px',padding:'12px 14px'}}>
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
@@ -916,7 +915,7 @@ export default function TonyDashboard({ onLogout }) {
                         </div>
                         <div style={{display:'flex',justifyContent:'space-between',fontSize:'10px',color:'var(--txt3)'}}>
                           <span>Estimé planifié</span>
-                          <span style={{color:col,fontWeight:600}}>{Math.round(pct)}% de l'objectif hiver</span>
+                          <span style={{color:col,fontWeight:600}}>{Math.round(pct)}% de l'objectif confort</span>
                         </div>
                         {/* Mini liste clients */}
                         <div style={{marginTop:'6px',display:'flex',gap:'4px',flexWrap:'wrap'}}>
@@ -942,8 +941,8 @@ export default function TonyDashboard({ onLogout }) {
             <Arc pct={Math.min(100,Math.round(caSem/OBJ_SEM*100))} color={colSem} label="Semaine"
               value={caSem>0?fmt(caSem):'—'} sub={caSem>0?`/ ${fmt(OBJ_SEM)}`:null}
               sub2={caSem>=OBJ_SEM?'✓ Objectif atteint':caSem>0?`encore ${fmt(OBJ_SEM-caSem)}`:null}/>
-            <Arc pct={Math.min(100,Math.round(caMois/OBJ_HIV*100))} color={colMois} label="Mois"
-              value={caMois>0?fmt(caMois):'—'} sub={caMois>0?`${Math.round(caMois/OBJ_HIV*100)}%`:null}
+            <Arc pct={Math.min(100,Math.round(caMois/OBJ_CONF*100))} color={colMois} label="Mois"
+              value={caMois>0?fmt(caMois):'—'} sub={caMois>0?`${Math.round(caMois/OBJ_CONF*100)}%`:null}
               sub2={caMois>=OBJ_EQ?(caMois>=OBJ_HIV?'✓ Hiver couvert':'⚖️ Équilibre'):caMois>0?`encore ${fmt(OBJ_EQ-caMois)}`:null}/>
           </div>
           <div style={{padding:'10px 14px',background:msgMois.c+'15',borderRadius:'var(--r)',borderLeft:`3px solid ${msgMois.c}`}}>
@@ -1008,11 +1007,11 @@ export default function TonyDashboard({ onLogout }) {
                 <div style={{position:'relative',height:CHART_H,marginBottom:'2px'}}>
                   {/* Ligne cible OBJ_HIV */}
                   <div style={{position:'absolute',top:(1-(OBJ_HIV/MAX))*CHART_H+'px',left:0,right:0,height:'1px',background:'rgba(186,117,23,.4)',zIndex:2}}>
-                    <span style={{position:'absolute',right:0,top:'-10px',fontSize:'8px',color:'#BA7517',fontWeight:600}}>234€/j</span>
+                    
                   </div>
                   {/* Ligne cible OBJ_EQ */}
                   <div style={{position:'absolute',top:(1-(OBJ_EQ/MAX))*CHART_H+'px',left:0,right:0,height:'1px',background:'rgba(212,130,10,.3)',zIndex:2}}>
-                    <span style={{position:'absolute',right:0,top:'-10px',fontSize:'8px',color:'#D4820A',fontWeight:600}}>156€/j</span>
+                    <span style={{position:'absolute',right:0,top:'-10px',fontSize:'8px',color:'var(--txt3)',fontWeight:600}}>156€/j</span>
                   </div>
                   
                   {/* Barres */}
@@ -1021,7 +1020,7 @@ export default function TonyDashboard({ onLogout }) {
                       const isFut=i>curIdx, isCur=i===curIdx
                       const hConf=isFut?0:Math.round((v/MAX)*CHART_H)
                       const hPrev=Math.round((valsP[i]/MAX)*CHART_H)
-                      const col=isFut?'var(--border)':v>=OBJ_CONF?'#1A8C5A':v>=OBJ_HIV?'#BA7517':v>=OBJ_EQ?'#D4820A':v>0?'#C0392B':'var(--border)'
+                      const col=isFut?'var(--border)':v>=OBJ_CONF?'var(--green)':v>=OBJ_EQ?'var(--amber)':v>0?'var(--red)':'var(--border)'
                       return (
                         <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end',height:'100%',position:'relative'}}>
                           {/* Valeur au dessus */}
