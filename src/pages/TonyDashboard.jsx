@@ -638,40 +638,104 @@ export default function TonyDashboard({ onLogout }) {
           </div>
         )}
 
-        {/* GRAPHE ANNUEL */}
-        <div className="card" style={{marginBottom:'16px'}}>
-          <div style={{fontSize:'10px',color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'8px'}}>Juin 2026 → Mai 2027</div>
-          {(()=>{
-            const MOIS=['J','Jl','A','S','O','N','D','J','F','M','A','M']
-            const MKEYS=['2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12','2027-01','2027-02','2027-03','2027-04','2027-05']
-            const caByM={}
-            sessConf.forEach(s=>{const d=s.properties.Date?.date?.start||'';if(d){const mk=d.substring(0,7);caByM[mk]=(caByM[mk]||0)+(s.properties.Prix?.number||0)}})
-            const vals=MKEYS.map(k=>Math.round(caByM[k]||0))
-            const curIdx=MKEYS.indexOf(thisMonth())
-            const MAX=Math.max(...vals,OBJ_HIV)
-            return (
-              <div>
-                <div style={{display:'flex',alignItems:'flex-end',gap:'3px',height:'44px',marginBottom:'4px'}}>
-                  {vals.map((v,i)=>{
-                    const isFut=i>curIdx
-                    const h=isFut?4:Math.max(2,Math.round((v/MAX)*44))
-                    const col=isFut?'var(--border)':v>=OBJ_CONF?'#1A8C5A':v>=OBJ_HIV?'#BA7517':v>=OBJ_EQ?'#D4820A':v>0?'#C0392B':'var(--border)'
-                    return (
-                      <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end'}}>
-                        <div style={{width:'100%',height:h,background:col,borderRadius:'2px 2px 0 0',position:'relative'}}>
-                          {i===curIdx&&<div style={{position:'absolute',top:'-5px',left:'50%',transform:'translateX(-50%)',width:5,height:5,borderRadius:'50%',background:'var(--pierre)'}}/>}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-                <div style={{display:'flex',gap:'3px'}}>
-                  {MOIS.map((mo,i)=><div key={i} style={{flex:1,textAlign:'center',fontSize:'8px',color:i===curIdx?'var(--pierre)':'var(--txt3)',fontWeight:i===curIdx?700:400}}>{mo}</div>)}
+        {/* GRAPHE ANNUEL DÉTAILLÉ */}
+        {(()=>{
+          const MOIS_L=['Juin','Juil','Août','Sep','Oct','Nov','Déc','Jan','Fév','Mar','Avr','Mai']
+          const MOIS_S=['J','Jl','A','S','O','N','D','J','F','M','A','M']
+          const MKEYS=['2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12','2027-01','2027-02','2027-03','2027-04','2027-05']
+          const caByM={}
+          sessConf.forEach(s=>{const d=s.properties.Date?.date?.start||'';if(d){const mk=d.substring(0,7);caByM[mk]=(caByM[mk]||0)+(s.properties.Prix?.number||0)}})
+          // Aussi ajouter le prévisionnel
+          sessPrevu.forEach(s=>{const d=s.properties.Date?.date?.start||'';if(d){const mk=d.substring(0,7);if(!caByM[mk+'_prev']) caByM[mk+'_prev']=0; caByM[mk+'_prev']+=(s.properties.Prix?.number||0)}})
+          const vals=MKEYS.map(k=>Math.round(caByM[k]||0))
+          const valsP=MKEYS.map(k=>Math.round(caByM[k+'_prev']||0))
+          const curIdx=MKEYS.indexOf(thisMonth())
+          const MAX=Math.max(...vals,...valsP.map((v,i)=>v+vals[i]),OBJ_CONF,100)
+          const CHART_H=100
+
+          return (
+            <div className="card" style={{marginBottom:'16px',padding:'16px'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
+                <div style={{fontSize:'10px',color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',fontWeight:600}}>Avancée mensuelle</div>
+                <div style={{display:'flex',gap:'10px',fontSize:'9px',color:'var(--txt3)'}}>
+                  {[{c:'#1A8C5A',l:'>5850€'},{c:'#D4820A',l:'3895-5850'},{c:'#C0392B',l:'<3895'},{c:'rgba(41,128,185,.25)',l:'Prévu'}].map(x=>(
+                    <span key={x.l} style={{display:'flex',alignItems:'center',gap:'3px'}}>
+                      <span style={{width:7,height:7,borderRadius:1,background:x.c,display:'inline-block',flexShrink:0}}/>
+                      {x.l}
+                    </span>
+                  ))}
                 </div>
               </div>
-            )
-          })()}
-        </div>
+
+              {/* Ligne cible */}
+              <div style={{position:'relative'}}>
+                <div style={{position:'relative',height:CHART_H,marginBottom:'2px'}}>
+                  {/* Ligne cible OBJ_HIV */}
+                  <div style={{position:'absolute',top:(1-(OBJ_HIV/MAX))*CHART_H+'px',left:0,right:0,height:'1px',background:'rgba(186,117,23,.4)',zIndex:2}}>
+                    <span style={{position:'absolute',right:0,top:'-10px',fontSize:'8px',color:'#BA7517',fontWeight:600}}>234€/j</span>
+                  </div>
+                  {/* Ligne cible OBJ_EQ */}
+                  <div style={{position:'absolute',top:(1-(OBJ_EQ/MAX))*CHART_H+'px',left:0,right:0,height:'1px',background:'rgba(212,130,10,.3)',zIndex:2}}>
+                    <span style={{position:'absolute',right:0,top:'-10px',fontSize:'8px',color:'#D4820A',fontWeight:600}}>156€/j</span>
+                  </div>
+                  
+                  {/* Barres */}
+                  <div style={{display:'flex',alignItems:'flex-end',gap:'3px',height:'100%',position:'relative',zIndex:1}}>
+                    {vals.map((v,i)=>{
+                      const isFut=i>curIdx, isCur=i===curIdx
+                      const hConf=isFut?0:Math.round((v/MAX)*CHART_H)
+                      const hPrev=Math.round((valsP[i]/MAX)*CHART_H)
+                      const col=isFut?'var(--border)':v>=OBJ_CONF?'#1A8C5A':v>=OBJ_HIV?'#BA7517':v>=OBJ_EQ?'#D4820A':v>0?'#C0392B':'var(--border)'
+                      return (
+                        <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end',height:'100%',position:'relative'}}>
+                          {/* Valeur au dessus */}
+                          {(v>0||valsP[i]>0)&&!isFut&&(
+                            <div style={{position:'absolute',top:Math.max(0,CHART_H-hConf-hPrev-16)+'px',fontSize:'8px',fontFamily:'var(--font-mono)',color:col,fontWeight:600,whiteSpace:'nowrap',textAlign:'center',zIndex:3}}>
+                              {v>=1000?(v/1000).toFixed(1)+'k':v>0?v:''}
+                              {valsP[i]>0&&<span style={{color:'#2980B9'}}>{v>0?'+':''}{valsP[i]>=1000?(valsP[i]/1000).toFixed(1)+'k':valsP[i]}</span>}
+                            </div>
+                          )}
+                          <div style={{width:'100%',display:'flex',flexDirection:'column',justifyContent:'flex-end',height:'100%'}}>
+                            {/* Barre prévisionnelle */}
+                            {hPrev>0&&(
+                              <div style={{width:'100%',height:hPrev+'px',background:'rgba(41,128,185,.25)',borderRadius:hConf>0?0:'2px 2px 0 0',border:'1px dashed rgba(41,128,185,.5)',borderBottom:'none'}}/>
+                            )}
+                            {/* Barre réelle */}
+                            {hConf>0&&(
+                              <div style={{width:'100%',height:hConf+'px',background:col,borderRadius:hPrev>0?0:'2px 2px 0 0',position:'relative'}}>
+                                {isCur&&<div style={{position:'absolute',top:'-5px',left:'50%',transform:'translateX(-50%)',width:5,height:5,borderRadius:'50%',background:'var(--pierre)'}}/>}
+                              </div>
+                            )}
+                            {hConf===0&&!isFut&&(
+                              <div style={{width:'100%',height:'3px',background:'var(--border)',borderRadius:'2px 2px 0 0'}}/>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+                
+                {/* Labels mois */}
+                <div style={{display:'flex',gap:'3px',borderTop:'1px solid var(--border)',paddingTop:'4px'}}>
+                  {MOIS_S.map((mo,i)=>(
+                    <div key={i} style={{flex:1,textAlign:'center',fontSize:'8px',
+                      color:i===curIdx?'var(--pierre)':'var(--txt3)',
+                      fontWeight:i===curIdx?700:400}}>{mo}</div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Total mois en cours */}
+              <div style={{marginTop:'10px',display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'11px',color:'var(--txt3)'}}>
+                <span>{MOIS_L[curIdx>=0?curIdx:0]} : <span style={{fontFamily:'var(--font-mono)',color:'var(--txt)',fontWeight:600}}>{fmt(vals[curIdx>=0?curIdx:0])}</span>
+                  {valsP[curIdx>=0?curIdx:0]>0&&<span style={{color:'#2980B9'}}> + {fmt(valsP[curIdx>=0?curIdx:0])} prévu</span>}
+                </span>
+                <span>Annuel : <span style={{fontFamily:'var(--font-mono)',color:'var(--txt)',fontWeight:600}}>{fmt(vals.reduce((a,v)=>a+v,0))}</span></span>
+              </div>
+            </div>
+          )
+        })()}
 
         {/* ACTIONS */}
         <button className="btn btn-primary" onClick={()=>setTab('ca')} style={{width:'100%',padding:'16px',fontSize:'15px',marginBottom:'10px'}}>

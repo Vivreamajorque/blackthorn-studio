@@ -66,11 +66,11 @@ export default function Dashboard() {
 
   const sessActifs = sessions.filter(s => !(s.properties.Type?.select?.name||'').includes('Amely'))
 
-  const caMois    = sessActifs.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m)).reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const caSemaine = sessActifs.filter(s=>(s.properties.Date?.date?.start||'') >= ws).reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const caMois    = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m)).reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const caSemaine = sessConf.filter(s=>(s.properties.Date?.date?.start||'') >= ws).reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
 
   // CA annuel (tous depuis juin 2026)
-  const caAnnee = sessActifs.reduce((a,s)=>{
+  const caAnnee = sessConf.reduce((a,s)=>{
     const d = s.properties.Date?.date?.start||''
     return d >= '2026-06-01' ? a + (s.properties.Prix?.number||0) : a
   }, 0)
@@ -78,6 +78,21 @@ export default function Dashboard() {
   // Hub Blackthorn = CA Tony uniquement
   const caTotal = caMois
   const rMois   = netReel(caTotal)
+
+  // Prévisionnel RDV
+  const today = new Date().toISOString().split('T')[0]
+  const rdvsPrevu = sessPrevu.filter(s=>(s.properties.Date?.date?.start||'')>=today)
+    .sort((a,b)=>(a.properties.Date?.date?.start||'').localeCompare(b.properties.Date?.date?.start||''))
+  
+  const in30 = new Date(); in30.setDate(in30.getDate()+30)
+  const in30str = in30.toISOString().split('T')[0]
+  
+  const prevSem = rdvsPrevu.filter(s=>(s.properties.Date?.date?.start||'')<=new Date(new Date().setDate(new Date().getDate()+7)).toISOString().split('T')[0]).reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const prevMois = rdvsPrevu.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m)).reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const prevNext = rdvsPrevu.filter(s=>{
+    const next = new Date(); next.setMonth(next.getMonth()+1)
+    return (s.properties.Date?.date?.start||'').startsWith(next.toISOString().substring(0,7))
+  }).reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
 
   // Dépenses mois
   const depMois = depenses.filter(d=>(d.properties.Date?.date?.start||'').startsWith(m)).reduce((a,d)=>a+(d.properties.Montant?.number||0),0)
@@ -94,7 +109,7 @@ export default function Dashboard() {
   const cibleCumul= ciblesMois.reduce((acc,v,i)=>[...acc, (acc[i-1]||0)+v],[])
   // CA réel par mois
   const caByMois  = {}
-  sessActifs.forEach(s=>{const d=s.properties.Date?.date?.start||''; if(d){const mk=d.substring(0,7); caByMois[mk]=(caByMois[mk]||0)+(s.properties.Prix?.number||0)}})
+  sessConf.forEach(s=>{const d=s.properties.Date?.date?.start||''; if(d){const mk=d.substring(0,7); caByMois[mk]=(caByMois[mk]||0)+(s.properties.Prix?.number||0)}})
   const caActifs  = MKEYS_ANN.map(k=>Math.round(caByMois[k]||0))
   // Cumul réel
   const caAnnuelCumul = caActifs.reduce((a,v)=>a+v,0)
@@ -304,6 +319,67 @@ export default function Dashboard() {
           ))}
         </div>
       </div>
+
+      {/* ══════════════════════════════════════════════
+          SECTION PRÉVISIONNEL RDV
+      ══════════════════════════════════════════════ */}
+      {rdvsPrevu.length > 0 && (
+        <div style={{ marginBottom:'20px' }}>
+          <div style={{ fontSize:'10px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'2px', fontWeight:600, marginBottom:'10px' }}>
+            Prévisionnel rendez-vous
+          </div>
+
+          {/* Résumé en chiffres */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'12px' }}>
+            {[
+              { l:'Cette semaine', v:prevSem, n:rdvsPrevu.filter(s=>(s.properties.Date?.date?.start||'')<=new Date(new Date().setDate(new Date().getDate()+7)).toISOString().split('T')[0]).length },
+              { l:'Ce mois', v:prevMois, n:rdvsPrevu.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m)).length },
+              { l:'Mois suivant', v:prevNext, n:rdvsPrevu.filter(s=>{ const next=new Date(); next.setMonth(next.getMonth()+1); return (s.properties.Date?.date?.start||'').startsWith(next.toISOString().substring(0,7)) }).length },
+            ].map(x=>(
+              <div key={x.l} className="card" style={{ textAlign:'center', padding:'10px 6px' }}>
+                <div style={{ fontSize:'9px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'4px', lineHeight:1.3 }}>{x.l}</div>
+                <div style={{ fontFamily:'var(--font-mono)', fontSize:'18px', fontWeight:500, color:x.v>0?'#2980B9':'var(--txt3)' }}>
+                  {x.v>0 ? fmt(x.v) : '—'}
+                </div>
+                <div style={{ fontSize:'10px', color:'var(--txt3)', marginTop:'2px' }}>{x.n>0?`${x.n} RDV`:'—'}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Liste des RDV à venir */}
+          {rdvsPrevu.slice(0,8).map(s => {
+            const client = s.properties['Client prénom']?.rich_text?.[0]?.plain_text || 'Client'
+            const style  = s.properties['Style / Type']?.rich_text?.[0]?.plain_text || ''
+            const prix   = s.properties.Prix?.number || 0
+            const acompte= s.properties['Acompte reçu']?.number || 0
+            const dateStr= s.properties.Date?.date?.start || ''
+            const d = new Date(dateStr)
+            const diff = Math.round((d - new Date(today)) / 86400000)
+            const label = diff === 0 ? "Aujourd'hui" : diff === 1 ? 'Demain' : diff <= 6 ? d.toLocaleDateString('fr-FR',{weekday:'long'}) : d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})
+            const isToday = diff === 0
+            const isSoon  = diff <= 2
+            return (
+              <div key={s.id} className="card" style={{ marginBottom:'8px', padding:'12px 14px', borderLeft:`3px solid ${isToday?'#D4820A':isSoon?'#BA7517':'var(--pierre)'}` }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'2px' }}>
+                      <span style={{ fontSize:'12px', fontWeight:700, color:isToday?'#D4820A':'var(--txt)' }}>{label}</span>
+                      {isToday && <span style={{ fontSize:'9px', padding:'2px 5px', background:'rgba(212,130,10,.1)', color:'#D4820A', borderRadius:'4px', fontWeight:700 }}>AUJOURD'HUI</span>}
+                    </div>
+                    <div style={{ fontSize:'13px', fontWeight:500 }}>{client}</div>
+                    {style && <div style={{ fontSize:'11px', color:'var(--txt3)', marginTop:'1px' }}>{style}</div>}
+                    {acompte > 0 && <div style={{ fontSize:'10px', color:'#1A8C5A', marginTop:'2px' }}>Acompte reçu : {acompte}€</div>}
+                  </div>
+                  <div style={{ textAlign:'right', flexShrink:0, marginLeft:'12px' }}>
+                    <div style={{ fontFamily:'var(--font-mono)', fontSize:'16px', fontWeight:600, color:'#2980B9' }}>{prix}€</div>
+                    <div style={{ fontSize:'10px', color:'var(--txt3)', marginTop:'2px' }}>estimé</div>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* ══════════════════════════════════════════════
           SECTION 2 : RÉSEAUX SOCIAUX BLACKTHORN
