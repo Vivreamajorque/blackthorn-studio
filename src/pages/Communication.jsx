@@ -191,7 +191,7 @@ export default function Communication() {
             {/* Résumé état pipeline */}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'6px',marginBottom:'14px'}}>
               {[
-                {l:'Aujourd'hui',v:briefsToday.length,c:briefsToday.length>0?'var(--amber)':'var(--txt3)'},
+                {l:"Aujourd'hui",v:briefsToday.length,c:briefsToday.length>0?'var(--amber)':'var(--txt3)'},
                 {l:'Cette semaine',v:briefsWeek.length,c:'var(--blue)'},
                 {l:'En attente',v:briefsPending.length,c:briefsPending.length>3?'var(--red)':'var(--txt)'},
               ].map(x=>(
@@ -253,7 +253,7 @@ export default function Communication() {
                         <div style={{fontSize:'12px',fontWeight:700,lineHeight:1.3}}>{nom}</div>
                         <div style={{display:'flex',gap:'6px',flexWrap:'wrap',marginTop:'4px'}}>
                           <span style={{fontSize:'10px',fontFamily:'var(--font-mono)',color:isToday?'var(--gold-dk)':'var(--txt3)',fontWeight:600}}>
-                            {diff===0?'Aujourd'hui':diff===1?'Demain':date.split('-').slice(1).join('/')}{heure&&' · '+heure}
+                            {diff===0?"Aujourd'hui":diff===1?'Demain':date.split('-').slice(1).join('/')}{heure&&' · '+heure}
                           </span>
                           {reseau.map(r=><span key={r} style={{fontSize:'9px',padding:'1px 5px',background:'var(--bg2)',borderRadius:'8px',color:'var(--txt3)'}}>{r}</span>)}
                           {format&&<span style={{fontSize:'9px',color:'var(--txt3)'}}>{format}</span>}
