@@ -723,7 +723,7 @@ export default function TonyDashboard({ onLogout }) {
                       }}>
                         👻 No-show
                       </button>
-                      <button onClick={()=>setEditRdv({
+                      <button onClick={()=>{ setEditRdv({
                         id:s.id,
                         client:s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'',
                         style:s.properties['Style / Type']?.rich_text?.[0]?.plain_text||'',
@@ -732,7 +732,7 @@ export default function TonyDashboard({ onLogout }) {
                         natio:s.properties.Nationalité?.select?.name||'🇫🇷 FR',
                         source:s.properties.Source?.select?.name||'📸 Instagram',
                         date:s.properties.Date?.date?.start||''
-                      })} style={{
+                      }); setTab('editRdv') }} style={{
                         padding:'10px',borderRadius:'var(--r)',
                         background:'var(--card)',border:'1.5px solid var(--border2)',
                         color:'var(--txt2)',fontSize:'15px',cursor:'pointer'
