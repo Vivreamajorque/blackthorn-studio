@@ -53,7 +53,7 @@ export const notion = {
       'Solde reçu':   { number: 0 },
       Nationalité:    { select: { name: data.natio || 'Autre' } },
       Date:           { date: { start: data.date } },
-      Notes:          { rich_text: [{ text: { content: '1 session' } }] },
+      Notes:          { rich_text: [{ text: { content: `${data.sessions||1} session(s)` } }] },
       'Statut':       { select: { name: '🗓 Prévu' } },
       ...(data.source ? { 'Source': { select: { name: data.source } } } : {}),
       'Client prénom':{ rich_text: [{ text: { content: data.client || '' } }] },

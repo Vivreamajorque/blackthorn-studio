@@ -85,7 +85,7 @@ export default function TonyDashboard({ onLogout }) {
   const [analyzing,setAnalyzing]= useState(false)
   const [uploading,setUploading]= useState(false)
   // RDV
-  const [rdvForm,  setRdvForm]  = useState({ client:'', style:'', prixEstime:'', acompte:'0', natio:'🇫🇷 FR', source:'📸 Instagram', date:'' })
+  const [rdvForm,  setRdvForm]  = useState({ client:'', style:'', prixEstime:'', sessions:'1', acompte:'0', natio:'🇫🇷 FR', source:'📸 Instagram', date:'' })
   const [rdvSaving,setRdvSaving]= useState(false)
   const [confirming,setConfirming] = useState(null)
   const [editRdv,  setEditRdv]    = useState(null)   // RDV prévu à modifier
@@ -182,7 +182,7 @@ export default function TonyDashboard({ onLogout }) {
     if (!rdvForm.date || !rdvForm.client) return
     setRdvSaving(true)
     try {
-      await notion.addAppointment({...rdvForm})
+      await notion.addAppointment({...rdvForm, sessions: parseInt(rdvForm.sessions)||1})
       showToast('📅 RDV enregistré')
       setRdvForm({client:'',style:'',prixEstime:'',acompte:'0',natio:'🇫🇷 FR',date:''})
       setTab('home'); load()
@@ -225,7 +225,7 @@ export default function TonyDashboard({ onLogout }) {
     if (!editRdv) return
     setEditRdvSaving(true)
     try {
-      await notion.updateRdv(editRdv.id, editRdv)
+      await notion.updateRdv(editRdv.id, {...editRdv, sessions: parseInt(editRdv.sessions)||1})
       showToast('✓ RDV modifié')
       setEditRdv(null)
       load()
@@ -404,13 +404,17 @@ export default function TonyDashboard({ onLogout }) {
         <label>Style / Projet</label>
         <input placeholder="Ex: Botanique full sleeve, Portrait..." value={rdvForm.style} onChange={e=>setRdvForm({...rdvForm,style:e.target.value})}/>
       </div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'12px'}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px',marginBottom:'12px'}}>
         <div className="form-group" style={{margin:0}}>
           <label>Prix estimé (€)</label>
           <input type="number" inputMode="decimal" placeholder="0" value={rdvForm.prixEstime} onChange={e=>setRdvForm({...rdvForm,prixEstime:e.target.value})} style={{textAlign:'center',fontSize:'18px',fontFamily:'var(--font-mono)'}}/>
         </div>
         <div className="form-group" style={{margin:0}}>
-          <label>Acompte reçu (€)</label>
+          <label>Nb sessions</label>
+          <input type="number" inputMode="numeric" placeholder="1" value={rdvForm.sessions} onChange={e=>setRdvForm({...rdvForm,sessions:e.target.value})} style={{textAlign:'center',fontSize:'18px'}}/>
+        </div>
+        <div className="form-group" style={{margin:0}}>
+          <label>Acompte (€)</label>
           <input type="number" inputMode="decimal" placeholder="0" value={rdvForm.acompte} onChange={e=>setRdvForm({...rdvForm,acompte:e.target.value})} style={{textAlign:'center',fontSize:'18px',fontFamily:'var(--font-mono)'}}/>
         </div>
       </div>
@@ -578,16 +582,21 @@ export default function TonyDashboard({ onLogout }) {
         <label>Style / Projet</label>
         <input value={editRdv.style} onChange={e=>setEditRdv({...editRdv,style:e.target.value})} placeholder="Botanical, portrait..."/>
       </div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'12px'}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px',marginBottom:'12px'}}>
         <div className="form-group" style={{margin:0}}>
           <label>Prix estimé (€)</label>
           <input type="number" inputMode="decimal" value={editRdv.prixEstime} onChange={e=>setEditRdv({...editRdv,prixEstime:e.target.value})}
-            style={{textAlign:'center',fontSize:'22px',fontFamily:'var(--font-mono)',fontWeight:500}}/>
+            style={{textAlign:'center',fontSize:'18px',fontFamily:'var(--font-mono)',fontWeight:500}}/>
         </div>
         <div className="form-group" style={{margin:0}}>
-          <label>Acompte reçu (€)</label>
+          <label>Nb sessions</label>
+          <input type="number" inputMode="numeric" value={editRdv.sessions||'1'} onChange={e=>setEditRdv({...editRdv,sessions:e.target.value})}
+            style={{textAlign:'center',fontSize:'18px'}}/>
+        </div>
+        <div className="form-group" style={{margin:0}}>
+          <label>Acompte (€)</label>
           <input type="number" inputMode="decimal" value={editRdv.acompte} onChange={e=>setEditRdv({...editRdv,acompte:e.target.value})}
-            style={{textAlign:'center',fontSize:'22px',fontFamily:'var(--font-mono)'}}/>
+            style={{textAlign:'center',fontSize:'18px',fontFamily:'var(--font-mono)'}}/>
         </div>
       </div>
       <div className="form-group" style={{marginBottom:'12px'}}>
@@ -733,6 +742,7 @@ export default function TonyDashboard({ onLogout }) {
                         client:s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'',
                         style:s.properties['Style / Type']?.rich_text?.[0]?.plain_text||'',
                         prixEstime:String(s.properties.Prix?.number||0),
+                        sessions:getNbSess(s)||'1',
                         acompte:String(s.properties['Acompte reçu']?.number||0),
                         natio:s.properties.Nationalité?.select?.name||'🇫🇷 FR',
                         source:s.properties.Source?.select?.name||'📸 Instagram',
