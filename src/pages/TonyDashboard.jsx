@@ -339,15 +339,19 @@ export default function TonyDashboard({ onLogout }) {
   )
 
   if (tab==='ca') return (
-    <div style={{padding:'24px 20px 40px',minHeight:'100vh',background:'var(--bg)'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'24px'}}>
-        <div style={{fontFamily:'var(--font-head)',fontSize:'18px',fontWeight:800}}>Mon CA du jour</div>
-        <button className="btn btn-ghost" onClick={()=>setTab('home')} style={{padding:'6px 14px',fontSize:'12px'}}>← Retour</button>
+    <div style={{padding:'0 0 40px',minHeight:'100dvh',background:'var(--bg)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 20px 0',marginBottom:'24px'}}>
+        <button onClick={()=>setTab('home')} style={{background:'none',border:'none',color:'var(--txt3)',fontSize:'13px',fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',padding:'8px 0'}}>← Retour</button>
+        <div style={{fontFamily:'var(--font-head)',fontSize:'17px',fontWeight:800,letterSpacing:'-.3px'}}>Mon CA du jour</div>
+        <div style={{width:'60px'}}/>
       </div>
       <div style={{textAlign:'center',marginBottom:'20px'}}>
-        <input type="number" inputMode="decimal" placeholder="0"
-          value={caForm.ca} onChange={e=>setCaForm({...caForm,ca:e.target.value})}
-          style={{fontSize:'52px',fontFamily:'var(--font-mono)',fontWeight:500,textAlign:'center',background:'transparent',border:'none',borderBottom:'2px solid var(--pierre)',borderRadius:0,color:'var(--txt)',width:'220px',padding:'8px 0'}}/>
+        <div style={{position:'relative',display:'inline-block'}}>
+          <input type="number" inputMode="decimal" placeholder="0"
+            value={caForm.ca} onChange={e=>setCaForm({...caForm,ca:e.target.value})}
+            style={{fontSize:'56px',fontFamily:'var(--font-mono)',fontWeight:400,textAlign:'center',background:'transparent',border:'none',borderBottom:`2.5px solid ${caForm.ca>0?'var(--gold)':'var(--border2)'}`,borderRadius:0,color:'var(--txt)',width:'200px',padding:'8px 0',transition:'border-color .2s'}}/>
+          <span style={{position:'absolute',right:'-20px',bottom:'12px',fontSize:'24px',color:'var(--txt3)',fontFamily:'var(--font-mono)'}}>€</span>
+        </div>
         {caForm.ca>0&&(
           <div style={{marginTop:'8px',fontSize:'12px',color:parseFloat(caForm.ca)>=156?'#1A8C5A':'var(--txt3)'}}>
             {parseFloat(caForm.ca)>=156?'✅ Objectif jour atteint':`${Math.round(156-parseFloat(caForm.ca))}€ manquant`}
@@ -391,7 +395,7 @@ export default function TonyDashboard({ onLogout }) {
   )
 
   if (tab==='rdv') return (
-    <div style={{padding:'24px 20px 40px',minHeight:'100vh',background:'var(--bg)'}}>
+    <div style={{padding:'0 0 40px',minHeight:'100dvh',background:'var(--bg)'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'24px'}}>
         <div style={{fontFamily:'var(--font-head)',fontSize:'18px',fontWeight:800}}>Nouveau RDV prévu</div>
         <button className="btn btn-ghost" onClick={()=>setTab('home')} style={{padding:'6px 14px',fontSize:'12px'}}>← Retour</button>
@@ -438,7 +442,7 @@ export default function TonyDashboard({ onLogout }) {
   )
 
   if (tab==='edit'&&editing) return (
-    <div style={{padding:'24px 20px 40px',minHeight:'100vh',background:'var(--bg)'}}>
+    <div style={{padding:'0 0 40px',minHeight:'100dvh',background:'var(--bg)'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px'}}>
         <div style={{fontFamily:'var(--font-head)',fontSize:'18px',fontWeight:800}}>Modifier l'entrée</div>
         <button className="btn btn-ghost" onClick={()=>{setTab('histo');setEditing(null)}} style={{padding:'6px 14px',fontSize:'12px'}}>← Retour</button>
@@ -482,7 +486,7 @@ export default function TonyDashboard({ onLogout }) {
   )
 
   if (tab==='depense') return (
-    <div style={{padding:'24px 20px 40px',minHeight:'100vh',background:'var(--bg)'}}>
+    <div style={{padding:'0 0 40px',minHeight:'100dvh',background:'var(--bg)'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px'}}>
         <div style={{fontFamily:'var(--font-head)',fontSize:'18px',fontWeight:800}}>Dépense / Facture</div>
         <button className="btn btn-ghost" onClick={()=>{setTab('home');setPhoto(null);setPhotoUrl(null)}} style={{padding:'6px 14px',fontSize:'12px'}}>← Retour</button>
@@ -569,7 +573,7 @@ export default function TonyDashboard({ onLogout }) {
   )
 
   if (tab==='editRdv'&&editRdv) return (
-    <div style={{padding:'24px 20px 40px',minHeight:'100vh',background:'var(--bg)'}}>
+    <div style={{padding:'0 0 40px',minHeight:'100dvh',background:'var(--bg)'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'24px'}}>
         <div style={{fontFamily:'var(--font-head)',fontSize:'18px',fontWeight:800}}>Modifier le RDV</div>
         <button className="btn btn-ghost" onClick={()=>setEditRdv(null)} style={{padding:'6px 14px',fontSize:'12px'}}>← Retour</button>
@@ -653,15 +657,17 @@ export default function TonyDashboard({ onLogout }) {
         </div>
       )}
 
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 20px 16px',borderBottom:'1px solid var(--border)'}}>
-        <img src="/blackthorn-logo.png" alt="Blackthorn" style={{height:'38px',opacity:0.9}}/>
-        <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
-          <span style={{fontSize:'11px',color:'var(--txt3)'}}>{new Date().toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</span>
-          <button onClick={load} style={{background:'none',border:'none',fontSize:'16px',color:'var(--txt3)',cursor:'pointer'}}>↻</button>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 20px 14px',background:'var(--surface)',borderBottom:'1px solid var(--border)',position:'sticky',top:0,zIndex:10,boxShadow:'0 2px 8px rgba(26,18,9,.04)'}}>
+        <img src="/blackthorn-logo.png" alt="Blackthorn" style={{height:'34px',opacity:.88}}/>
+        <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+          <span style={{fontSize:'11px',color:'var(--txt3)',fontWeight:500}}>{new Date().toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</span>
+          <button onClick={load} style={{width:32,height:32,borderRadius:'50%',background:'var(--bg)',border:'1px solid var(--border2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'14px',color:'var(--txt3)',cursor:'pointer',transition:'all .15s'}}
+            onMouseEnter={e=>e.currentTarget.style.borderColor='var(--gold)'}
+            onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border2)'}>↻</button>
         </div>
       </div>
 
-      <div style={{padding:'20px'}}>
+      <div style={{padding:'16px 16px 0'}}>
 
         {/* ─── PRÉVISIONNEL TOUJOURS VISIBLE ─── */}
         <div style={{marginBottom:'14px'}}>
@@ -1004,7 +1010,7 @@ export default function TonyDashboard({ onLogout }) {
         })()}
 
         {/* ACTIONS */}
-        <button className="btn btn-primary" onClick={()=>setTab('ca')} style={{width:'100%',padding:'16px',fontSize:'15px',marginBottom:'10px'}}>
+        <button className="btn btn-gold" onClick={()=>setTab('ca')} style={{width:'100%',padding:'17px',fontSize:'15px',marginBottom:'10px',letterSpacing:'.5px',borderRadius:'var(--r-lg)'}}>
           + Saisir mon CA du jour
         </button>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',marginBottom:'14px'}}>

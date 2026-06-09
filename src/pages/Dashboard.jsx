@@ -250,7 +250,7 @@ export default function Dashboard() {
       {/* ══════════════════════════════════════════════
           SECTION 1b : VISION ANNUELLE
       ══════════════════════════════════════════════ */}
-      <div style={{ fontSize:'10px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'2px', fontWeight:600, marginBottom:'10px' }}>Tenir l'année</div>
+      <div className='section-title-gold' style={{marginBottom:'12px'}}>Tenir l'année</div>
 
       <div className="card" style={{ marginBottom:'20px' }}>
         {/* Verdict */}
@@ -331,9 +331,7 @@ export default function Dashboard() {
       ══════════════════════════════════════════════ */}
       {rdvsPrevu.length > 0 && (
         <div style={{ marginBottom:'20px' }}>
-          <div style={{ fontSize:'10px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'2px', fontWeight:600, marginBottom:'10px' }}>
-            Prévisionnel rendez-vous
-          </div>
+          <div className='section-title-gold' style={{marginBottom:'12px'}}>Prévisionnel rendez-vous</div>
 
           {/* Jauge prévisionnel */}
           {(()=>{
