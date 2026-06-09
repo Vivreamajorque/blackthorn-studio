@@ -31,7 +31,8 @@ export default function TonyDashboard({ onLogout }) {
   const [depenses,  setDepenses]  = useState([])
   const [loading,   setLoading]   = useState(true)
   const [toast,     setToast]     = useState('')
-  const fileRef = useRef(null)
+  const fileRef   = useRef(null)
+  const cameraRef = useRef(null)
 
   // Form CA
   const [caForm, setCaForm] = useState({
@@ -49,6 +50,8 @@ export default function TonyDashboard({ onLogout }) {
   const [editing, setEditing]     = useState(null)   // { id, ca, paiement, date, notes }
   const [editSaving, setEditSaving] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
+  const [uploading, setUploading]   = useState(false)
+  const [photoUrl, setPhotoUrl]     = useState(null)
 
   const showToast = (m) => { setToast(m); setTimeout(() => setToast(''), 2500) }
 
@@ -134,10 +137,11 @@ export default function TonyDashboard({ onLogout }) {
     if (!depForm.montant) return
     setDepSaving(true)
     try {
-      await notion.addDepense({ ...depForm, saisi_par: 'Tony' })
+      await notion.addDepense({ ...depForm, saisi_par: 'Tony', photoUrl: photoUrl || null })
       showToast('✓ Dépense enregistrée')
       setDepForm({ montant:'', fournisseur:'', categorie:'🖊️ Matériel tatouage', date:todayStr(), notes:'', iva_recuperable:true })
       setPhoto(null)
+      setPhotoUrl(null)
       setTab('home')
       load()
     } catch(e) { showToast('Erreur: ' + (e.message||JSON.stringify(e)).substring(0,80)) }
@@ -251,23 +255,31 @@ export default function TonyDashboard({ onLogout }) {
         <button className="btn btn-ghost" onClick={()=>{setTab('home');setPhoto(null)}} style={{ padding:'6px 14px', fontSize:'12px' }}>← Retour</button>
       </div>
 
-      <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} style={{ display:'none' }} />
+      <input ref={fileRef} type="file" accept="image/*" onChange={handlePhoto} style={{ display:'none' }} />
+      <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} style={{ display:'none' }} />
 
       {!photo ? (
-        <button onClick={()=>fileRef.current?.click()} className="btn btn-ghost" style={{ width:'100%', padding:'18px', marginBottom:'16px', flexDirection:'column', gap:'6px', fontSize:'13px' }}>
-          <span style={{ fontSize:'26px' }}>📷</span>
-          Photo du ticket<br/>
-          <span style={{ fontSize:'10px', color:'var(--gris)' }}>Analyse automatique si ANTHROPIC_API_KEY configurée</span>
-        </button>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px', marginBottom:'14px' }}>
+          <button onClick={()=>cameraRef.current?.click()} className="btn btn-ghost" style={{ padding:'14px', flexDirection:'column', gap:'4px', fontSize:'12px' }}>
+            <span style={{ fontSize:'22px' }}>📷</span>
+            Prendre une photo
+          </button>
+          <button onClick={()=>fileRef.current?.click()} className="btn btn-ghost" style={{ padding:'14px', flexDirection:'column', gap:'4px', fontSize:'12px' }}>
+            <span style={{ fontSize:'22px' }}>📁</span>
+            Choisir un fichier
+          </button>
+        </div>
       ) : (
         <div style={{ marginBottom:'14px', position:'relative' }}>
           <img src={photo} style={{ width:'100%', borderRadius:'8px', maxHeight:'150px', objectFit:'cover' }} />
-          {analyzing && (
-            <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,.7)', borderRadius:'8px', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--pierre)', fontSize:'14px' }}>
-              Analyse...
+          {(analyzing || uploading) && (
+            <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,.75)', borderRadius:'8px', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--pierre)', fontSize:'13px', flexDirection:'column', gap:'6px' }}>
+              {analyzing && <span>🔍 Analyse du ticket...</span>}
+              {uploading && <span>☁️ Envoi en cours...</span>}
             </div>
           )}
-          <button onClick={()=>{setPhoto(null)}} style={{ position:'absolute', top:6, right:6, background:'rgba(0,0,0,.7)', border:'none', color:'#fff', borderRadius:'50%', width:26, height:26, cursor:'pointer' }}>×</button>
+          <button onClick={()=>{setPhoto(null);setPhotoUrl(null)}} style={{ position:'absolute', top:6, right:6, background:'rgba(0,0,0,.7)', border:'none', color:'#fff', borderRadius:'50%', width:26, height:26, cursor:'pointer' }}>×</button>
+          {photoUrl && <div style={{ position:'absolute', bottom:6, right:6, background:'rgba(0,128,0,.8)', borderRadius:'4px', padding:'2px 6px', fontSize:'10px', color:'#fff' }}>✓ Sauvegardé</div>}
         </div>
       )}
 
