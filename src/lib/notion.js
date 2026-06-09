@@ -2,6 +2,7 @@ const SESSIONS_DB = 'd5c3846e-3d3c-4eae-ade8-2e7efa3c896f'
 const DEPENSES_DB = '323d80c7-6418-4b25-a4c6-70cea0fd20a1'
 const CLIENTS_DB  = '53149c61-3639-45a2-ab49-c2ea77a7c088'
 const KPIS_DB     = '450c0c95-33e0-47c6-ae27-3c9540162cd2'
+const METRIQUES_RS_DB = '55a61a2b-04ba-4eb6-ad58-02e041ad7b54'
 
 const call = async (path, method = 'POST', body = null) => {
   const url = `/api/notion?path=${encodeURIComponent(path)}`
@@ -78,7 +79,7 @@ export const notion = {
       Prix:           { number: parseFloat(data.prixEstime) || 0 },
       'Acompte reçu': { number: parseFloat(data.acompte) || 0 },
       Nationalité:    { select: { name: data.natio || 'Autre' } },
-      Date:           { date: { start: data.date } },
+      Date:           { date: { start: data.heure ? `${data.date}T${data.heure}:00.000+01:00` : data.date, is_datetime: data.heure ? 1 : 0 } },
       'Client prénom':{ rich_text: [{ text: { content: data.client || '' } }] },
       'Style / Type': { rich_text: [{ text: { content: data.style || '' } }] },
       ...(data.source ? { 'Source': { select: { name: data.source } } } : {})
@@ -119,6 +120,31 @@ export const notion = {
     ...(data.photoUrl ? {
       children: [{ object:'block', type:'image', image:{ type:'external', external:{ url: data.photoUrl } } }]
     } : {})
+  }),
+
+  getMetriquesRS: () => call(`databases/${METRIQUES_RS_DB}/query`, 'POST', {
+    sorts: [{ property: 'Date', direction: 'descending' }],
+    page_size: 52
+  }),
+
+  addMetriqueRS: (data) => call('pages', 'POST', {
+    parent: { database_id: METRIQUES_RS_DB },
+    properties: {
+      Semaine: { title: [{ text: { content: `${data.plateforme} · ${data.date}` } }] },
+      Plateforme: { select: { name: data.plateforme } },
+      Date: { date: { start: data.date } },
+      Abonnés: { number: parseInt(data.abonnes)||0 },
+      'Abonnés +/-': { number: parseInt(data.abonnesDelta)||0 },
+      Impressions: { number: parseInt(data.impressions)||0 },
+      Reach: { number: parseInt(data.reach)||0 },
+      Interactions: { number: parseInt(data.interactions)||0 },
+      'Taux engagement': { number: parseFloat(data.tauxEngagement)||0 },
+      'Posts publiés': { number: parseInt(data.posts)||0 },
+      'Avis Google': { number: parseInt(data.avisGoogle)||0 },
+      'DMs reçus': { number: parseInt(data.dms)||0 },
+      'RDV pris via RS': { number: parseInt(data.rdvRS)||0 },
+      Notes: { rich_text: [{ text: { content: data.notes||'' } }] }
+    }
   }),
 
   getDepenses: () => call(`databases/${DEPENSES_DB}/query`, 'POST', {

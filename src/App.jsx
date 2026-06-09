@@ -4,6 +4,7 @@ import Dashboard      from './pages/Dashboard'
 import TonyDashboard  from './pages/TonyDashboard'
 import Metriques      from './pages/Metriques'
 import Comptabilite   from './pages/Comptabilite'
+import Communication  from './pages/Communication'
 
 const PIN_AMELY = import.meta.env.VITE_APP_PIN  || '2026'
 const PIN_TONY  = import.meta.env.VITE_TONY_PIN || '1111'
@@ -91,6 +92,9 @@ function NavBar({ onLogout }) {
       <NavLink to="/compta" className={({isActive})=>`nav-item${isActive?' active':''}`}>
         <span className="nav-icon">⊞</span>Compta
       </NavLink>
+      <NavLink to="/communication" className={({isActive})=>`nav-item${isActive?' active':''}`}>
+        <span className="nav-icon">◉</span>Comm.
+      </NavLink>
       <button className="nav-item" onClick={onLogout}>
         <span className="nav-icon">⊗</span>Exit
       </button>
@@ -112,6 +116,7 @@ export default function App() {
           <Route path="/"          element={<Dashboard />} />
           <Route path="/metriques" element={<Metriques />} />
           <Route path="/compta"    element={<Comptabilite />} />
+          <Route path="/communication" element={<Communication />} />
       </Routes>
       <NavBar onLogout={logout}/>
     </div>

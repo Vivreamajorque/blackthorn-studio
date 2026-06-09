@@ -85,7 +85,7 @@ export default function TonyDashboard({ onLogout }) {
   const [analyzing,setAnalyzing]= useState(false)
   const [uploading,setUploading]= useState(false)
   // RDV
-  const [rdvForm,  setRdvForm]  = useState({ client:'', style:'', prixEstime:'', sessions:'1', acompte:'0', natio:'🇫🇷 FR', source:'📸 Instagram', date:'' })
+  const [rdvForm,  setRdvForm]  = useState({ client:'', style:'', prixEstime:'', sessions:'1', acompte:'0', natio:'🇫🇷 FR', source:'📸 Instagram', date:'', heure:'', duree:'120' })
   const [rdvSaving,setRdvSaving]= useState(false)
   const [confirming,setConfirming] = useState(null)
   const [editRdv,  setEditRdv]    = useState(null)   // RDV prévu à modifier
@@ -94,6 +94,29 @@ export default function TonyDashboard({ onLogout }) {
   // Edit
   const [editing,  setEditing]  = useState(null)
   const [editSaving,setEditSaving]=useState(false)
+
+
+  const heureFin = (heure, dureeMin) => {
+    if(!heure||!dureeMin) return heure
+    const [h,m] = heure.split(':').map(Number)
+    const total = h*60+m+parseInt(dureeMin)
+    return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`
+  }
+
+  const gcalUrl = (rdv) => {
+    if(!rdv.date) return null
+    const h = rdv.heure||'10:00', dur = parseInt(rdv.duree)||120
+    const hF = heureFin(h, dur)
+    const fmt = (d,t) => `${d.replace(/-/g,'')}T${(t||'100000').replace(/:/g,'')}00`
+    const p = new URLSearchParams({
+      action:'TEMPLATE',
+      text:`${rdv.client||'Client'} — Blackthorn Tattoo`,
+      dates:`${fmt(rdv.date,h)}/${fmt(rdv.date,hF)}`,
+      details:`Style: ${rdv.style||'—'} | Prix estimé: ${rdv.prixEstime||'?'}€ | Source: ${rdv.source||'—'} | Sessions: ${rdv.sessions||1}`,
+      location:'Blackthorn Tattoo, Campos, Mallorca'
+    })
+    return `https://calendar.google.com/calendar/render?${p}`
+  }
 
   const showToast = (m) => { setToast(m); setTimeout(()=>setToast(''),2500) }
 
@@ -182,7 +205,7 @@ export default function TonyDashboard({ onLogout }) {
     if (!rdvForm.date || !rdvForm.client) return
     setRdvSaving(true)
     try {
-      await notion.addAppointment({...rdvForm, sessions: parseInt(rdvForm.sessions)||1})
+      await notion.addAppointment({...rdvForm, sessions:parseInt(rdvForm.sessions)||1, heureFin:heureFin(rdvForm.heure,rdvForm.duree)})
       showToast('📅 RDV enregistré')
       setRdvForm({client:'',style:'',prixEstime:'',acompte:'0',natio:'🇫🇷 FR',date:''})
       setTab('home'); load()
@@ -422,9 +445,28 @@ export default function TonyDashboard({ onLogout }) {
           <input type="number" inputMode="decimal" placeholder="0" value={rdvForm.acompte} onChange={e=>setRdvForm({...rdvForm,acompte:e.target.value})} style={{textAlign:'center',fontSize:'18px',fontFamily:'var(--font-mono)'}}/>
         </div>
       </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'12px'}}>
+        <div className="form-group" style={{margin:0}}>
+          <label>Date du RDV *</label>
+          <input type="date" min={todayStr()} value={rdvForm.date} onChange={e=>setRdvForm({...rdvForm,date:e.target.value})}/>
+        </div>
+        <div className="form-group" style={{margin:0}}>
+          <label>Heure</label>
+          <input type="time" value={rdvForm.heure} onChange={e=>setRdvForm({...rdvForm,heure:e.target.value})} placeholder="10:00"/>
+        </div>
+      </div>
       <div className="form-group" style={{marginBottom:'12px'}}>
-        <label>Date du RDV *</label>
-        <input type="date" min={todayStr()} value={rdvForm.date} onChange={e=>setRdvForm({...rdvForm,date:e.target.value})}/>
+        <label>Durée estimée</label>
+        <div style={{display:'flex',gap:'6px',flexWrap:'wrap',marginTop:'4px'}}>
+          {[['60','1h'],['90','1h30'],['120','2h'],['150','2h30'],['180','3h'],['240','4h'],['480','Journée']].map(([v,l])=>(
+            <button key={v} type="button" onClick={()=>setRdvForm({...rdvForm,duree:v,dureeLabel:l})} style={{
+              padding:'6px 12px',borderRadius:'20px',fontSize:'12px',fontWeight:600,cursor:'pointer',
+              background:rdvForm.duree===v?'var(--txt)':'var(--surface)',
+              color:rdvForm.duree===v?'var(--bg)':'var(--txt2)',
+              border:rdvForm.duree===v?'none':'1.5px solid var(--border2)'
+            }}>{l}</button>
+          ))}
+        </div>
       </div>
       <div className="form-group" style={{marginBottom:'12px'}}>
         <label>Nationalité</label>

@@ -280,8 +280,8 @@ export default function Dashboard() {
         {/* Barre cumulative */}
         <div style={{ marginBottom:'12px' }}>
           <div style={{ display:'flex', justifyContent:'space-between', fontSize:'10px', color:'var(--txt3)', marginBottom:'4px' }}>
-            <span>CA cumulé</span>
-            <span style={{ fontFamily:'var(--font-mono)' }}>{fmt(caAnnuelCumul)} / {fmt(cibleAujourdhui)} attendu</span>
+            <span>CA cumulé réel</span>
+            <span>Cible à date : <span style={{ fontFamily:'var(--font-mono)', color:surParcours?'var(--green)':'var(--red)' }}>{fmt(cibleAujourdhui)}</span></span>
           </div>
           <div style={{ position:'relative', height:'10px', background:'var(--bg2)', borderRadius:'5px', overflow:'hidden' }}>
             {/* Cible */}
