@@ -70,9 +70,11 @@ export default function Comptabilite() {
 
   // Filtres par mois sélectionné
   const sessM = sessions.filter(s=>{
-    const d=s.properties.Date?.date?.start||''
-    const isAmely=(s.properties.Type?.select?.name||'').includes('Amely')
-    return d.startsWith(moisSelect) && !isAmely
+    const d      = s.properties.Date?.date?.start||''
+    const isAmely= (s.properties.Type?.select?.name||'').includes('Amely')
+    const st     = s.properties.Statut?.select?.name||''
+    const isConf = st==='' || st==='✅ Confirmé'   // exclure 🗓 Prévu, 👻 No-show, ❌ Annulé
+    return d.startsWith(moisSelect) && !isAmely && isConf
   })
   const depM = depenses.filter(d=>(d.properties.Date?.date?.start||'').startsWith(moisSelect))
 
