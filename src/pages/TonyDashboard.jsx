@@ -417,7 +417,7 @@ export default function TonyDashboard({ onLogout }) {
     </div>
   )
 
-  if (tab==='planning') return <Planning onBack={()=>setTab('home')} />
+  if (tab==='planning') return <Planning onBack={()=>setTab('home')} onEditRdv={(rdv)=>{setEditRdv(rdv);setTab('editRdv')}} />
 
   if (tab==='rdv') return (
     <div style={{padding:'0 0 40px',minHeight:'100dvh',background:'var(--bg)'}}>
@@ -647,9 +647,15 @@ export default function TonyDashboard({ onLogout }) {
             style={{textAlign:'center',fontSize:'18px',fontFamily:'var(--font-mono)'}}/>
         </div>
       </div>
-      <div className="form-group" style={{marginBottom:'12px'}}>
-        <label>Date</label>
-        <input type="date" value={editRdv.date} onChange={e=>setEditRdv({...editRdv,date:e.target.value})}/>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'12px'}}>
+        <div className="form-group" style={{margin:0}}>
+          <label>Date</label>
+          <input type="date" value={editRdv.date} onChange={e=>setEditRdv({...editRdv,date:e.target.value})}/>
+        </div>
+        <div className="form-group" style={{margin:0}}>
+          <label>Heure</label>
+          <input type="time" value={editRdv.heure||''} onChange={e=>setEditRdv({...editRdv,heure:e.target.value})}/>
+        </div>
       </div>
       <div className="form-group" style={{marginBottom:'12px'}}>
         <label>Nationalité</label>
@@ -743,7 +749,8 @@ export default function TonyDashboard({ onLogout }) {
                 const acompte = s.properties['Acompte reçu']?.number||0
                 const date    = s.properties.Date?.date?.start?.split('T')[0]||''
                 const notes   = s.properties.Notes?.rich_text?.[0]?.plain_text||''
-                const heure   = notes.match(/·\s*(\d{2}:\d{2})/)?.[1]||null
+                const dateRaw = s.properties.Date?.date?.start||''
+                const heure   = dateRaw.includes('T') ? dateRaw.substring(11,16) : (notes.match(/·\s*(\d{2}:\d{2})/)?.[1]||null)
                 const isToday = date === td
                 const isPast  = date < td
                 const d       = new Date(date)
@@ -797,15 +804,37 @@ export default function TonyDashboard({ onLogout }) {
                       </div>
                       <div style={{flexShrink:0,marginLeft:'10px',textAlign:'right'}}>
                         <div style={{fontFamily:'var(--font-mono)',fontSize:'18px',fontWeight:600,color:isPast?'var(--red)':'var(--txt)'}}>{prix}€</div>
-                        <button onClick={()=>openConfirm(s)} style={{
-                          marginTop:'5px',padding:'5px 10px',borderRadius:'8px',fontSize:'11px',fontWeight:700,cursor:'pointer',
-                          background:isPast?'var(--green)':'rgba(22,121,74,.1)',
-                          color:isPast?'#fff':'var(--green)',
-                          border:isPast?'none':'1px solid rgba(22,121,74,.25)',
-                          fontFamily:'var(--font-head)'
-                        }}>
-                          {isPast?'Valider':'✓ Venu'}
-                        </button>
+                        <div style={{display:'flex',gap:'5px',marginTop:'5px',justifyContent:'flex-end'}}>
+                          <button onClick={()=>{
+                            const dr=s.properties.Date?.date?.start||''
+                            const h=dr.includes('T')?dr.substring(11,16):''
+                            setEditRdv({
+                              id:s.id,
+                              client:s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'',
+                              style:s.properties['Style / Type']?.rich_text?.[0]?.plain_text||'',
+                              prixEstime:String(s.properties.Prix?.number||0),
+                              sessions:String(getNbSess(s)),
+                              acompte:String(s.properties['Acompte reçu']?.number||0),
+                              date:dr.split('T')[0]||date,
+                              heure:h,
+                              natio:s.properties.Nationalité?.select?.name||'🇫🇷 FR',
+                              source:s.properties.Source?.select?.name||'📸 Instagram',
+                            })
+                            setTab('editRdv')
+                          }} style={{
+                            padding:'5px 8px',borderRadius:'8px',fontSize:'13px',cursor:'pointer',
+                            background:'var(--bg2)',border:'1px solid var(--border2)',color:'var(--txt3)'
+                          }}>✏️</button>
+                          <button onClick={()=>openConfirm(s)} style={{
+                            padding:'5px 10px',borderRadius:'8px',fontSize:'11px',fontWeight:700,cursor:'pointer',
+                            background:isPast?'var(--green)':'rgba(22,121,74,.1)',
+                            color:isPast?'#fff':'var(--green)',
+                            border:isPast?'none':'1px solid rgba(22,121,74,.25)',
+                            fontFamily:'var(--font-head)'
+                          }}>
+                            {isPast?'Valider':'✓ Venu'}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

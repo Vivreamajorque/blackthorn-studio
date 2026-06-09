@@ -35,7 +35,7 @@ const labelDate = (dateStr) => {
 
 const fmt = (n) => { const a=Math.abs(Math.round(n)); return (n<0?'-':'')+(a>=1000?(a/1000).toFixed(1)+'k€':a+'€') }
 
-export default function Planning({ onBack }) {
+export default function Planning({ onBack, onEditRdv }) {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading]   = useState(true)
   const [toast, setToast]       = useState('')
@@ -254,8 +254,8 @@ export default function Planning({ onBack }) {
                   const prix    = s.properties.Prix?.number||0
                   const acompte = s.properties['Acompte reçu']?.number||0
                   const notes   = s.properties.Notes?.rich_text?.[0]?.plain_text||''
-                  const timeM   = notes.match(/·\s*(\d{2}:\d{2})/)
-                  const heure   = timeM?.[1]||null
+                  const dateRaw = s.properties.Date?.date?.start||''
+                  const heure   = dateRaw.includes('T') ? dateRaw.substring(11,16) : (notes.match(/·\s*(\d{2}:\d{2})/)?.[1]||null)
                   const source  = s.properties.Source?.select?.name||''
                   const url     = gcalUrl(s)
                   return (
@@ -276,7 +276,7 @@ export default function Planning({ onBack }) {
                             {acompte>0 && <div style={{ fontSize:'10px', color:'var(--green)', marginTop:'1px' }}>Acompte: {acompte}€</div>}
                           </div>
                         </div>
-                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px' }}>
+                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'6px' }}>
                           <button onClick={()=>openConfirm(s)} style={{
                             padding:'9px', borderRadius:'var(--r)',
                             background:isPast?'var(--green)':'rgba(22,121,74,.1)',
@@ -289,6 +289,26 @@ export default function Planning({ onBack }) {
                             background:'var(--surface)', border:'1.5px solid var(--border2)',
                             color:'var(--txt3)', fontFamily:'var(--font-head)', fontWeight:700, fontSize:'12px', cursor:'pointer'
                           }}>👻 No-show</button>
+                          {onEditRdv && <button onClick={()=>{
+                            const dr=s.properties.Date?.date?.start||''
+                            const h=dr.includes('T')?dr.substring(11,16):''
+                            onEditRdv({
+                              id:s.id,
+                              client:s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'',
+                              style:s.properties['Style / Type']?.rich_text?.[0]?.plain_text||'',
+                              prixEstime:String(s.properties.Prix?.number||0),
+                              sessions:'1',
+                              acompte:String(s.properties['Acompte reçu']?.number||0),
+                              date:dr.split('T')[0]||'',
+                              heure:h,
+                              natio:s.properties.Nationalité?.select?.name||'🇫🇷 FR',
+                              source:s.properties.Source?.select?.name||'📸 Instagram',
+                            })
+                          }} style={{
+                            padding:'9px', borderRadius:'var(--r)',
+                            background:'var(--surface)', border:'1.5px solid var(--gold)',
+                            color:'var(--gold-dk)', fontFamily:'var(--font-head)', fontWeight:700, fontSize:'12px', cursor:'pointer'
+                          }}>✏️ Modifier</button>}
                         </div>
                         {url && (
                           <a href={url} target="_blank" rel="noopener noreferrer" style={{ display:'block', marginTop:'6px', padding:'6px', borderRadius:'var(--r)', background:'rgba(30,95,160,.06)', border:'1px solid rgba(30,95,160,.12)', color:'var(--blue)', fontSize:'11px', fontWeight:600, textAlign:'center', textDecoration:'none' }}>
