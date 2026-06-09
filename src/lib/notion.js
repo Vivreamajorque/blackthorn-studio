@@ -123,6 +123,17 @@ export const notion = {
   }),
 
 
+
+  // ── BRIEFS POSTS ─────────────────────────────────
+  getBriefs: () => call('databases/0956d966df9941afb3ae8937c459f6b4/query', 'POST', {
+    sorts: [{ property: 'Date', direction: 'ascending' }],
+    page_size: 60
+  }),
+
+  updateBriefCheckbox: (pageId, field, value) => call(`pages/${pageId}`, 'PATCH', {
+    properties: { [field]: { checkbox: value } }
+  }),
+
   // ── COMMUNICATION ────────────────────────────────
   getCalendrierEditorial: () => call(`databases/df7169664f7e46e9b5d2cc14d81c002a/query`, 'POST', {
     sorts: [{ property: 'Date', direction: 'ascending' }],

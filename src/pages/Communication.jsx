@@ -93,6 +93,7 @@ const PROSPECTION = [
 ]
 
 const TABS = [
+  {id:'briefs',l:'📋 Briefs'},
   {id:'today',l:'Aujourd\'hui'},
   {id:'planning',l:'Planning sem.'},
   {id:'promos',l:'Promos'},
@@ -102,19 +103,31 @@ const TABS = [
 
 export default function Communication() {
   const [tab,      setTab]    = useState('today')
+  const [briefs,   setBriefs] = useState([])
   const [contenus, setCont]   = useState([])
   const [events,   setEvents] = useState([])
   const [loading,  setLoad]   = useState(true)
   const [toast,    setToast]  = useState('')
   const showToast = (m) => { setToast(m); setTimeout(()=>setToast(''),2500) }
 
+  const toggleCheck = async (briefId, field, current) => {
+    const newVal = current !== '__YES__'
+    setBriefs(prev => prev.map(b => {
+      if(b.id !== briefId) return b
+      return {...b, properties: {...b.properties, [field]: {checkbox: newVal}}}
+    }))
+    try { await notion.updateBriefCheckbox(briefId, field, newVal) } catch(e) {}
+  }
+
   const load = useCallback(async () => {
     setLoad(true)
     try {
-      const [c, e] = await Promise.all([
+      const [b, c, e] = await Promise.all([
+        notion.getBriefs().catch(()=>({results:[]})),
         notion.getCalendrierEditorial().catch(()=>({results:[]})),
         notion.getEvenements().catch(()=>({results:[]})),
       ])
+      if(b.results) setBriefs(b.results)
       if(c.results) setCont(c.results)
       if(e.results) setEvents(e.results)
     } catch(err){}
@@ -123,6 +136,15 @@ export default function Communication() {
   useEffect(()=>{ load() },[load])
 
   const today = todayStr()
+  const briefsToday = briefs.filter(b=>b.properties.Date?.date?.start===today)
+  const briefsWeek  = briefs.filter(b=>{
+    const d=b.properties.Date?.date?.start||''
+    const ws=new Date(); ws.setDate(ws.getDate()+(ws.getDay()===0?-6:1-ws.getDay()))
+    const we=new Date(ws); we.setDate(we.getDate()+6)
+    return d>=ws.toISOString().split('T')[0]&&d<=we.toISOString().split('T')[0]
+  })
+  const briefsPending = briefs.filter(b=>!['✅ Publié','❌ Annulé'].includes(b.properties.Statut?.select?.name||''))
+
   const dayOfWeek = new Date().getDay()
   const todayPlan = WEEKLY_PLAN[dayOfWeek] || []
   const todayName = DAY_NAMES[dayOfWeek]
@@ -162,6 +184,147 @@ export default function Communication() {
             }}>{t.l}</button>
           ))}
         </div>
+
+        {/* ══ BRIEFS POSTS ════════════════════════════ */}
+        {tab==='briefs'&&(
+          <div>
+            {/* Résumé état pipeline */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'6px',marginBottom:'14px'}}>
+              {[
+                {l:'Aujourd'hui',v:briefsToday.length,c:briefsToday.length>0?'var(--amber)':'var(--txt3)'},
+                {l:'Cette semaine',v:briefsWeek.length,c:'var(--blue)'},
+                {l:'En attente',v:briefsPending.length,c:briefsPending.length>3?'var(--red)':'var(--txt)'},
+              ].map(x=>(
+                <div key={x.l} className="card" style={{textAlign:'center',padding:'10px 6px'}}>
+                  <div style={{fontSize:'8px',fontWeight:700,color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px'}}>{x.l}</div>
+                  <div style={{fontFamily:'var(--font-mono)',fontSize:'22px',fontWeight:500,color:x.c}}>{x.v}</div>
+                </div>
+              ))}
+            </div>
+
+            {loading&&<div style={{textAlign:'center',padding:'30px',color:'var(--txt3)',fontSize:'12px'}}>Chargement des briefs...</div>}
+
+            {!loading&&briefs.length===0&&(
+              <div className="card" style={{textAlign:'center',padding:'32px',border:'1.5px dashed var(--border2)'}}>
+                <div style={{fontSize:'24px',marginBottom:'8px'}}>📋</div>
+                <div style={{fontSize:'12px',color:'var(--txt3)'}}>Aucun brief disponible</div>
+              </div>
+            )}
+
+            {!loading&&briefs.map(brief=>{
+              const nom      = brief.properties.Post?.title?.[0]?.plain_text||'—'
+              const date     = brief.properties.Date?.date?.start||''
+              const heure    = brief.properties.Heure?.rich_text?.[0]?.plain_text||''
+              const reseau   = brief.properties['Réseau']?.multi_select?.map(r=>r.name)||[]
+              const format   = brief.properties.Format?.select?.name||''
+              const statut   = brief.properties.Statut?.select?.name||'💡 Brief prêt'
+              const cta      = brief.properties.CTA?.select?.name||''
+              const briefTxt = brief.properties.Brief?.rich_text?.[0]?.plain_text||''
+              const caption  = brief.properties.Caption?.rich_text?.[0]?.plain_text||''
+              const hashtags = brief.properties.Hashtags?.rich_text?.[0]?.plain_text||''
+              const isToday  = date===today
+              const diff     = date?Math.round((new Date(date)-new Date())/86400000):99
+
+              const checks = [
+                {key:'✅ Filmé/Capturé',     label:'Filmé / capturé'},
+                {key:'✅ Monté/Retouché',     label:'Monté / retouché'},
+                {key:'✅ Caption prête',      label:'Caption prête'},
+                {key:'✅ Hashtags prêts',     label:'Hashtags prêts'},
+                {key:'✅ Publié Instagram',   label:'Publié Instagram'},
+                {key:'✅ Publié TikTok',      label:'Publié TikTok'},
+                {key:'✅ Story de relance',   label:'Story de relance'},
+                {key:'📊 Résultat noté',      label:'Résultat noté'},
+              ]
+              const doneCount = checks.filter(ch=>brief.properties[ch.key]?.checkbox).length
+              const pct       = Math.round(doneCount/checks.length*100)
+              const colSt     = STATUS_C[statut]||'var(--txt3)'
+
+              return (
+                <div key={brief.id} style={{
+                  marginBottom:'12px',borderRadius:'var(--r-lg)',
+                  border:`1px solid ${isToday?'var(--gold)':'var(--border)'}`,
+                  overflow:'hidden',
+                  boxShadow:isToday?'0 0 0 2px rgba(196,168,130,.2)':'var(--shadow-xs)'
+                }}>
+                  {/* HEADER */}
+                  <div style={{padding:'12px 14px',background:isToday?'rgba(196,168,130,.07)':'var(--surface)'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'6px'}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:'12px',fontWeight:700,lineHeight:1.3}}>{nom}</div>
+                        <div style={{display:'flex',gap:'6px',flexWrap:'wrap',marginTop:'4px'}}>
+                          <span style={{fontSize:'10px',fontFamily:'var(--font-mono)',color:isToday?'var(--gold-dk)':'var(--txt3)',fontWeight:600}}>
+                            {diff===0?'Aujourd'hui':diff===1?'Demain':date.split('-').slice(1).join('/')}{heure&&' · '+heure}
+                          </span>
+                          {reseau.map(r=><span key={r} style={{fontSize:'9px',padding:'1px 5px',background:'var(--bg2)',borderRadius:'8px',color:'var(--txt3)'}}>{r}</span>)}
+                          {format&&<span style={{fontSize:'9px',color:'var(--txt3)'}}>{format}</span>}
+                        </div>
+                      </div>
+                      <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:'4px',flexShrink:0,marginLeft:'8px'}}>
+                        <span style={{fontSize:'10px',fontWeight:700,color:colSt,padding:'2px 7px',background:colSt+'18',borderRadius:'8px'}}>{statut}</span>
+                        <span style={{fontSize:'10px',fontFamily:'var(--font-mono)',color:pct===100?'var(--green)':pct>0?'var(--amber)':'var(--txt3)'}}>{doneCount}/{checks.length}</span>
+                      </div>
+                    </div>
+                    {/* Barre de progression */}
+                    <div style={{height:'3px',background:'var(--bg2)',borderRadius:'2px',overflow:'hidden'}}>
+                      <div style={{height:'100%',width:`${pct}%`,background:pct===100?'var(--green)':pct>50?'var(--amber)':'var(--gold)',borderRadius:'2px',transition:'width .4s'}}/>
+                    </div>
+                  </div>
+
+                  {/* BRIEF */}
+                  {briefTxt&&(
+                    <div style={{padding:'10px 14px',borderTop:'1px solid var(--border)',background:'rgba(26,18,9,.015)'}}>
+                      <div style={{fontSize:'9px',fontWeight:700,color:'var(--gold-dk)',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'5px'}}>Brief</div>
+                      <div style={{fontSize:'11px',color:'var(--txt2)',lineHeight:1.5}}>{briefTxt}</div>
+                    </div>
+                  )}
+
+                  {/* CAPTION */}
+                  {caption&&(
+                    <div style={{padding:'10px 14px',borderTop:'1px solid var(--border)',background:'rgba(26,18,9,.015)'}}>
+                      <div style={{fontSize:'9px',fontWeight:700,color:'var(--gold-dk)',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'5px'}}>Caption — copier-coller</div>
+                      <div style={{fontSize:'11px',color:'var(--txt)',lineHeight:1.5,whiteSpace:'pre-line',fontFamily:'var(--font-mono)',background:'var(--bg)',padding:'8px',borderRadius:'var(--r)',border:'1px solid var(--border)'}}>{caption}</div>
+                    </div>
+                  )}
+
+                  {/* HASHTAGS + CTA */}
+                  {(hashtags||cta)&&(
+                    <div style={{padding:'8px 14px',borderTop:'1px solid var(--border)',display:'flex',gap:'12px',flexWrap:'wrap',alignItems:'flex-start'}}>
+                      {hashtags&&<div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:'9px',fontWeight:700,color:'var(--gold-dk)',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'3px'}}>Hashtags</div>
+                        <div style={{fontSize:'10px',color:'var(--blue)',lineHeight:1.5,fontFamily:'var(--font-mono)'}}>{hashtags}</div>
+                      </div>}
+                      {cta&&<div style={{flexShrink:0}}>
+                        <div style={{fontSize:'9px',fontWeight:700,color:'var(--gold-dk)',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'3px'}}>CTA</div>
+                        <span style={{fontSize:'10px',padding:'3px 8px',background:'var(--gold-lt)',borderRadius:'8px',color:'var(--gold-dk)',fontWeight:600}}>{cta}</span>
+                      </div>}
+                    </div>
+                  )}
+
+                  {/* CHECKLIST */}
+                  <div style={{padding:'10px 14px',borderTop:'1px solid var(--border)',background:'var(--surface)'}}>
+                    <div style={{fontSize:'9px',fontWeight:700,color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'8px'}}>Checklist</div>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px'}}>
+                      {checks.map(ch=>{
+                        const done = brief.properties[ch.key]?.checkbox
+                        return (
+                          <button key={ch.key} onClick={()=>toggleCheck(brief.id,ch.key,done?'__YES__':'__NO__')} style={{
+                            display:'flex',alignItems:'center',gap:'6px',padding:'5px 8px',
+                            borderRadius:'var(--r)',background:done?'rgba(26,121,74,.08)':'var(--bg)',
+                            border:`1px solid ${done?'rgba(26,121,74,.2)':'var(--border)'}`,
+                            cursor:'pointer',textAlign:'left'
+                          }}>
+                            <span style={{fontSize:'13px',flexShrink:0}}>{done?'✅':'⬜'}</span>
+                            <span style={{fontSize:'10px',color:done?'var(--green)':'var(--txt3)',fontWeight:done?600:400,textDecoration:done?'line-through':'none'}}>{ch.label}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
 
         {/* ══ AUJOURD'HUI ══════════════════════════════ */}
         {tab==='today'&&(
