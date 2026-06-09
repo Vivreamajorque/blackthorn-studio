@@ -62,6 +62,8 @@ const TASK_BORDER = {film:'var(--blue)',publish:'var(--green)',engage:'var(--gol
 
 // Toutes les promos
 const PROMOS_STATIC = [
+  {nom:'🏆 World Cup Ink — Rep ta nation',type:'🌍',quand:'11 juin - 19 juillet 2026',cible:'Toutes nationalités · 48 pays',offre:'Flash drapeaux + designs nations · Designs footballistiques · Post par match des équipes qualifiées',statut:'🚀 Active'},
+  {nom:'🌑 Flash Éclipse Totale',type:'☀️',quand:'12 août 2026 (soir)',cible:'Eclipse-chasers + touristes août',offre:'10 designs célestes 80-100€ · Regarder l'éclipse Es Trenc + tatouage au soir · Commemoratif unique',statut:'📋 Planifiée'},
   {nom:'Flash été "Souvenir de Majorque"',type:'🏖️',quand:'Juil-Août',cible:'Touristes Es Trenc',offre:'Prix fixe 80-120€ · Flash designs Majorque · Slot 1h',statut:'📋 Planifiée'},
   {nom:"Cyclist's Ink",type:'🚴',quand:'Avr-Oct',cible:'Cyclistes EU',offre:'-15% sur présentation dossard ou photo sur vélo',statut:'📋 Planifiée'},
   {nom:'Pack Expat',type:'🌍',quand:'Toute l\'année',cible:'Nouveaux résidents',offre:'2ème séance -20% sur présentation NIE',statut:'📋 Planifiée'},
@@ -296,8 +298,9 @@ export default function Communication() {
         {tab==='promos'&&(
           <div>
             <div style={{marginBottom:'12px',padding:'10px 14px',background:'rgba(26,121,74,.08)',borderRadius:'var(--r)',borderLeft:'3px solid var(--green)'}}>
-              <div style={{fontSize:'12px',fontWeight:700,color:'var(--green)',marginBottom:'2px'}}>🚀 Promo active maintenant</div>
-              <div style={{fontSize:'11px',color:'var(--txt2)'}}>Flash Sant Joan 70€ — 23-24 juin · PROMO 24H</div>
+              <div style={{fontSize:'12px',fontWeight:700,color:'var(--green)',marginBottom:'4px'}}>🚀 Promos actives MAINTENANT</div>
+              <div style={{fontSize:'11px',color:'var(--txt2)',marginBottom:'3px'}}>🏆 World Cup Ink — 48 nations · jusqu'au 19 juillet</div>
+              <div style={{fontSize:'11px',color:'var(--txt2)'}}>🔥 Flash Sant Joan 70€ — 23-24 juin · PROMO 24H</div>
             </div>
             {PROMOS_STATIC.map((p,i)=>(
               <div key={i} className="card" style={{marginBottom:'8px',padding:'12px 14px',borderLeft:`3px solid ${p.statut==='🚀 Active'?'var(--green)':p.statut==='📋 Planifiée'?'var(--gold)':'var(--border)'}`}}>
@@ -409,6 +412,26 @@ export default function Communication() {
           </div>
         )}
       </div>
+
+            {/* VENTES ADDITIONNELLES */}
+            <div style={{marginTop:'16px'}}>
+              <div className="section-title-gold" style={{marginBottom:'10px'}}>Ventes additionnelles</div>
+              {[
+                {cat:'💊 Aftercare',items:['Crème aftercare (Hustle Butter 15-20€)','Sunscreen SPF50 tatouages (été++++)','Baume cicatrisant longue durée']},
+                {cat:'🎨 Art & Merch',items:['Flash prints (designs Tony vendus 15-30€)','Stickers Blackthorn','T-shirt / tote bag studio']},
+                {cat:'🎁 Services',items:['Gift Vouchers (anniversaires, Noël)','Retouche 6 mois (confiance)','Consultation cover-up payante']},
+                {cat:'🤝 Commissions',items:['Aftercare : négocier % avec fournisseur','Référencement hôtels / agences immobilières','Bijoux piercing (quand Amely sera formée)']},
+              ].map((cat,i)=>(
+                <div key={i} className="card" style={{marginBottom:'8px',padding:'12px 14px'}}>
+                  <div style={{fontSize:'12px',fontWeight:700,marginBottom:'6px'}}>{cat.cat}</div>
+                  {cat.items.map((item,j)=>(
+                    <div key={j} style={{fontSize:'11px',color:'var(--txt2)',padding:'3px 0',borderBottom:'1px solid var(--border)',display:'flex',gap:'6px'}}>
+                      <span style={{color:'var(--gold)',flexShrink:0}}>→</span>{item}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
       {toast&&<div className="toast">{toast}</div>}
     </div>
   )
