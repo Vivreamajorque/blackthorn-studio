@@ -69,10 +69,8 @@ export default function Dashboard() {
     return d >= '2026-06-01' ? a + (s.properties.Prix?.number||0) : a
   }, 0)
 
-  // Revenus Amely ce mois
-  const caAmely = sessions.filter(s=>(s.properties.Type?.select?.name||'').includes('Amely') && (s.properties.Date?.date?.start||'').startsWith(m)).reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-
-  const caTotal = caMois + caAmely
+  // Hub Blackthorn = CA Tony uniquement
+  const caTotal = caMois
   const rMois   = netReel(caTotal)
 
   // Dépenses mois
@@ -182,53 +180,41 @@ export default function Dashboard() {
       </div>
 
       {/* ══════════════════════════════════════════════
-          SECTION 2 : RÉSEAUX SOCIAUX
+          SECTION 2 : RÉSEAUX SOCIAUX BLACKTHORN
       ══════════════════════════════════════════════ */}
       <div style={{ fontSize:'10px', color:'var(--gris)', textTransform:'uppercase', letterSpacing:'2px', fontWeight:600, marginBottom:'10px' }}>Réseaux sociaux</div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px', marginBottom:'8px' }}>
-        {/* TikTok */}
-        <div style={{ background:'var(--noir2)', borderRadius:'var(--r)', padding:'12px', border:'1px solid var(--noir3)' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'10px' }}>
-            <span style={{ fontSize:'16px' }}>🎵</span>
-            <span style={{ fontSize:'12px', fontWeight:600, color:'var(--blanc)' }}>TikTok</span>
-            <span style={{ fontSize:'10px', color:'var(--gris)', marginLeft:'auto' }}>@amelymallorcaraw</span>
-          </div>
-          {[{l:'Followers',v:'~1 000'},{l:'Vues 30j',v:'34k'},{l:'Complétion',v:'30%'}].map(x=>(
-            <div key={x.l} style={{ display:'flex', justifyContent:'space-between', padding:'3px 0', borderBottom:'1px solid var(--noir3)', fontSize:'12px' }}>
-              <span style={{ color:'var(--gris)' }}>{x.l}</span>
-              <span style={{ fontFamily:'var(--font-mono)', color:'var(--blanc)' }}>{x.v}</span>
-            </div>
-          ))}
-          <div style={{ marginTop:'6px', fontSize:'10px', color:'var(--gris2)', lineHeight:1.4 }}>Plan 90j — J{Math.ceil((new Date('2026-09-02')-today)/86400000)} restants</div>
-        </div>
-
-        {/* Instagram */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px', marginBottom:'20px' }}>
+        {/* Instagram Blackthorn */}
         <div style={{ background:'var(--noir2)', borderRadius:'var(--r)', padding:'12px', border:'1px solid var(--noir3)' }}>
           <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'10px' }}>
             <span style={{ fontSize:'16px' }}>📸</span>
             <span style={{ fontSize:'12px', fontWeight:600, color:'var(--blanc)' }}>Instagram</span>
-            <span style={{ fontSize:'10px', color:'var(--gris)', marginLeft:'auto' }}>@amely_mallorca_raw</span>
           </div>
-          {[{l:'Followers',v:'~385'},{l:'Meilleur reel',v:'267k'},{l:'Public cible',v:'Touristes'}].map(x=>(
+          <div style={{ fontSize:'10px', color:'var(--gris2)', marginBottom:'8px' }}>@blackthorntattoo_campos</div>
+          {[{l:'Abonnés',v:'—'},{l:'Reach mois',v:'—'},{l:'Rendez-vous',v:'—'}].map(x=>(
             <div key={x.l} style={{ display:'flex', justifyContent:'space-between', padding:'3px 0', borderBottom:'1px solid var(--noir3)', fontSize:'12px' }}>
               <span style={{ color:'var(--gris)' }}>{x.l}</span>
-              <span style={{ fontFamily:'var(--font-mono)', color:'var(--blanc)' }}>{x.v}</span>
+              <span style={{ fontFamily:'var(--font-mono)', color:'var(--gris2)' }}>{x.v}</span>
             </div>
           ))}
-          <div style={{ marginTop:'6px', fontSize:'10px', color:'var(--gris2)' }}>73% femmes · 74% France</div>
+          <div style={{ marginTop:'6px', fontSize:'10px', color:'var(--gris2)' }}>Mise à jour manuelle dans Métriques</div>
         </div>
-      </div>
 
-      {/* Blackthorn RS */}
-      <div style={{ background:'var(--noir2)', borderRadius:'var(--r)', padding:'12px', border:'1px solid var(--noir3)', marginBottom:'20px' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'8px' }}>
-          <span style={{ fontSize:'16px' }}>🖤</span>
-          <span style={{ fontSize:'12px', fontWeight:600, color:'var(--blanc)' }}>Blackthorn Tattoo</span>
-          <span style={{ fontSize:'10px', color:'var(--gris)', marginLeft:'auto' }}>@blackthorntattoo_campos</span>
-        </div>
-        <div style={{ fontSize:'11px', color:'var(--gris2)' }}>
-          Profil Instagram + Facebook — présence locale Campos/Mallorca
+        {/* Facebook Blackthorn */}
+        <div style={{ background:'var(--noir2)', borderRadius:'var(--r)', padding:'12px', border:'1px solid var(--noir3)' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'10px' }}>
+            <span style={{ fontSize:'16px' }}>👥</span>
+            <span style={{ fontSize:'12px', fontWeight:600, color:'var(--blanc)' }}>Facebook</span>
+          </div>
+          <div style={{ fontSize:'10px', color:'var(--gris2)', marginBottom:'8px' }}>blackthorntattoocampos</div>
+          {[{l:'Abonnés',v:'—'},{l:'Vues page',v:'—'},{l:'Avis Google',v:'—'}].map(x=>(
+            <div key={x.l} style={{ display:'flex', justifyContent:'space-between', padding:'3px 0', borderBottom:'1px solid var(--noir3)', fontSize:'12px' }}>
+              <span style={{ color:'var(--gris)' }}>{x.l}</span>
+              <span style={{ fontFamily:'var(--font-mono)', color:'var(--gris2)' }}>{x.v}</span>
+            </div>
+          ))}
+          <div style={{ marginTop:'6px', fontSize:'10px', color:'var(--gris2)' }}>Mise à jour manuelle dans Métriques</div>
         </div>
       </div>
 
