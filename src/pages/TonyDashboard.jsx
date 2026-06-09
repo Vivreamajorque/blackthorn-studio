@@ -78,7 +78,7 @@ export default function TonyDashboard({ onLogout }) {
   const fileRef   = useRef(null)
   const cameraRef = useRef(null)
 
-  const [caForm,    setCaForm]    = useState({ ca:'', sessions:'1', paiement:'cash', notes:'', date:todayStr() })
+  const [caForm,    setCaForm]    = useState({ ca:'', sessions:'1', paiement:'cash', natio:'🇫🇷 FR', notes:'', date:todayStr() })
   const [caSaving,  setCaSaving]  = useState(false)
   const [depForm,   setDepForm]   = useState({ montant:'', fournisseur:'', categorie:'🖊️ Matériel tatouage', date:todayStr(), notes:'', iva_recuperable:true })
   const [depSaving, setDepSaving] = useState(false)
@@ -144,12 +144,12 @@ export default function TonyDashboard({ onLogout }) {
         type:'🖤 Tattoo Tony', client:'', natio:'Autre',
         style:caForm.notes,
         prix:parseFloat(caForm.ca)||0, acompte:0, solde:parseFloat(caForm.ca)||0,
-        paiement:caForm.paiement||'cash',
+        paiement:caForm.paiement||'cash', natio:caForm.natio||'Autre',
         notes:`${caForm.sessions} session(s)${caForm.notes?' · '+caForm.notes:''}`,
         date:caForm.date, avis:false
       })
       showToast(parseFloat(caForm.ca)>=156?'🔥 Belle session !':'✓ CA enregistré')
-      setCaForm({ca:'',sessions:'1',paiement:'cash',notes:'',date:todayStr()})
+      setCaForm({ca:'',sessions:'1',paiement:'cash',natio:'🇫🇷 FR',notes:'',date:todayStr()})
       setTab('home'); load()
     } catch(e) { showToast('Erreur — réessaie') }
     setCaSaving(false)
@@ -199,7 +199,7 @@ export default function TonyDashboard({ onLogout }) {
     if (!editing?.ca) return
     setEditSaving(true)
     try {
-      await notion.updateSession(editing.id, {prix:parseFloat(editing.ca),paiement:editing.paiement||'cash',date:editing.date,notes:editing.notes,type:'🖤 Tattoo Tony',natio:'Autre'})
+      await notion.updateSession(editing.id, {prix:parseFloat(editing.ca),paiement:editing.paiement||'cash',date:editing.date,notes:`${editing.sessions||1} session(s)${editing.notes?' · '+editing.notes:''}`,type:'🖤 Tattoo Tony',natio:editing.natio||'Autre'})
       showToast('✓ Modifié'); setEditing(null); setTab('histo'); load()
     } catch(e) { showToast('Erreur') }
     setEditSaving(false)
@@ -239,7 +239,7 @@ export default function TonyDashboard({ onLogout }) {
           }}>{p==='cash'?'💵 Cash':'💳 Carte'}</button>
         ))}
       </div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'14px'}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'12px'}}>
         <div className="form-group" style={{margin:0}}>
           <label>Sessions</label>
           <input type="number" inputMode="numeric" placeholder="1" value={caForm.sessions} onChange={e=>setCaForm({...caForm,sessions:e.target.value})} style={{textAlign:'center',fontSize:'20px'}} />
@@ -247,6 +247,20 @@ export default function TonyDashboard({ onLogout }) {
         <div className="form-group" style={{margin:0}}>
           <label>Date</label>
           <input type="date" min="2026-06-01" value={caForm.date} onChange={e=>setCaForm({...caForm,date:e.target.value})} />
+        </div>
+      </div>
+      <div className="form-group" style={{marginBottom:'14px'}}>
+        <label>Nationalité client</label>
+        <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
+          {['🇫🇷 FR','🇩🇪 DE','🇬🇧 EN','🇪🇸 ES','Autre'].map(n=>(
+            <button key={n} type="button" onClick={()=>setCaForm({...caForm,natio:n})} style={{
+              padding:'8px 12px',borderRadius:'var(--r)',fontSize:'13px',fontWeight:600,cursor:'pointer',transition:'all .15s',
+              background:caForm.natio===n?'var(--txt)':'var(--card)',
+              color:caForm.natio===n?'var(--bg)':'var(--txt2)',
+              border:caForm.natio===n?'none':'1.5px solid var(--border2)',
+              boxShadow:caForm.natio===n?'var(--shadow)':'none'
+            }}>{n}</button>
+          ))}
         </div>
       </div>
       <div className="form-group" style={{marginBottom:'24px'}}>
@@ -344,9 +358,28 @@ export default function TonyDashboard({ onLogout }) {
           }}>{p==='cash'?'💵 Cash':'💳 Carte'}</button>
         ))}
       </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'12px'}}>
+        <div className="form-group" style={{margin:0}}>
+          <label>Sessions</label>
+          <input type="number" inputMode="numeric" placeholder="1" value={editing.sessions||'1'} onChange={e=>setEditing({...editing,sessions:e.target.value})} style={{textAlign:'center',fontSize:'18px'}} />
+        </div>
+        <div className="form-group" style={{margin:0}}>
+          <label>Date</label>
+          <input type="date" min="2026-06-01" value={editing.date} onChange={e=>setEditing({...editing,date:e.target.value})} />
+        </div>
+      </div>
       <div className="form-group" style={{marginBottom:'12px'}}>
-        <label>Date</label>
-        <input type="date" min="2026-06-01" value={editing.date} onChange={e=>setEditing({...editing,date:e.target.value})} />
+        <label>Nationalité client</label>
+        <div style={{display:'flex',gap:'8px',flexWrap:'wrap',marginTop:'4px'}}>
+          {['🇫🇷 FR','🇩🇪 DE','🇬🇧 EN','🇪🇸 ES','Autre'].map(n=>(
+            <button key={n} type="button" onClick={()=>setEditing({...editing,natio:n})} style={{
+              padding:'7px 10px',borderRadius:'var(--r)',fontSize:'12px',fontWeight:600,cursor:'pointer',
+              background:editing.natio===n?'var(--txt)':'var(--card)',
+              color:editing.natio===n?'var(--bg)':'var(--txt2)',
+              border:editing.natio===n?'none':'1.5px solid var(--border2)'
+            }}>{n}</button>
+          ))}
+        </div>
       </div>
       <div className="form-group" style={{marginBottom:'20px'}}>
         <label>Notes</label>
@@ -377,7 +410,12 @@ export default function TonyDashboard({ onLogout }) {
         const title=s.properties.Session?.title?.[0]?.plain_text||''
         const isCash=!title.includes('[CARTE]')
         return (
-          <div key={s.id} className="card" onClick={()=>{setEditing({id:s.id,ca:String(ca),paiement:isCash?'cash':'carte',date:date||todayStr(),notes});setTab('edit')}}
+          <div key={s.id} className="card" onClick={()=>{setEditing({
+              id:s.id, ca:String(ca), paiement:isCash?'cash':'carte',
+              date:date||todayStr(), notes,
+              sessions: (notes.match(/^(\d+) session/)?.[1])||'1',
+              natio: (()=>{ const t=s.properties.Session?.title?.[0]?.plain_text||''; const nat=s.properties.Nationalité?.select?.name; return nat||'Autre' })()
+            });setTab('edit')}}
             style={{marginBottom:'8px',display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',cursor:'pointer'}}>
             <div>
               <div style={{fontSize:'13px',fontWeight:500}}>{date}</div>
