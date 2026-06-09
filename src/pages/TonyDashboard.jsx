@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { notion } from '../lib/notion'
+import { notion, parsePaiement, getNbSess } from '../lib/notion'
 
-const OBJ_EQ   = 3895   // équilibre mensuel (156€/j × 25j)
-const OBJ_HIV  = 5850   // tenir hiver (234€/j × 25j)
-const OBJ_CONF = 7500   // confort (300€/j × 25j)
+const OBJ_EQ   = 3895
+const OBJ_HIV  = 5850
+const OBJ_CONF = 7500
 const PERSO    = 1500
 const FIXES    = 956
 const IVA_FL   = 150.47
@@ -20,119 +20,135 @@ const fmt = (n) => { const a=Math.abs(Math.round(n)); return (n<0?'-':'')+(a>=10
 
 const weekStart = () => {
   const d=new Date(); const day=d.getDay()
-  const diff=day===0?-6:1-day; d.setDate(d.getDate()+diff)
+  d.setDate(d.getDate()+(day===0?-6:1-day))
   return d.toISOString().split('T')[0]
 }
 
-// Arc SVG de progression
-function ArcProgress({ pct, color, size=100, stroke=9, label, value, sub, sub2 }) {
-  const r = (size-stroke)/2
-  const circ = 2*Math.PI*r
-  // Arc couvre 240 degrés (de 150° à 390°)
-  const arcLen = circ * (240/360)
-  const filled = Math.min(arcLen, arcLen * Math.min(1, pct/100))
-  const gapLen = circ - arcLen
-  const startAngle = 150
-  const cx = size/2, cy = size/2
+const labelDate = (dateStr) => {
+  const today = todayStr()
+  const tom   = new Date(); tom.setDate(tom.getDate()+1)
+  const tomStr = tom.toISOString().split('T')[0]
+  if (dateStr === today) return "Aujourd'hui"
+  if (dateStr === tomStr) return 'Demain'
+  const d = new Date(dateStr)
+  const diff = Math.round((d - new Date(today)) / 86400000)
+  if (diff > 0 && diff <= 6) return d.toLocaleDateString('fr-FR',{weekday:'long'})
+  return d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})
+}
 
+// Arc SVG
+function Arc({ pct, color, size=120, stroke=10, value, sub, label, sub2 }) {
+  const r=(size-stroke)/2, circ=2*Math.PI*r
+  const arcLen=circ*240/360, filled=Math.min(arcLen, arcLen*Math.min(1,pct/100))
   return (
-    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'4px' }}>
-      <div style={{ position:'relative', width:size, height:size*0.8 }}>
-        <svg width={size} height={size} style={{ position:'absolute', top:0, left:0 }}>
-          {/* Arc fond */}
-          <circle cx={cx} cy={cy} r={r}
-            fill="none" stroke="#E8E2D8" strokeWidth={stroke}
-            strokeDasharray={`${arcLen} ${gapLen}`}
-            strokeDashoffset={0}
-            strokeLinecap="round"
-            transform={`rotate(${startAngle} ${cx} ${cy})`} />
-          {/* Arc rempli */}
-          <circle cx={cx} cy={cy} r={r}
-            fill="none" stroke={color} strokeWidth={stroke}
-            strokeDasharray={`${filled} ${circ - filled}`}
-            strokeDashoffset={0}
-            strokeLinecap="round"
-            transform={`rotate(${startAngle} ${cx} ${cy})`}
-            style={{ transition:'stroke-dasharray .6s ease' }} />
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'4px'}}>
+      <div style={{position:'relative',width:size,height:size*0.82}}>
+        <svg width={size} height={size} style={{position:'absolute',top:0,left:0}}>
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#E8E2D8" strokeWidth={stroke}
+            strokeDasharray={`${arcLen} ${circ-arcLen}`} strokeLinecap="round"
+            transform={`rotate(150 ${size/2} ${size/2})`}/>
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+            strokeDasharray={`${filled} ${circ-filled}`} strokeLinecap="round"
+            transform={`rotate(150 ${size/2} ${size/2})`}
+            style={{transition:'stroke-dasharray .6s ease'}}/>
         </svg>
-        {/* Valeur centrale */}
-        <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', paddingTop:'10px' }}>
-          <div style={{ fontFamily:'var(--font-mono)', fontSize:'20px', fontWeight:500, color:'var(--txt)', lineHeight:1 }}>{value}</div>
-          {sub && <div style={{ fontSize:'10px', color:'var(--txt3)', marginTop:'2px' }}>{sub}</div>}
+        <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',paddingTop:'8px'}}>
+          <div style={{fontFamily:'var(--font-mono)',fontSize:'19px',fontWeight:500,color:'var(--txt)'}}>{value}</div>
+          {sub && <div style={{fontSize:'10px',color:'var(--txt3)',marginTop:'1px'}}>{sub}</div>}
         </div>
       </div>
-      <div style={{ fontSize:'11px', fontWeight:700, color:'var(--txt2)', textTransform:'uppercase', letterSpacing:'1px' }}>{label}</div>
-      {sub2 && <div style={{ fontSize:'10px', color:color, fontWeight:600, textAlign:'center' }}>{sub2}</div>}
+      <div style={{fontSize:'11px',fontWeight:700,color:'var(--txt2)',textTransform:'uppercase',letterSpacing:'1px'}}>{label}</div>
+      {sub2 && <div style={{fontSize:'10px',color,fontWeight:600,textAlign:'center',maxWidth:size}}>{sub2}</div>}
     </div>
   )
 }
 
-const CATS = ['🖊️ Matériel tatouage','🧴 Consommables','📱 Marketing','🔧 Équipement','🏠 Charges fixes','🚗 Déplacements','📦 Autre']
+const CATS=['🖊️ Matériel tatouage','🧴 Consommables','📱 Marketing','🔧 Équipement','🏠 Charges fixes','🚗 Déplacements','📦 Autre']
+const NATS=['🇫🇷 FR','🇩🇪 DE','🇬🇧 EN','🇪🇸 ES','Autre']
 
 export default function TonyDashboard({ onLogout }) {
-  const [tab, setTab]           = useState('home')
-  const [sessions, setSessions] = useState([])
-  const [depenses, setDepenses] = useState([])
-  const [loading, setLoading]   = useState(true)
-  const [toast, setToast]       = useState('')
+  const [tab,       setTab]      = useState('home')
+  const [sessions,  setSessions] = useState([])
+  const [depenses,  setDepenses] = useState([])
+  const [loading,   setLoading]  = useState(true)
+  const [toast,     setToast]    = useState('')
   const fileRef   = useRef(null)
   const cameraRef = useRef(null)
 
-  const [caForm,    setCaForm]    = useState({ ca:'', sessions:'1', paiement:'cash', natio:'🇫🇷 FR', notes:'', date:todayStr() })
-  const [caSaving,  setCaSaving]  = useState(false)
-  const [depForm,   setDepForm]   = useState({ montant:'', fournisseur:'', categorie:'🖊️ Matériel tatouage', date:todayStr(), notes:'', iva_recuperable:true })
-  const [depSaving, setDepSaving] = useState(false)
-  const [photo,     setPhoto]     = useState(null)
-  const [photoUrl,  setPhotoUrl]  = useState(null)
-  const [analyzing, setAnalyzing] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [editing,   setEditing]   = useState(null)
-  const [editSaving,setEditSaving]= useState(false)
+  // Formulaires
+  const [caForm,   setCaForm]   = useState({ ca:'', sessions:'1', paiement:'cash', natio:'🇫🇷 FR', notes:'', date:todayStr() })
+  const [caSaving, setCaSaving] = useState(false)
+  const [depForm,  setDepForm]  = useState({ montant:'', fournisseur:'', categorie:'🖊️ Matériel tatouage', date:todayStr(), notes:'', iva_recuperable:true })
+  const [depSaving,setDepSaving]= useState(false)
+  const [photo,    setPhoto]    = useState(null)
+  const [photoUrl, setPhotoUrl] = useState(null)
+  const [analyzing,setAnalyzing]= useState(false)
+  const [uploading,setUploading]= useState(false)
+  // RDV
+  const [rdvForm,  setRdvForm]  = useState({ client:'', style:'', prixEstime:'', acompte:'0', natio:'🇫🇷 FR', date:'' })
+  const [rdvSaving,setRdvSaving]= useState(false)
+  const [confirming,setConfirming] = useState(null) // session à confirmer
+  const [confForm, setConfForm] = useState({ prix:'', paiement:'cash', sessions:'1', acompte:'0' })
+  // Edit
+  const [editing,  setEditing]  = useState(null)
+  const [editSaving,setEditSaving]=useState(false)
 
-  const showToast = (m) => { setToast(m); setTimeout(()=>setToast(''), 2500) }
+  const showToast = (m) => { setToast(m); setTimeout(()=>setToast(''),2500) }
 
   const load = useCallback(async () => {
     try {
       const [s,d] = await Promise.all([notion.getSessions(), notion.getDepenses()])
       if (s.results) setSessions(s.results)
       if (d.results) setDepenses(d.results)
-    } catch(e) {}
+    } catch(e) { console.error(e) }
     setLoading(false)
   }, [])
+
   useEffect(() => { load() }, [load])
+
+  const isConfirme  = (s) => { const st=s.properties.Statut?.select?.name||''; return st===''||st==='✅ Confirmé' }
+  const isPrevu     = (s) => s.properties.Statut?.select?.name==='🗓 Prévu'
 
   const m  = thisMonth()
   const td = todayStr()
   const ws = weekStart()
 
-  const sessT = sessions.filter(s=>!(s.properties.Type?.select?.name||'').includes('Amely'))
-  const sessM = sessT.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
-  const sessW = sessT.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
-  const sessJ = sessT.filter(s=>s.properties.Date?.date?.start===td)
+  const sessAll    = sessions.filter(s=>!(s.properties.Type?.select?.name||'').includes('Amely'))
+  const sessConf   = sessAll.filter(isConfirme)
+  const sessPrevu  = sessAll.filter(isPrevu).filter(s=>(s.properties.Date?.date?.start||'')>=td)
+
+  const sessM = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
+  const sessW = sessConf.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
+  const sessJ = sessConf.filter(s=>s.properties.Date?.date?.start===td)
 
   const caMois   = sessM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
   const caSem    = sessW.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
   const caJour   = sessJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const nbMois   = sessM.length
-  const panier   = nbMois>0 ? Math.round(caMois/nbMois) : 0
+  const totalSessM = sessM.reduce((a,s)=>a+getNbSess(s),0)
+  const panier   = totalSessM>0 ? Math.round(caMois/totalSessM) : 0
 
   const r = netReel(caMois)
-
-  // Objectif semaine : tenir l'hiver = 5850/4 sem ≈ 1462€
-  const OBJ_SEM  = Math.round(OBJ_HIV / 4.3)  // ~1360€
-  const pctSem   = Math.min(100, Math.round((caSem/OBJ_SEM)*100))
-  const pctMois  = Math.min(100, Math.round((caMois/OBJ_HIV)*100))
-
+  const OBJ_SEM = Math.round(OBJ_HIV/4.3)
   const colSem  = caSem>=OBJ_SEM?'#1A8C5A':caSem>=OBJ_SEM*0.6?'#D4820A':'#C0392B'
   const colMois = caMois>=OBJ_CONF?'#1A8C5A':caMois>=OBJ_HIV?'#BA7517':caMois>=OBJ_EQ?'#D4820A':'#C0392B'
-
   const msgMois = caMois>=OBJ_CONF
-    ? { icon:'✅', text:'Confort atteint', c:'#1A8C5A' }
+    ? {icon:'✅',text:'Confort atteint',c:'#1A8C5A'}
     : caMois>=OBJ_HIV
-    ? { icon:'🌊', text:`Hiver couvert — encore ${fmt(OBJ_CONF-caMois)} pour le confort`, c:'#BA7517' }
+    ? {icon:'🌊',text:`Hiver couvert — encore ${fmt(OBJ_CONF-caMois)} pour le confort`,c:'#BA7517'}
     : caMois>=OBJ_EQ
-    ? { icon:'⚖️', text:`Équilibre — encore ${fmt(OBJ_HIV-caMois)} pour tenir l'hiver`, c:'#D4820A' }
-    : { icon:'📍', text:`Encore ${fmt(OBJ_EQ-caMois)} pour atteindre l'équilibre`, c:'#C0392B' }
+    ? {icon:'⚖️',text:`Équilibre — encore ${fmt(OBJ_HIV-caMois)} pour tenir l'hiver`,c:'#D4820A'}
+    : {icon:'📍',text:`Encore ${fmt(OBJ_EQ-caMois)} pour l'équilibre`,c:'#C0392B'}
+
+  // CA prévisionnel (RDV planifiés)
+  const caPrevMois = sessPrevu.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m)).reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const caPrevSem  = sessPrevu.filter(s=>(s.properties.Date?.date?.start||'')>=ws).reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+
+  // Prochains RDV (7 jours)
+  const rdvsProchains = sessPrevu.filter(s=>{
+    const d=s.properties.Date?.date?.start||''
+    const limit=new Date(); limit.setDate(limit.getDate()+30)
+    return d<=limit.toISOString().split('T')[0]
+  }).sort((a,b)=>(a.properties.Date?.date?.start||'').localeCompare(b.properties.Date?.date?.start||''))
 
   // Submit CA
   const submitCA = async () => {
@@ -140,13 +156,11 @@ export default function TonyDashboard({ onLogout }) {
     setCaSaving(true)
     try {
       await notion.addSession({
-        session:`Tony · ${caForm.date} · ${caForm.ca}€`,
-        type:'🖤 Tattoo Tony', client:'', natio:'Autre',
-        style:caForm.notes,
-        prix:parseFloat(caForm.ca)||0, acompte:0, solde:parseFloat(caForm.ca)||0,
-        paiement:caForm.paiement||'cash', natio:caForm.natio||'Autre',
-        notes:`${caForm.sessions} session(s)${caForm.notes?' · '+caForm.notes:''}`,
-        date:caForm.date, avis:false
+        paiement:caForm.paiement, prix:parseFloat(caForm.ca)||0,
+        acompte:0, solde:parseFloat(caForm.ca)||0,
+        natio:caForm.natio, date:caForm.date,
+        notes:`${caForm.sessions||1} session(s)${caForm.notes?' · '+caForm.notes:''}`,
+        style:caForm.notes, client:'', avis:false
       })
       showToast(parseFloat(caForm.ca)>=156?'🔥 Belle session !':'✓ CA enregistré')
       setCaForm({ca:'',sessions:'1',paiement:'cash',natio:'🇫🇷 FR',notes:'',date:todayStr()})
@@ -155,169 +169,301 @@ export default function TonyDashboard({ onLogout }) {
     setCaSaving(false)
   }
 
-  // Submit Dépense
+  // Submit RDV prévisionnel
+  const submitRDV = async () => {
+    if (!rdvForm.date || !rdvForm.client) return
+    setRdvSaving(true)
+    try {
+      await notion.addAppointment(rdvForm)
+      showToast('📅 RDV enregistré')
+      setRdvForm({client:'',style:'',prixEstime:'',acompte:'0',natio:'🇫🇷 FR',date:''})
+      setTab('home'); load()
+    } catch(e) { showToast('Erreur — réessaie') }
+    setRdvSaving(false)
+  }
+
+  // Confirmer un RDV → CA
+  const openConfirm = (s) => {
+    const prix = s.properties.Prix?.number||0
+    const acompte = s.properties['Acompte reçu']?.number||0
+    setConfirming(s)
+    setConfForm({prix:String(prix),paiement:'cash',sessions:'1',acompte:String(acompte)})
+  }
+
+  const submitConfirm = async () => {
+    if (!confirming || !confForm.prix) return
+    try {
+      await notion.confirmAppointment(confirming.id, {
+        prix:parseFloat(confForm.prix), paiement:confForm.paiement,
+        acompte:parseFloat(confForm.acompte)||0,
+        date:confirming.properties.Date?.date?.start||td,
+        sessions:confForm.sessions
+      })
+      showToast('✅ RDV confirmé → CA du jour')
+      setConfirming(null); load()
+    } catch(e) { showToast('Erreur — réessaie') }
+  }
+
+  const doNoShow = async (s) => {
+    try {
+      await notion.noShowAppointment(s.id)
+      showToast('👻 No-show enregistré')
+      load()
+    } catch(e) { showToast('Erreur') }
+  }
+
+  // Submit dépense
   const submitDep = async () => {
     if (!depForm.montant) return
     setDepSaving(true)
     try {
-      await notion.addDepense({...depForm, saisi_par:'Tony', photoUrl:photoUrl||null})
+      await notion.addDepense({...depForm,saisi_par:'Tony',photoUrl:photoUrl||null})
       showToast('✓ Dépense enregistrée')
       setDepForm({montant:'',fournisseur:'',categorie:'🖊️ Matériel tatouage',date:todayStr(),notes:'',iva_recuperable:true})
-      setPhoto(null); setPhotoUrl(null)
-      setTab('home'); load()
-    } catch(e) { showToast('Erreur — réessaie') }
+      setPhoto(null); setPhotoUrl(null); setTab('home'); load()
+    } catch(e) { showToast('Erreur') }
     setDepSaving(false)
   }
 
-  // Photo / upload
+  // Photo
   const handlePhoto = async (e) => {
-    const file = e.target.files?.[0]; if (!file) return
+    const file=e.target.files?.[0]; if(!file) return
     setAnalyzing(true)
-    const reader = new FileReader()
-    reader.onload = async (ev) => {
+    const reader=new FileReader()
+    reader.onload=async(ev)=>{
       setPhoto(ev.target.result)
       setUploading(true)
-      fetch('/api/upload', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({image:ev.target.result, filename:file.name||'ticket.jpg'})
-      }).then(r=>r.json()).then(d=>{ if(d.url){setPhotoUrl(d.url); showToast('✓ Photo sauvegardée')} }).catch(()=>{}).finally(()=>setUploading(false))
+      fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:ev.target.result,filename:file.name||'ticket.jpg'})})
+        .then(r=>r.json()).then(d=>{if(d.url){setPhotoUrl(d.url);showToast('✓ Photo OK')}}).catch(()=>{}).finally(()=>setUploading(false))
       try {
-        const res = await fetch('/api/analyze-receipt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:ev.target.result.split(',')[1],mediaType:file.type})})
-        const data = await res.json()
-        if (!data.manual && data.montant) {
-          setDepForm(f=>({...f, montant:data.montant?.toString()||f.montant, fournisseur:data.fournisseur||f.fournisseur, date:data.date||f.date, notes:data.description||f.notes}))
-          showToast('✓ Ticket analysé')
-        }
-      } catch(e) {}
+        const res=await fetch('/api/analyze-receipt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:ev.target.result.split(',')[1],mediaType:file.type})})
+        const data=await res.json()
+        if(!data.manual&&data.montant){ setDepForm(f=>({...f,montant:data.montant?.toString()||f.montant,fournisseur:data.fournisseur||f.fournisseur,date:data.date||f.date})); showToast('✓ Ticket analysé') }
+      }catch(e){}
       setAnalyzing(false)
     }
     reader.readAsDataURL(file)
   }
 
-  // Edit / Delete
+  // Edit
+  const openEdit = (s) => {
+    const fullNotes = s.properties.Notes?.rich_text?.[0]?.plain_text||''
+    const sessMatch = fullNotes.match(/^(\d+)\s*session/)
+    const sessions  = sessMatch?.[1]||'1'
+    const notes     = fullNotes.replace(/^\d+\s*session\(s?\)\s*·?\s*/,'').trim()
+    const ca        = s.properties.Prix?.number||0
+    const title     = s.properties.Session?.title?.[0]?.plain_text||''
+    const isCash    = !title.startsWith('[CARTE]')
+    const natio     = s.properties.Nationalité?.select?.name||'Autre'
+    const date      = s.properties.Date?.date?.start||todayStr()
+    setEditing({id:s.id,ca:String(ca),sessions,paiement:isCash?'cash':'carte',natio,date,notes})
+    setTab('edit')
+  }
+
   const submitEdit = async () => {
     if (!editing?.ca) return
     setEditSaving(true)
     try {
-      await notion.updateSession(editing.id, {prix:parseFloat(editing.ca),paiement:editing.paiement||'cash',date:editing.date,notes:`${editing.sessions||1} session(s)${editing.notes?' · '+editing.notes:''}`,type:'🖤 Tattoo Tony',natio:editing.natio||'Autre'})
+      await notion.updateSession(editing.id,{
+        prix:parseFloat(editing.ca), paiement:editing.paiement||'cash',
+        sessions:parseInt(editing.sessions)||1,
+        date:editing.date, notes:editing.notes,
+        type:'🖤 Tattoo Tony', natio:editing.natio||'Autre'
+      })
       showToast('✓ Modifié'); setEditing(null); setTab('histo'); load()
-    } catch(e) { showToast('Erreur') }
+    }catch(e){ showToast('Erreur') }
     setEditSaving(false)
   }
+
   const doDelete = async (id) => {
-    try { await notion.deleteSession(id); showToast('Supprimé'); load() } catch(e) { showToast('Erreur') }
+    try { await notion.deleteSession(id); showToast('Supprimé'); load() }catch(e){ showToast('Erreur') }
   }
 
-  // ── PAGES ──────────────────────────────────────────
+  // ── PAGES ─────────────────────────────────────────
+
+  const NatBtns = ({val,onChange}) => (
+    <div style={{display:'flex',gap:'6px',flexWrap:'wrap',marginTop:'4px'}}>
+      {NATS.map(n=>(
+        <button key={n} type="button" onClick={()=>onChange(n)} style={{
+          padding:'7px 10px',borderRadius:'var(--r)',fontSize:'12px',fontWeight:600,cursor:'pointer',transition:'all .15s',
+          background:val===n?'var(--txt)':'var(--card)',color:val===n?'var(--bg)':'var(--txt2)',
+          border:val===n?'none':'1.5px solid var(--border2)'
+        }}>{n}</button>
+      ))}
+    </div>
+  )
+
+  const PayBtns = ({val,onChange}) => (
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
+      {['cash','carte'].map(p=>(
+        <button key={p} type="button" onClick={()=>onChange(p)} style={{
+          padding:'12px',borderRadius:'var(--r)',fontFamily:'var(--font-head)',fontWeight:700,fontSize:'14px',cursor:'pointer',transition:'all .15s',
+          background:val===p?(p==='cash'?'#1A8C5A':'#2980B9'):'var(--card)',
+          color:val===p?'#fff':'var(--txt2)',border:val===p?'none':'1.5px solid var(--border2)'
+        }}>{p==='cash'?'💵 Cash':'💳 Carte'}</button>
+      ))}
+    </div>
+  )
 
   if (tab==='ca') return (
-    <div style={{padding:'28px 20px', minHeight:'100vh', background:'var(--bg)'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'28px'}}>
+    <div style={{padding:'24px 20px 40px',minHeight:'100vh',background:'var(--bg)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'24px'}}>
         <div style={{fontFamily:'var(--font-head)',fontSize:'18px',fontWeight:800}}>Mon CA du jour</div>
         <button className="btn btn-ghost" onClick={()=>setTab('home')} style={{padding:'6px 14px',fontSize:'12px'}}>← Retour</button>
       </div>
-      <div style={{textAlign:'center',marginBottom:'24px'}}>
-        <div style={{fontSize:'11px',color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'12px'}}>Montant encaissé (€ HT)</div>
+      <div style={{textAlign:'center',marginBottom:'20px'}}>
         <input type="number" inputMode="decimal" placeholder="0"
           value={caForm.ca} onChange={e=>setCaForm({...caForm,ca:e.target.value})}
-          style={{fontSize:'52px',fontFamily:'var(--font-mono)',fontWeight:500,textAlign:'center',background:'transparent',border:'none',borderBottom:'2px solid var(--pierre)',borderRadius:0,color:'var(--txt)',width:'220px',padding:'8px 0'}} />
-        {caForm.ca>0 && (
-          <div style={{marginTop:'8px',display:'flex',flexDirection:'column',gap:'3px',alignItems:'center'}}>
-            <div style={{fontSize:'13px',color:parseFloat(caForm.ca)>=156?'#1A8C5A':'var(--txt3)'}}>
-              {parseFloat(caForm.ca)>=156?'✅ Objectif journalier atteint !':
-               `${(156-parseFloat(caForm.ca)).toFixed(0)}€ pour l'objectif jour`}
-            </div>
-            {parseInt(caForm.sessions)>1 && (
-              <div style={{fontSize:'11px',color:'var(--txt3)'}}>
-                ≈ {Math.round(parseFloat(caForm.ca)/(parseInt(caForm.sessions)||1))}€ par session
-              </div>
-            )}
+          style={{fontSize:'52px',fontFamily:'var(--font-mono)',fontWeight:500,textAlign:'center',background:'transparent',border:'none',borderBottom:'2px solid var(--pierre)',borderRadius:0,color:'var(--txt)',width:'220px',padding:'8px 0'}}/>
+        {caForm.ca>0&&(
+          <div style={{marginTop:'8px',fontSize:'12px',color:parseFloat(caForm.ca)>=156?'#1A8C5A':'var(--txt3)'}}>
+            {parseFloat(caForm.ca)>=156?'✅ Objectif jour atteint':`${Math.round(156-parseFloat(caForm.ca))}€ manquant`}
+            {parseInt(caForm.sessions)>1&&caForm.ca>0&&(<span> · ≈ {Math.round(parseFloat(caForm.ca)/(parseInt(caForm.sessions)||1))}€/session</span>)}
           </div>
         )}
       </div>
-      <div style={{display:'flex',gap:'10px',marginBottom:'20px'}}>
-        {['cash','carte'].map(p=>(
-          <button key={p} onClick={()=>setCaForm({...caForm,paiement:p})} style={{
-            flex:1,padding:'14px',borderRadius:'var(--r)',fontFamily:'var(--font-head)',fontWeight:700,fontSize:'15px',cursor:'pointer',transition:'all .2s',
-            background:caForm.paiement===p?(p==='cash'?'#1A8C5A':'#2980B9'):'var(--card)',
-            color:caForm.paiement===p?'#fff':'var(--txt2)',
-            border:caForm.paiement===p?'none':'1.5px solid var(--border2)',
-            boxShadow:'var(--shadow)'
-          }}>{p==='cash'?'💵 Cash':'💳 Carte'}</button>
-        ))}
-      </div>
+      <div style={{marginBottom:'16px'}}><PayBtns val={caForm.paiement} onChange={p=>setCaForm({...caForm,paiement:p})}/></div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'12px'}}>
         <div className="form-group" style={{margin:0}}>
-          <label>Sessions</label>
-          <input type="number" inputMode="numeric" placeholder="1" value={caForm.sessions} onChange={e=>setCaForm({...caForm,sessions:e.target.value})} style={{textAlign:'center',fontSize:'20px'}} />
+          <label>Nb sessions</label>
+          <input type="number" inputMode="numeric" value={caForm.sessions} onChange={e=>setCaForm({...caForm,sessions:e.target.value})} style={{textAlign:'center',fontSize:'20px'}}/>
         </div>
         <div className="form-group" style={{margin:0}}>
           <label>Date</label>
-          <input type="date" min="2026-06-01" value={caForm.date} onChange={e=>setCaForm({...caForm,date:e.target.value})} />
+          <input type="date" min="2026-06-01" value={caForm.date} onChange={e=>setCaForm({...caForm,date:e.target.value})}/>
         </div>
       </div>
-      <div className="form-group" style={{marginBottom:'14px'}}>
+      <div className="form-group" style={{marginBottom:'12px'}}>
         <label>Nationalité client</label>
-        <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
-          {['🇫🇷 FR','🇩🇪 DE','🇬🇧 EN','🇪🇸 ES','Autre'].map(n=>(
-            <button key={n} type="button" onClick={()=>setCaForm({...caForm,natio:n})} style={{
-              padding:'8px 12px',borderRadius:'var(--r)',fontSize:'13px',fontWeight:600,cursor:'pointer',transition:'all .15s',
-              background:caForm.natio===n?'var(--txt)':'var(--card)',
-              color:caForm.natio===n?'var(--bg)':'var(--txt2)',
-              border:caForm.natio===n?'none':'1.5px solid var(--border2)',
-              boxShadow:caForm.natio===n?'var(--shadow)':'none'
-            }}>{n}</button>
-          ))}
-        </div>
+        <NatBtns val={caForm.natio} onChange={n=>setCaForm({...caForm,natio:n})}/>
       </div>
-      <div className="form-group" style={{marginBottom:'24px'}}>
-        <label>Notes (style, nationalité...)</label>
-        <textarea rows="2" placeholder="Ex: botanical avant-bras, client DE..." value={caForm.notes} onChange={e=>setCaForm({...caForm,notes:e.target.value})} style={{resize:'none'}} />
+      <div className="form-group" style={{marginBottom:'20px'}}>
+        <label>Notes (style, infos...)</label>
+        <textarea rows="2" value={caForm.notes} onChange={e=>setCaForm({...caForm,notes:e.target.value})} style={{resize:'none'}} placeholder="Ex: botanical avant-bras..."/>
       </div>
       <button className="btn btn-primary" onClick={submitCA} disabled={caSaving||!caForm.ca} style={{width:'100%',padding:'16px',fontSize:'15px'}}>
         {caSaving?'Enregistrement...':'✓ Valider'}
       </button>
-      {toast && <div className="toast">{toast}</div>}
+      {toast&&<div className="toast">{toast}</div>}
+    </div>
+  )
+
+  if (tab==='rdv') return (
+    <div style={{padding:'24px 20px 40px',minHeight:'100vh',background:'var(--bg)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'24px'}}>
+        <div style={{fontFamily:'var(--font-head)',fontSize:'18px',fontWeight:800}}>Nouveau RDV prévu</div>
+        <button className="btn btn-ghost" onClick={()=>setTab('home')} style={{padding:'6px 14px',fontSize:'12px'}}>← Retour</button>
+      </div>
+      <div className="form-group" style={{marginBottom:'12px'}}>
+        <label>Client (prénom ou identifiant) *</label>
+        <input placeholder="Ex: Marie, Tattoo bras..." value={rdvForm.client} onChange={e=>setRdvForm({...rdvForm,client:e.target.value})}/>
+      </div>
+      <div className="form-group" style={{marginBottom:'12px'}}>
+        <label>Style / Projet</label>
+        <input placeholder="Ex: Botanique full sleeve, Portrait..." value={rdvForm.style} onChange={e=>setRdvForm({...rdvForm,style:e.target.value})}/>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'12px'}}>
+        <div className="form-group" style={{margin:0}}>
+          <label>Prix estimé (€)</label>
+          <input type="number" inputMode="decimal" placeholder="0" value={rdvForm.prixEstime} onChange={e=>setRdvForm({...rdvForm,prixEstime:e.target.value})} style={{textAlign:'center',fontSize:'18px',fontFamily:'var(--font-mono)'}}/>
+        </div>
+        <div className="form-group" style={{margin:0}}>
+          <label>Acompte reçu (€)</label>
+          <input type="number" inputMode="decimal" placeholder="0" value={rdvForm.acompte} onChange={e=>setRdvForm({...rdvForm,acompte:e.target.value})} style={{textAlign:'center',fontSize:'18px',fontFamily:'var(--font-mono)'}}/>
+        </div>
+      </div>
+      <div className="form-group" style={{marginBottom:'12px'}}>
+        <label>Date du RDV *</label>
+        <input type="date" min={todayStr()} value={rdvForm.date} onChange={e=>setRdvForm({...rdvForm,date:e.target.value})}/>
+      </div>
+      <div className="form-group" style={{marginBottom:'20px'}}>
+        <label>Nationalité</label>
+        <NatBtns val={rdvForm.natio} onChange={n=>setRdvForm({...rdvForm,natio:n})}/>
+      </div>
+      <button className="btn btn-primary" onClick={submitRDV} disabled={rdvSaving||!rdvForm.client||!rdvForm.date} style={{width:'100%',padding:'16px',fontSize:'15px'}}>
+        {rdvSaving?'Enregistrement...':'📅 Enregistrer le RDV'}
+      </button>
+      {toast&&<div className="toast">{toast}</div>}
+    </div>
+  )
+
+  if (tab==='edit'&&editing) return (
+    <div style={{padding:'24px 20px 40px',minHeight:'100vh',background:'var(--bg)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px'}}>
+        <div style={{fontFamily:'var(--font-head)',fontSize:'18px',fontWeight:800}}>Modifier l'entrée</div>
+        <button className="btn btn-ghost" onClick={()=>{setTab('histo');setEditing(null)}} style={{padding:'6px 14px',fontSize:'12px'}}>← Retour</button>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'8px'}}>
+        <div className="form-group" style={{margin:0}}>
+          <label>CA total (€)</label>
+          <input type="number" inputMode="decimal" value={editing.ca} onChange={e=>setEditing({...editing,ca:e.target.value})} style={{fontSize:'22px',textAlign:'center',fontFamily:'var(--font-mono)'}}/>
+        </div>
+        <div className="form-group" style={{margin:0}}>
+          <label>Nb sessions</label>
+          <input type="number" inputMode="numeric" value={editing.sessions} onChange={e=>setEditing({...editing,sessions:e.target.value})} style={{textAlign:'center',fontSize:'22px'}}/>
+        </div>
+      </div>
+      {parseInt(editing.sessions)>1&&editing.ca>0&&(
+        <div style={{textAlign:'center',fontSize:'12px',color:'var(--txt3)',marginBottom:'10px'}}>
+          ≈ {Math.round(parseFloat(editing.ca)/(parseInt(editing.sessions)||1))}€ par session
+        </div>
+      )}
+      <div style={{marginBottom:'14px'}}><PayBtns val={editing.paiement} onChange={p=>setEditing({...editing,paiement:p})}/></div>
+      <div className="form-group" style={{marginBottom:'12px'}}>
+        <label>Nationalité</label>
+        <NatBtns val={editing.natio} onChange={n=>setEditing({...editing,natio:n})}/>
+      </div>
+      <div className="form-group" style={{marginBottom:'12px'}}>
+        <label>Date</label>
+        <input type="date" min="2026-06-01" value={editing.date} onChange={e=>setEditing({...editing,date:e.target.value})}/>
+      </div>
+      <div className="form-group" style={{marginBottom:'20px'}}>
+        <label>Notes</label>
+        <input value={editing.notes} onChange={e=>setEditing({...editing,notes:e.target.value})} placeholder="Style, infos..."/>
+      </div>
+      <button className="btn btn-primary" onClick={submitEdit} disabled={editSaving||!editing.ca} style={{width:'100%',padding:'14px',marginBottom:'10px'}}>
+        {editSaving?'Sauvegarde...':'✓ Sauvegarder'}
+      </button>
+      <button onClick={()=>{if(confirm('Supprimer ?')){doDelete(editing.id);setEditing(null);setTab('histo')}}}
+        style={{width:'100%',padding:'12px',background:'transparent',border:'1.5px solid #C0392B',color:'#C0392B',borderRadius:'var(--r)',cursor:'pointer',fontSize:'13px',fontFamily:'var(--font-head)',fontWeight:600}}>
+        🗑 Supprimer
+      </button>
     </div>
   )
 
   if (tab==='depense') return (
-    <div style={{padding:'28px 20px',minHeight:'100vh',background:'var(--bg)'}}>
+    <div style={{padding:'24px 20px 40px',minHeight:'100vh',background:'var(--bg)'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px'}}>
         <div style={{fontFamily:'var(--font-head)',fontSize:'18px',fontWeight:800}}>Dépense / Facture</div>
         <button className="btn btn-ghost" onClick={()=>{setTab('home');setPhoto(null);setPhotoUrl(null)}} style={{padding:'6px 14px',fontSize:'12px'}}>← Retour</button>
       </div>
-      <input ref={fileRef} type="file" accept="image/*" onChange={handlePhoto} style={{display:'none'}} />
-      <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} style={{display:'none'}} />
-      {!photo ? (
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'16px'}}>
+      <input ref={fileRef} type="file" accept="image/*" onChange={handlePhoto} style={{display:'none'}}/>
+      <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} style={{display:'none'}}/>
+      {!photo?(
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'14px'}}>
           <button onClick={()=>cameraRef.current?.click()} className="btn btn-ghost" style={{padding:'16px',flexDirection:'column',gap:'4px',fontSize:'12px'}}>
-            <span style={{fontSize:'24px'}}>📷</span>Photo
+            <span style={{fontSize:'22px'}}>📷</span>Photo
           </button>
           <button onClick={()=>fileRef.current?.click()} className="btn btn-ghost" style={{padding:'16px',flexDirection:'column',gap:'4px',fontSize:'12px'}}>
-            <span style={{fontSize:'24px'}}>📁</span>Fichier
+            <span style={{fontSize:'22px'}}>📁</span>Fichier
           </button>
         </div>
-      ) : (
+      ):(
         <div style={{marginBottom:'14px',position:'relative'}}>
-          <img src={photo} style={{width:'100%',borderRadius:'var(--r)',maxHeight:'140px',objectFit:'cover'}} />
-          {(analyzing||uploading) && (
-            <div style={{position:'absolute',inset:0,background:'rgba(255,255,255,.85)',borderRadius:'var(--r)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',color:'var(--txt2)'}}>
-              {analyzing?'🔍 Analyse...':'☁️ Upload...'}
-            </div>
-          )}
-          <button onClick={()=>{setPhoto(null);setPhotoUrl(null)}} style={{position:'absolute',top:6,right:6,background:'rgba(0,0,0,.5)',border:'none',color:'#fff',borderRadius:'50%',width:24,height:24,cursor:'pointer',fontSize:'14px'}}>×</button>
-          {photoUrl && <div style={{position:'absolute',bottom:6,right:6,background:'#1A8C5A',borderRadius:'4px',padding:'2px 6px',fontSize:'10px',color:'#fff',fontWeight:600}}>✓ OK</div>}
+          <img src={photo} style={{width:'100%',borderRadius:'var(--r)',maxHeight:'130px',objectFit:'cover'}}/>
+          {(analyzing||uploading)&&<div style={{position:'absolute',inset:0,background:'rgba(255,255,255,.85)',borderRadius:'var(--r)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px'}}>{analyzing?'🔍 Analyse...':'☁️ Upload...'}</div>}
+          <button onClick={()=>{setPhoto(null);setPhotoUrl(null)}} style={{position:'absolute',top:6,right:6,background:'rgba(0,0,0,.5)',border:'none',color:'#fff',borderRadius:'50%',width:24,height:24,cursor:'pointer'}}>×</button>
+          {photoUrl&&<div style={{position:'absolute',bottom:6,right:6,background:'#1A8C5A',borderRadius:'4px',padding:'2px 6px',fontSize:'10px',color:'#fff',fontWeight:600}}>✓ OK</div>}
         </div>
       )}
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'10px'}}>
         <div className="form-group" style={{margin:0}}>
           <label>Montant TTC (€) *</label>
-          <input type="number" inputMode="decimal" placeholder="0.00" value={depForm.montant} onChange={e=>setDepForm({...depForm,montant:e.target.value})} style={{fontSize:'22px',textAlign:'center',fontFamily:'var(--font-mono)'}} />
+          <input type="number" inputMode="decimal" placeholder="0.00" value={depForm.montant} onChange={e=>setDepForm({...depForm,montant:e.target.value})} style={{fontSize:'22px',textAlign:'center',fontFamily:'var(--font-mono)'}}/>
         </div>
         <div className="form-group" style={{margin:0}}>
           <label>Date</label>
-          <input type="date" min="2026-06-01" value={depForm.date} onChange={e=>setDepForm({...depForm,date:e.target.value})} />
+          <input type="date" value={depForm.date} onChange={e=>setDepForm({...depForm,date:e.target.value})}/>
         </div>
       </div>
       <div className="form-group" style={{marginBottom:'10px'}}>
@@ -328,254 +474,223 @@ export default function TonyDashboard({ onLogout }) {
       </div>
       <div className="form-group" style={{marginBottom:'10px'}}>
         <label>Fournisseur</label>
-        <input placeholder="Kwadron, Mercadona..." value={depForm.fournisseur} onChange={e=>setDepForm({...depForm,fournisseur:e.target.value})} />
-      </div>
-      <div className="form-group" style={{marginBottom:'12px'}}>
-        <label>Notes</label>
-        <input placeholder="Description" value={depForm.notes} onChange={e=>setDepForm({...depForm,notes:e.target.value})} />
+        <input placeholder="Kwadron, Mercadona..." value={depForm.fournisseur} onChange={e=>setDepForm({...depForm,fournisseur:e.target.value})}/>
       </div>
       <div style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'20px'}}>
-        <input type="checkbox" id="iva" checked={depForm.iva_recuperable} onChange={e=>setDepForm({...depForm,iva_recuperable:e.target.checked})} style={{width:18,height:18,accentColor:'var(--pierre)',cursor:'pointer'}} />
+        <input type="checkbox" id="iva" checked={depForm.iva_recuperable} onChange={e=>setDepForm({...depForm,iva_recuperable:e.target.checked})} style={{width:18,height:18,accentColor:'var(--pierre)',cursor:'pointer'}}/>
         <label htmlFor="iva" style={{fontSize:'13px',color:'var(--txt2)',cursor:'pointer'}}>IVA récupérable (21%)</label>
       </div>
       <button className="btn btn-primary" onClick={submitDep} disabled={depSaving||!depForm.montant} style={{width:'100%',padding:'16px'}}>
         {depSaving?'Enregistrement...':'✓ Enregistrer'}
       </button>
-      {toast && <div className="toast">{toast}</div>}
-    </div>
-  )
-
-  if (tab==='edit' && editing) return (
-    <div style={{padding:'28px 20px',minHeight:'100vh',background:'var(--bg)'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'24px'}}>
-        <div style={{fontFamily:'var(--font-head)',fontSize:'18px',fontWeight:800}}>Modifier</div>
-        <button className="btn btn-ghost" onClick={()=>{setTab('histo');setEditing(null)}} style={{padding:'6px 14px',fontSize:'12px'}}>← Retour</button>
-      </div>
-      <div style={{textAlign:'center',marginBottom:'20px'}}>
-        <input type="number" inputMode="decimal" value={editing.ca} onChange={e=>setEditing({...editing,ca:e.target.value})}
-          style={{fontSize:'48px',fontFamily:'var(--font-mono)',fontWeight:500,textAlign:'center',background:'transparent',border:'none',borderBottom:'2px solid var(--pierre)',borderRadius:0,color:'var(--txt)',width:'200px',padding:'8px 0'}} />
-      </div>
-      <div style={{display:'flex',gap:'10px',marginBottom:'16px'}}>
-        {['cash','carte'].map(p=>(
-          <button key={p} onClick={()=>setEditing({...editing,paiement:p})} style={{
-            flex:1,padding:'12px',borderRadius:'var(--r)',fontFamily:'var(--font-head)',fontWeight:700,fontSize:'14px',cursor:'pointer',
-            background:editing.paiement===p?(p==='cash'?'#1A8C5A':'#2980B9'):'var(--card)',
-            color:editing.paiement===p?'#fff':'var(--txt2)',
-            border:editing.paiement===p?'none':'1.5px solid var(--border2)'
-          }}>{p==='cash'?'💵 Cash':'💳 Carte'}</button>
-        ))}
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'4px'}}>
-        <div className="form-group" style={{margin:0}}>
-          <label>CA total (€)</label>
-          <input type="number" inputMode="decimal" value={editing.ca} onChange={e=>setEditing({...editing,ca:e.target.value})}
-            style={{fontSize:'20px',textAlign:'center',fontFamily:'var(--font-mono)'}} />
-        </div>
-        <div className="form-group" style={{margin:0}}>
-          <label>Nb sessions</label>
-          <input type="number" inputMode="numeric" placeholder="1" value={editing.sessions||'1'} onChange={e=>setEditing({...editing,sessions:e.target.value})} style={{textAlign:'center',fontSize:'18px'}} />
-        </div>
-      </div>
-      {editing.sessions>1 && editing.ca>0 && (
-        <div style={{fontSize:'11px',color:'var(--txt3)',marginBottom:'12px',textAlign:'center'}}>
-          ≈ {Math.round(parseFloat(editing.ca)/(parseInt(editing.sessions)||1))}€ par session
-        </div>
-      )}
-      <div className="form-group" style={{marginBottom:'12px',marginTop:'8px'}}>
-        <label>Date</label>
-        <input type="date" min="2026-06-01" value={editing.date} onChange={e=>setEditing({...editing,date:e.target.value})} />
-      </div>
-      <div className="form-group" style={{marginBottom:'12px'}}>
-        <label>Nationalité client</label>
-        <div style={{display:'flex',gap:'8px',flexWrap:'wrap',marginTop:'4px'}}>
-          {['🇫🇷 FR','🇩🇪 DE','🇬🇧 EN','🇪🇸 ES','Autre'].map(n=>(
-            <button key={n} type="button" onClick={()=>setEditing({...editing,natio:n})} style={{
-              padding:'7px 10px',borderRadius:'var(--r)',fontSize:'12px',fontWeight:600,cursor:'pointer',
-              background:editing.natio===n?'var(--txt)':'var(--card)',
-              color:editing.natio===n?'var(--bg)':'var(--txt2)',
-              border:editing.natio===n?'none':'1.5px solid var(--border2)'
-            }}>{n}</button>
-          ))}
-        </div>
-      </div>
-      <div className="form-group" style={{marginBottom:'20px'}}>
-        <label>Notes</label>
-        <input value={editing.notes} onChange={e=>setEditing({...editing,notes:e.target.value})} />
-      </div>
-      <button className="btn btn-primary" onClick={submitEdit} disabled={editSaving||!editing.ca} style={{width:'100%',padding:'14px',marginBottom:'10px'}}>
-        {editSaving?'Sauvegarde...':'✓ Sauvegarder'}
-      </button>
-      <button onClick={()=>{if(confirm('Supprimer ?')){doDelete(editing.id);setEditing(null);setTab('histo')}}}
-        style={{width:'100%',padding:'12px',background:'transparent',border:'1.5px solid #C0392B',color:'#C0392B',borderRadius:'var(--r)',cursor:'pointer',fontSize:'13px',fontFamily:'var(--font-head)',fontWeight:600}}>
-        🗑 Supprimer
-      </button>
-      {toast && <div className="toast">{toast}</div>}
     </div>
   )
 
   if (tab==='histo') return (
-    <div style={{padding:'24px 16px 90px',background:'var(--bg)',minHeight:'100vh'}}>
+    <div style={{padding:'20px 16px 90px',background:'var(--bg)',minHeight:'100vh'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px'}}>
         <div style={{fontFamily:'var(--font-head)',fontSize:'18px',fontWeight:800}}>Historique</div>
         <button className="btn btn-ghost" onClick={()=>setTab('home')} style={{padding:'6px 14px',fontSize:'12px'}}>← Retour</button>
       </div>
-      <div className="section-title">CA récent</div>
-      {sessT.slice(0,10).map(s=>{
+      <div className="section-title">CA réalisé</div>
+      {sessConf.slice(0,15).map(s=>{
         const ca=s.properties.Prix?.number||0
         const date=s.properties.Date?.date?.start||''
         const notes=s.properties.Notes?.rich_text?.[0]?.plain_text||''
-        const title=s.properties.Session?.title?.[0]?.plain_text||''
-        const isCash=!title.includes('[CARTE]')
+        const nb=getNbSess(s)
+        const notesTxt=notes.replace(/^\d+\s*session\(s?\)\s*·?\s*/,'')
+        const isCash=parsePaiement(s)==='cash'
         return (
-          <div key={s.id} className="card" onClick={()=>{setEditing({
-              id:s.id, ca:String(ca), paiement:isCash?'cash':'carte',
-              date:date||todayStr(), notes,
-              sessions: (notes.match(/^(\d+) session/)?.[1])||'1',
-              natio: (()=>{ const t=s.properties.Session?.title?.[0]?.plain_text||''; const nat=s.properties.Nationalité?.select?.name; return nat||'Autre' })()
-            });setTab('edit')}}
+          <div key={s.id} className="card" onClick={()=>openEdit(s)}
             style={{marginBottom:'8px',display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',cursor:'pointer'}}>
             <div>
-              <div style={{fontSize:'13px',fontWeight:500}}>{date}</div>
-              {notes && <div style={{fontSize:'11px',color:'var(--txt3)',marginTop:'2px'}}>{notes}</div>}
+              <div style={{fontSize:'12px',fontWeight:500,color:'var(--txt2)'}}>{date}</div>
+              {notesTxt&&<div style={{fontSize:'11px',color:'var(--txt3)',marginTop:'2px'}}>{notesTxt}</div>}
+              <div style={{fontSize:'10px',color:'var(--txt3)',marginTop:'2px'}}>{nb} session{nb>1?'s':''}</div>
             </div>
-            <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:'4px'}}>
-              <span style={{fontFamily:'var(--font-mono)',fontSize:'16px',fontWeight:500,color:ca>=156?'#1A8C5A':'var(--txt)'}}>{ca}€</span>
-              <span style={{fontSize:'9px',padding:'2px 6px',borderRadius:'6px',fontWeight:600,
-                background:isCash?'rgba(26,140,90,.1)':'rgba(41,128,185,.1)',
-                color:isCash?'#1A8C5A':'#2980B9'}}>
-                {isCash?'CASH':'CARTE'}
-              </span>
+            <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:'3px'}}>
+              <span style={{fontFamily:'var(--font-mono)',fontSize:'16px',fontWeight:600,color:ca>=156?'#1A8C5A':'var(--txt)'}}>{ca}€</span>
+              <span style={{fontSize:'9px',padding:'2px 6px',borderRadius:'6px',fontWeight:700,background:isCash?'rgba(26,140,90,.1)':'rgba(41,128,185,.1)',color:isCash?'#1A8C5A':'#2980B9'}}>{isCash?'CASH':'CARTE'}</span>
             </div>
-          </div>
-        )
-      })}
-      <div className="section-title" style={{marginTop:'16px'}}>Dépenses récentes</div>
-      {depenses.slice(0,5).map(d=>{
-        const m2=d.properties.Montant?.number||0
-        const cat=d.properties.Catégorie?.select?.name||''
-        const date=d.properties.Date?.date?.start||''
-        const fourn=d.properties.Fournisseur?.rich_text?.[0]?.plain_text||''
-        return (
-          <div key={d.id} className="card" style={{marginBottom:'8px',display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px'}}>
-            <div>
-              <div style={{fontSize:'13px',fontWeight:500}}>{cat}</div>
-              <div style={{fontSize:'11px',color:'var(--txt3)',marginTop:'2px'}}>{fourn}{date&&' · '+date}</div>
-            </div>
-            <span style={{fontFamily:'var(--font-mono)',fontSize:'14px',color:'#C0392B',fontWeight:500}}>-{m2}€</span>
           </div>
         )
       })}
     </div>
   )
 
-  // ── HOME ───────────────────────────────────────────
+  // ── HOME ──────────────────────────────────────────
   return (
     <div style={{background:'var(--bg)',minHeight:'100vh',paddingBottom:'80px'}}>
-      {/* Header avec logo */}
+
+      {/* Confirmation RDV — bottom sheet */}
+      {confirming&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',zIndex:200,display:'flex',alignItems:'flex-end',justifyContent:'center'}} onClick={()=>setConfirming(null)}>
+          <div style={{background:'var(--bg)',borderRadius:'16px 16px 0 0',width:'100%',maxWidth:480,padding:'24px 20px 40px'}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontFamily:'var(--font-head)',fontSize:'16px',fontWeight:800,marginBottom:'4px'}}>✅ RDV confirmé</div>
+            <div style={{fontSize:'12px',color:'var(--txt3)',marginBottom:'16px'}}>
+              {confirming.properties['Client prénom']?.rich_text?.[0]?.plain_text||'Client'} · {confirming.properties.Date?.date?.start||''}
+            </div>
+            <div style={{marginBottom:'12px'}}>
+              <label style={{fontSize:'11px',fontWeight:600,color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'.8px',display:'block',marginBottom:'6px'}}>CA total (€)</label>
+              <input type="number" inputMode="decimal" value={confForm.prix} onChange={e=>setConfForm({...confForm,prix:e.target.value})}
+                style={{fontSize:'36px',fontFamily:'var(--font-mono)',fontWeight:500,textAlign:'center',background:'transparent',border:'none',borderBottom:'2px solid var(--pierre)',borderRadius:0,color:'var(--txt)',width:'100%',padding:'6px 0'}}/>
+            </div>
+            {parseFloat(confForm.acompte)>0&&(
+              <div style={{fontSize:'12px',color:'var(--txt3)',textAlign:'center',marginBottom:'10px'}}>
+                Acompte déjà reçu : {confForm.acompte}€ → solde : {Math.max(0,parseFloat(confForm.prix||0)-parseFloat(confForm.acompte))}€
+              </div>
+            )}
+            <div style={{marginBottom:'16px'}}><PayBtns val={confForm.paiement} onChange={p=>setConfForm({...confForm,paiement:p})}/></div>
+            <button className="btn btn-primary" onClick={submitConfirm} disabled={!confForm.prix} style={{width:'100%',padding:'14px',fontSize:'15px',marginBottom:'8px'}}>
+              ✓ Valider → CA du jour
+            </button>
+            <button onClick={()=>setConfirming(null)} style={{width:'100%',padding:'10px',background:'transparent',border:'none',color:'var(--txt3)',cursor:'pointer',fontSize:'13px'}}>Annuler</button>
+          </div>
+        </div>
+      )}
+
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 20px 16px',borderBottom:'1px solid var(--border)'}}>
-        <img src="/blackthorn-logo.png" alt="Blackthorn" style={{height:'38px',filter:'brightness(0)',opacity:0.85}} />
+        <img src="/blackthorn-logo.png" alt="Blackthorn" style={{height:'38px',filter:'brightness(0)',opacity:0.85}}/>
         <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
-          <span style={{fontSize:'12px',color:'var(--txt3)'}}>{new Date().toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</span>
+          <span style={{fontSize:'11px',color:'var(--txt3)'}}>{new Date().toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</span>
           <button onClick={load} style={{background:'none',border:'none',fontSize:'16px',color:'var(--txt3)',cursor:'pointer'}}>↻</button>
         </div>
       </div>
 
-      <div style={{padding:'20px 20px'}}>
+      <div style={{padding:'20px'}}>
 
-        {/* ── ARCS SEMAINE + MOIS ─────────────────── */}
-        <div className="card" style={{marginBottom:'16px',padding:'20px'}}>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',justifyItems:'center',marginBottom:'16px'}}>
-            <ArcProgress
-              pct={pctSem} color={colSem} size={130} stroke={10}
-              label="Semaine"
-              value={caSem>0?fmt(caSem):'—'}
-              sub={caSem>0?`obj ${fmt(OBJ_SEM)}`:null}
-              sub2={caSem>=OBJ_SEM?`✓ Objectif atteint`:caSem>0?`encore ${fmt(OBJ_SEM-caSem)}`:null}
-            />
-            <ArcProgress
-              pct={pctMois} color={colMois} size={130} stroke={10}
-              label="Mois"
-              value={caMois>0?fmt(caMois):'—'}
-              sub={caMois>0?`${Math.round(pctMois)}%`:null}
-              sub2={caMois>=OBJ_HIV?'✓ Hiver couvert':caMois>=OBJ_EQ?'⚖️ À l\'équilibre':caMois>0?`${fmt(OBJ_EQ-caMois)} manquant`:null}
-            />
+        {/* ARCS */}
+        <div className="card" style={{marginBottom:'14px',padding:'20px'}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',justifyItems:'center',marginBottom:'14px'}}>
+            <Arc pct={Math.min(100,Math.round(caSem/OBJ_SEM*100))} color={colSem} label="Semaine"
+              value={caSem>0?fmt(caSem):'—'} sub={caSem>0?`/ ${fmt(OBJ_SEM)}`:null}
+              sub2={caSem>=OBJ_SEM?'✓ Objectif':caSem>0?`−${fmt(OBJ_SEM-caSem)}`:null}/>
+            <Arc pct={Math.min(100,Math.round(caMois/OBJ_HIV*100))} color={colMois} label="Mois"
+              value={caMois>0?fmt(caMois):'—'} sub={caMois>0?`${Math.round(caMois/OBJ_HIV*100)}%`:null}
+              sub2={caMois>=OBJ_EQ?(caMois>=OBJ_HIV?'✓ Hiver couvert':'⚖️ Équilibre'):caMois>0?`−${fmt(OBJ_EQ-caMois)}`:null}/>
           </div>
-          {/* Message statut */}
           <div style={{padding:'10px 14px',background:msgMois.c+'15',borderRadius:'var(--r)',borderLeft:`3px solid ${msgMois.c}`}}>
-            <span style={{fontSize:'13px',fontWeight:600,color:msgMois.c}}>{msgMois.icon} {msgMois.text}</span>
+            <span style={{fontSize:'12px',fontWeight:600,color:msgMois.c}}>{msgMois.icon} {msgMois.text}</span>
           </div>
+          {/* Prévisionnel affiché si RDV planifiés */}
+          {(caPrevSem>0||caPrevMois>0)&&(
+            <div style={{marginTop:'8px',padding:'8px 12px',background:'rgba(41,128,185,.08)',borderRadius:'var(--r)',fontSize:'11px',color:'#2980B9'}}>
+              📅 Prévisionnel : +{fmt(caPrevSem)} cette semaine · +{fmt(caPrevMois)} ce mois
+            </div>
+          )}
         </div>
 
-        {/* ── PANIER MOYEN ─────────────────────────── */}
-        <div className="card" style={{marginBottom:'16px'}}>
+        {/* PANIER + AUJOURD'HUI + NET */}
+        <div className="card" style={{marginBottom:'14px'}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px'}}>
-            <div style={{textAlign:'center',padding:'10px 6px',background:'var(--bg)',borderRadius:'var(--r)'}}>
-              <div style={{fontSize:'9px',color:'var(--txt3)',textTransform:'uppercase',marginBottom:'4px'}}>Panier mois</div>
-              <div style={{fontFamily:'var(--font-mono)',fontSize:'22px',fontWeight:500,color:panier>=200?'#1A8C5A':panier>=156?'#D4820A':'var(--txt)'}}>{panier>0?panier+'€':'—'}</div>
-              <div style={{fontSize:'10px',color:'var(--txt3)',marginTop:'2px'}}>{nbMois>0?nbMois+' session'+(nbMois>1?'s':''):'—'}</div>
-            </div>
-            <div style={{textAlign:'center',padding:'10px 6px',background:'var(--bg)',borderRadius:'var(--r)'}}>
-              <div style={{fontSize:'9px',color:'var(--txt3)',textTransform:'uppercase',marginBottom:'4px'}}>Aujourd'hui</div>
-              <div style={{fontFamily:'var(--font-mono)',fontSize:'22px',fontWeight:500,color:caJour>=156?'#1A8C5A':caJour>0?'#D4820A':'var(--txt3)'}}>{caJour>0?caJour+'€':'—'}</div>
-              <div style={{fontSize:'10px',color:'var(--txt3)',marginTop:'2px'}}>{sessJ.length>0?sessJ.length+' sess.':'Pas encore'}</div>
-            </div>
-            <div style={{textAlign:'center',padding:'10px 6px',background:'var(--bg)',borderRadius:'var(--r)'}}>
-              <div style={{fontSize:'9px',color:'var(--txt3)',textTransform:'uppercase',marginBottom:'4px'}}>Net estimé</div>
-              <div style={{fontFamily:'var(--font-mono)',fontSize:'22px',fontWeight:500,color:r.net>=PERSO?'#1A8C5A':'#C0392B'}}>{fmt(r.net)}</div>
-              <div style={{fontSize:'10px',color:'var(--txt3)',marginTop:'2px'}}>après impôts</div>
-            </div>
+            {[
+              {l:'Panier moyen',v:panier>0?panier+'€':'—',u:`${totalSessM} sess.`,c:panier>=200?'#1A8C5A':panier>=156?'#D4820A':'var(--txt)'},
+              {l:"Aujourd'hui",v:caJour>0?caJour+'€':'—',u:sessJ.length>0?sessJ.length+' sess.':'—',c:caJour>=156?'#1A8C5A':caJour>0?'#D4820A':'var(--txt3)'},
+              {l:'Net estimé',v:fmt(r.net),u:'après impôts',c:r.net>=PERSO?'#1A8C5A':'#C0392B'},
+            ].map(x=>(
+              <div key={x.l} style={{textAlign:'center',padding:'10px 4px',background:'var(--bg)',borderRadius:'var(--r)'}}>
+                <div style={{fontSize:'9px',color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px',lineHeight:1.3}}>{x.l}</div>
+                <div style={{fontFamily:'var(--font-mono)',fontSize:'19px',fontWeight:500,color:x.c}}>{x.v}</div>
+                <div style={{fontSize:'9px',color:'var(--txt3)',marginTop:'2px'}}>{x.u}</div>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* ── MINI GRAPHE ANNUEL ───────────────────── */}
-        <div className="card" style={{marginBottom:'20px'}}>
-          <div style={{fontSize:'10px',color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'10px'}}>Juin 2026 → Mai 2027</div>
-          {(() => {
+        {/* PROCHAINS RDV */}
+        {rdvsProchains.length>0&&(
+          <div style={{marginBottom:'14px'}}>
+            <div className="section-title">Prochains rendez-vous</div>
+            {rdvsProchains.slice(0,5).map(s=>{
+              const client=s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'Client'
+              const style=s.properties['Style / Type']?.rich_text?.[0]?.plain_text||''
+              const prix=s.properties.Prix?.number||0
+              const acompte=s.properties['Acompte reçu']?.number||0
+              const date=s.properties.Date?.date?.start||''
+              const isToday=date===td
+              return (
+                <div key={s.id} className="card" style={{marginBottom:'8px',padding:'12px 14px',borderLeft:`3px solid ${isToday?'#D4820A':'var(--pierre)'}`}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'10px'}}>
+                    <div>
+                      <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                        <span style={{fontSize:'13px',fontWeight:700,color:isToday?'#D4820A':'var(--txt)'}}>{labelDate(date)}</span>
+                        {isToday&&<span style={{fontSize:'10px',padding:'2px 6px',background:'rgba(212,130,10,.1)',color:'#D4820A',borderRadius:'4px',fontWeight:600}}>AUJOURD'HUI</span>}
+                      </div>
+                      <div style={{fontSize:'12px',fontWeight:500,marginTop:'2px'}}>{client}</div>
+                      {style&&<div style={{fontSize:'11px',color:'var(--txt3)',marginTop:'1px'}}>{style}</div>}
+                    </div>
+                    <div style={{textAlign:'right'}}>
+                      <div style={{fontFamily:'var(--font-mono)',fontSize:'16px',fontWeight:600}}>{prix}€</div>
+                      {acompte>0&&<div style={{fontSize:'10px',color:'#1A8C5A'}}>Acompte: {acompte}€</div>}
+                    </div>
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px'}}>
+                    <button onClick={()=>openConfirm(s)} style={{padding:'9px',borderRadius:'var(--r)',background:'rgba(26,140,90,.1)',border:'1.5px solid rgba(26,140,90,.3)',color:'#1A8C5A',fontFamily:'var(--font-head)',fontWeight:700,fontSize:'12px',cursor:'pointer'}}>
+                      ✅ Client venu
+                    </button>
+                    <button onClick={()=>doNoShow(s)} style={{padding:'9px',borderRadius:'var(--r)',background:'rgba(150,150,150,.08)',border:'1.5px solid var(--border2)',color:'var(--txt3)',fontFamily:'var(--font-head)',fontWeight:700,fontSize:'12px',cursor:'pointer'}}>
+                      👻 No-show
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* GRAPHE ANNUEL */}
+        <div className="card" style={{marginBottom:'16px'}}>
+          <div style={{fontSize:'10px',color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'8px'}}>Juin 2026 → Mai 2027</div>
+          {(()=>{
             const MOIS=['J','Jl','A','S','O','N','D','J','F','M','A','M']
             const MKEYS=['2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12','2027-01','2027-02','2027-03','2027-04','2027-05']
-            const JOURS=[25,25,25,25,22,15,0,0,5,12,18,20]
             const caByM={}
-            sessT.forEach(s=>{const d=s.properties.Date?.date?.start;if(d){const mk=d.substring(0,7);caByM[mk]=(caByM[mk]||0)+(s.properties.Prix?.number||0)}})
+            sessConf.forEach(s=>{const d=s.properties.Date?.date?.start||'';if(d){const mk=d.substring(0,7);caByM[mk]=(caByM[mk]||0)+(s.properties.Prix?.number||0)}})
             const vals=MKEYS.map(k=>Math.round(caByM[k]||0))
             const curIdx=MKEYS.indexOf(thisMonth())
             const MAX=Math.max(...vals,OBJ_HIV)
             return (
               <div>
-                <div style={{display:'flex',alignItems:'flex-end',gap:'3px',height:'48px',marginBottom:'4px'}}>
+                <div style={{display:'flex',alignItems:'flex-end',gap:'3px',height:'44px',marginBottom:'4px'}}>
                   {vals.map((v,i)=>{
-                    const isFut=i>curIdx, isCur=i===curIdx
-                    const h=isFut?(JOURS[i]>0?6:2):Math.max(2,Math.round((v/MAX)*48))
+                    const isFut=i>curIdx
+                    const h=isFut?4:Math.max(2,Math.round((v/MAX)*44))
                     const col=isFut?'var(--border)':v>=OBJ_CONF?'#1A8C5A':v>=OBJ_HIV?'#BA7517':v>=OBJ_EQ?'#D4820A':v>0?'#C0392B':'var(--border)'
                     return (
                       <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end'}}>
                         <div style={{width:'100%',height:h,background:col,borderRadius:'2px 2px 0 0',position:'relative'}}>
-                          {isCur && <div style={{position:'absolute',top:'-6px',left:'50%',transform:'translateX(-50%)',width:'5px',height:'5px',borderRadius:'50%',background:'var(--pierre)'}} />}
+                          {i===curIdx&&<div style={{position:'absolute',top:'-5px',left:'50%',transform:'translateX(-50%)',width:5,height:5,borderRadius:'50%',background:'var(--pierre)'}}/>}
                         </div>
                       </div>
                     )
                   })}
                 </div>
                 <div style={{display:'flex',gap:'3px'}}>
-                  {MOIS.map((m,i)=>(
-                    <div key={i} style={{flex:1,textAlign:'center',fontSize:'8px',color:i===curIdx?'var(--pierre)':'var(--txt3)',fontWeight:i===curIdx?700:400}}>{m}</div>
-                  ))}
+                  {MOIS.map((mo,i)=><div key={i} style={{flex:1,textAlign:'center',fontSize:'8px',color:i===curIdx?'var(--pierre)':'var(--txt3)',fontWeight:i===curIdx?700:400}}>{mo}</div>)}
                 </div>
               </div>
             )
           })()}
         </div>
 
-        {/* ── ACTIONS ──────────────────────────────── */}
-        <button className="btn btn-primary" onClick={()=>setTab('ca')} style={{width:'100%',padding:'16px',fontSize:'15px',marginBottom:'10px',letterSpacing:'0.5px'}}>
+        {/* ACTIONS */}
+        <button className="btn btn-primary" onClick={()=>setTab('ca')} style={{width:'100%',padding:'16px',fontSize:'15px',marginBottom:'10px'}}>
           + Saisir mon CA du jour
         </button>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'16px'}}>
-          <button className="btn btn-ghost" onClick={()=>setTab('depense')} style={{padding:'13px',fontSize:'13px'}}>🧾 Dépense</button>
-          <button className="btn btn-ghost" onClick={()=>setTab('histo')} style={{padding:'13px',fontSize:'13px'}}>📋 Historique</button>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',marginBottom:'14px'}}>
+          <button className="btn btn-ghost" onClick={()=>setTab('rdv')} style={{padding:'11px',fontSize:'12px',flexDirection:'column',gap:'2px'}}>
+            <span>📅</span>RDV prévu
+          </button>
+          <button className="btn btn-ghost" onClick={()=>setTab('depense')} style={{padding:'11px',fontSize:'12px',flexDirection:'column',gap:'2px'}}>
+            <span>🧾</span>Dépense
+          </button>
+          <button className="btn btn-ghost" onClick={()=>setTab('histo')} style={{padding:'11px',fontSize:'12px',flexDirection:'column',gap:'2px'}}>
+            <span>📋</span>Historique
+          </button>
         </div>
 
-        {/* À mettre de côté */}
-        {caMois > 0 && (
+        {/* IRPF / IVA */}
+        {caMois>0&&(
           <div className="card" style={{padding:'12px 16px'}}>
             <div style={{fontSize:'10px',color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'8px'}}>À mettre de côté ce mois</div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
@@ -593,7 +708,7 @@ export default function TonyDashboard({ onLogout }) {
       <div style={{textAlign:'center',paddingBottom:'20px'}}>
         <button onClick={onLogout} style={{background:'none',border:'none',color:'var(--txt3)',fontSize:'11px',cursor:'pointer'}}>Déconnexion</button>
       </div>
-      {toast && <div className="toast">{toast}</div>}
+      {toast&&<div className="toast">{toast}</div>}
     </div>
   )
 }
