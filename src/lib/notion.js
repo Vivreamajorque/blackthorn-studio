@@ -65,6 +65,20 @@ export const notion = {
     page_size: 50
   }),
 
+
+  updateSession: (pageId, data) => call(`pages/${pageId}`, 'PATCH', {
+    properties: {
+      Session: { title: [{ text: { content: (data.paiement==='carte'?'[CARTE] ':'[CASH] ') + `Tony · ${data.date} · ${data.prix}€` } }] },
+      Type:     { select: { name: data.type || '🖤 Tattoo Tony' } },
+      Prix:     { number: parseFloat(data.prix) || 0 },
+      'Acompte reçu': { number: 0 },
+      'Solde reçu':   { number: parseFloat(data.prix) || 0 },
+      Nationalité:    { select: { name: data.natio || 'Autre' } },
+      Date:           { date: { start: data.date } },
+      Notes:          { rich_text: [{ text: { content: data.notes || '' } }] }
+    }
+  }),
+  deleteSession: (pageId) => call(`pages/${pageId}`, 'PATCH', { archived: true }),
   addDepense: (data) => call('pages', 'POST', {
     parent: { database_id: DEPENSES_DB },
     properties: {

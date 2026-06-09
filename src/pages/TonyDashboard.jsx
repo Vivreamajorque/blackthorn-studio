@@ -46,6 +46,8 @@ export default function TonyDashboard({ onLogout }) {
   })
   const [depSaving, setDepSaving] = useState(false)
   const [photo, setPhoto]         = useState(null)
+  const [editing, setEditing]     = useState(null)   // { id, ca, paiement, date, notes }
+  const [editSaving, setEditSaving] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
 
   const showToast = (m) => { setToast(m); setTimeout(() => setToast(''), 2500) }
@@ -76,6 +78,30 @@ export default function TonyDashboard({ onLogout }) {
   const status = r.net >= PERSO + PROV_MOIS ? '✅' : r.net >= PERSO ? '🟡' : '🔴'
   const isMonth = new Date().getMonth() + 1
   const isEte   = isMonth >= 6 && isMonth <= 10
+
+  // ── Submit Edit ────────────────────────────────────
+  const submitEdit = async () => {
+    if (!editing?.ca) return
+    setEditSaving(true)
+    try {
+      await notion.updateSession(editing.id, {
+        prix: parseFloat(editing.ca), paiement: editing.paiement || 'cash',
+        date: editing.date, notes: editing.notes, type: '🖤 Tattoo Tony', natio: 'Autre'
+      })
+      showToast('✓ Modifié')
+      setEditing(null)
+      load()
+    } catch(e) { showToast('Erreur — réessaie') }
+    setEditSaving(false)
+  }
+
+  const submitDelete = async (pageId) => {
+    try {
+      await notion.deleteSession(pageId)
+      showToast('Supprimé')
+      load()
+    } catch(e) { showToast('Erreur') }
+  }
 
   // ── Submit CA ──────────────────────────────────────
   const submitCA = async () => {
@@ -277,6 +303,51 @@ export default function TonyDashboard({ onLogout }) {
       </div>
       <button className="btn btn-primary" onClick={submitDep} disabled={depSaving||!depForm.montant} style={{ width:'100%', padding:'16px' }}>
         {depSaving ? 'Enregistrement...' : '✓ Enregistrer la dépense'}
+      </button>
+      {toast && <div className="toast">{toast}</div>}
+    </div>
+  )
+
+  // ── FORMULAIRE ÉDITION ─────────────────────────────
+  if (tab === 'edit' && editing) return (
+    <div style={{ padding:'28px 20px', minHeight:'100vh' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'24px' }}>
+        <div style={{ fontFamily:'var(--font-head)', fontSize:'18px', fontWeight:700 }}>Modifier l'entrée</div>
+        <button className="btn btn-ghost" onClick={()=>{setTab('histo');setEditing(null)}} style={{ padding:'6px 14px', fontSize:'12px' }}>← Retour</button>
+      </div>
+      <div style={{ textAlign:'center', marginBottom:'20px' }}>
+        <div style={{ fontSize:'12px', color:'var(--gris)', marginBottom:'10px', textTransform:'uppercase', letterSpacing:'1px' }}>CA (€ HT)</div>
+        <input type="number" inputMode="decimal"
+          value={editing.ca} onChange={e=>setEditing({...editing,ca:e.target.value})}
+          style={{ fontSize:'48px', fontFamily:'var(--font-mono)', fontWeight:500, textAlign:'center', background:'transparent', border:'none', borderBottom:'2px solid var(--pierre)', borderRadius:0, color:'var(--pierre)', width:'200px', padding:'8px 0' }} />
+      </div>
+      <div style={{ display:'flex', gap:'10px', marginBottom:'16px' }}>
+        {['cash','carte'].map(p=>(
+          <button key={p} onClick={()=>setEditing({...editing,paiement:p})} style={{
+            flex:1, padding:'12px', borderRadius:'var(--r)',
+            background: editing.paiement===p ? (p==='cash'?'var(--vert)':'#2980B9') : 'var(--noir2)',
+            color: editing.paiement===p ? 'var(--noir)' : 'var(--gris)',
+            border: editing.paiement===p ? 'none' : '1px solid var(--noir3)',
+            fontFamily:'var(--font-head)', fontWeight:700, fontSize:'14px', cursor:'pointer'
+          }}>
+            {p==='cash' ? '💵 Cash' : '💳 Carte'}
+          </button>
+        ))}
+      </div>
+      <div className="form-group" style={{ marginBottom:'12px' }}>
+        <label>Date</label>
+        <input type="date" min="2026-06-01" value={editing.date} onChange={e=>setEditing({...editing,date:e.target.value})} />
+      </div>
+      <div className="form-group" style={{ marginBottom:'20px' }}>
+        <label>Notes</label>
+        <input placeholder="Style, nationalité..." value={editing.notes} onChange={e=>setEditing({...editing,notes:e.target.value})} />
+      </div>
+      <button className="btn btn-primary" onClick={submitEdit} disabled={editSaving||!editing.ca} style={{ width:'100%', padding:'14px', marginBottom:'10px' }}>
+        {editSaving ? 'Sauvegarde...' : '✓ Sauvegarder la modification'}
+      </button>
+      <button onClick={()=>{ if(confirm('Supprimer cette entrée ?')) { submitDelete(editing.id); setTab('histo'); setEditing(null) } }}
+        style={{ width:'100%', padding:'12px', background:'transparent', border:'1px solid var(--rouge)', color:'var(--rouge)', borderRadius:'var(--r)', cursor:'pointer', fontSize:'13px' }}>
+        🗑 Supprimer l'entrée
       </button>
       {toast && <div className="toast">{toast}</div>}
     </div>
