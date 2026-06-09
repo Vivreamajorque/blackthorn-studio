@@ -222,9 +222,16 @@ export default function TonyDashboard({ onLogout }) {
           value={caForm.ca} onChange={e=>setCaForm({...caForm,ca:e.target.value})}
           style={{fontSize:'52px',fontFamily:'var(--font-mono)',fontWeight:500,textAlign:'center',background:'transparent',border:'none',borderBottom:'2px solid var(--pierre)',borderRadius:0,color:'var(--txt)',width:'220px',padding:'8px 0'}} />
         {caForm.ca>0 && (
-          <div style={{marginTop:'10px',fontSize:'13px',color:parseFloat(caForm.ca)>=156?'#1A8C5A':'var(--txt3)'}}>
-            {parseFloat(caForm.ca)>=156?'✅ Objectif journalier atteint !':
-             `${(156-parseFloat(caForm.ca)).toFixed(0)}€ pour l'objectif jour`}
+          <div style={{marginTop:'8px',display:'flex',flexDirection:'column',gap:'3px',alignItems:'center'}}>
+            <div style={{fontSize:'13px',color:parseFloat(caForm.ca)>=156?'#1A8C5A':'var(--txt3)'}}>
+              {parseFloat(caForm.ca)>=156?'✅ Objectif journalier atteint !':
+               `${(156-parseFloat(caForm.ca)).toFixed(0)}€ pour l'objectif jour`}
+            </div>
+            {parseInt(caForm.sessions)>1 && (
+              <div style={{fontSize:'11px',color:'var(--txt3)'}}>
+                ≈ {Math.round(parseFloat(caForm.ca)/(parseInt(caForm.sessions)||1))}€ par session
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -358,15 +365,25 @@ export default function TonyDashboard({ onLogout }) {
           }}>{p==='cash'?'💵 Cash':'💳 Carte'}</button>
         ))}
       </div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'12px'}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'4px'}}>
         <div className="form-group" style={{margin:0}}>
-          <label>Sessions</label>
+          <label>CA total (€)</label>
+          <input type="number" inputMode="decimal" value={editing.ca} onChange={e=>setEditing({...editing,ca:e.target.value})}
+            style={{fontSize:'20px',textAlign:'center',fontFamily:'var(--font-mono)'}} />
+        </div>
+        <div className="form-group" style={{margin:0}}>
+          <label>Nb sessions</label>
           <input type="number" inputMode="numeric" placeholder="1" value={editing.sessions||'1'} onChange={e=>setEditing({...editing,sessions:e.target.value})} style={{textAlign:'center',fontSize:'18px'}} />
         </div>
-        <div className="form-group" style={{margin:0}}>
-          <label>Date</label>
-          <input type="date" min="2026-06-01" value={editing.date} onChange={e=>setEditing({...editing,date:e.target.value})} />
+      </div>
+      {editing.sessions>1 && editing.ca>0 && (
+        <div style={{fontSize:'11px',color:'var(--txt3)',marginBottom:'12px',textAlign:'center'}}>
+          ≈ {Math.round(parseFloat(editing.ca)/(parseInt(editing.sessions)||1))}€ par session
         </div>
+      )}
+      <div className="form-group" style={{marginBottom:'12px',marginTop:'8px'}}>
+        <label>Date</label>
+        <input type="date" min="2026-06-01" value={editing.date} onChange={e=>setEditing({...editing,date:e.target.value})} />
       </div>
       <div className="form-group" style={{marginBottom:'12px'}}>
         <label>Nationalité client</label>

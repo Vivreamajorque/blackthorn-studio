@@ -52,7 +52,13 @@ export default function Dashboard() {
     } catch(e) {}
     setLoading(false)
   }, [])
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+    // Auto-refresh quand on revient sur l'onglet
+    const onFocus = () => load()
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [load])
 
   // ── CALCULS CA ─────────────────────────────────────
   const m   = thisMonth()
