@@ -76,7 +76,7 @@ export default function TonyDashboard({ onLogout }) {
   const cameraRef = useRef(null)
 
   // Formulaires
-  const [caForm,   setCaForm]   = useState({ ca:'', sessions:'1', paiement:'cash', natio:'🇫🇷 FR', source:'📸 Instagram', notes:'', date:todayStr() })
+  const [caForm,   setCaForm]   = useState({ ca:'', sessions:'1', paiement:'cash', natio:'🇫🇷 FR', source:'📸 Instagram', notes:'', date:todayStr(), avis:false })
   const [caSaving, setCaSaving] = useState(false)
   const [depForm,  setDepForm]  = useState({ montant:'', fournisseur:'', categorie:'🖊️ Matériel tatouage', date:todayStr(), notes:'', iva_recuperable:true })
   const [depSaving,setDepSaving]= useState(false)
@@ -166,12 +166,12 @@ export default function TonyDashboard({ onLogout }) {
       await notion.addSession({
         paiement:caForm.paiement, prix:parseFloat(caForm.ca)||0,
         acompte:0, solde:parseFloat(caForm.ca)||0,
-        natio:caForm.natio, source:caForm.source, date:caForm.date,
+        natio:caForm.natio, source:caForm.source, date:caForm.date, avis:!!caForm.avis,
         notes:`${caForm.sessions||1} session(s)${caForm.notes?' · '+caForm.notes:''}`,
         style:caForm.notes, client:'', avis:false
       })
       showToast(parseFloat(caForm.ca)>=156?'🔥 Belle session !':'✓ CA enregistré')
-      setCaForm({ca:'',sessions:'1',paiement:'cash',natio:'🇫🇷 FR',source:'📸 Instagram',notes:'',date:todayStr()})
+      setCaForm({ca:'',sessions:'1',paiement:'cash',natio:'🇫🇷 FR',source:'📸 Instagram',notes:'',date:todayStr(),avis:false})
       setTab('home'); load()
     } catch(e) { showToast('Erreur — réessaie') }
     setCaSaving(false)
@@ -377,6 +377,11 @@ export default function TonyDashboard({ onLogout }) {
       <div className="form-group" style={{marginBottom:'20px'}}>
         <label>Notes (style, infos...)</label>
         <textarea rows="2" value={caForm.notes} onChange={e=>setCaForm({...caForm,notes:e.target.value})} style={{resize:'none'}} placeholder="Ex: botanical avant-bras..."/>
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'16px',padding:'10px 12px',background:'var(--bg2)',borderRadius:'var(--r)'}}>
+        <input type="checkbox" id="avis" checked={caForm.avis||false} onChange={e=>setCaForm({...caForm,avis:e.target.checked})}
+          style={{width:18,height:18,accentColor:'#D4820A',cursor:'pointer',flexShrink:0}}/>
+        <label htmlFor="avis" style={{fontSize:'13px',color:'var(--txt2)',cursor:'pointer'}}>⭐ Client a laissé un avis Google</label>
       </div>
       <button className="btn btn-primary" onClick={submitCA} disabled={caSaving||!caForm.ca} style={{width:'100%',padding:'16px',fontSize:'15px'}}>
         {caSaving?'Enregistrement...':'✓ Valider'}
@@ -640,7 +645,7 @@ export default function TonyDashboard({ onLogout }) {
       )}
 
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 20px 16px',borderBottom:'1px solid var(--border)'}}>
-        <img src="/blackthorn-logo.png" alt="Blackthorn" style={{height:'38px',filter:'brightness(0)',opacity:0.85}}/>
+        <img src="/blackthorn-logo.png" alt="Blackthorn" style={{height:'38px',opacity:0.9}}/>
         <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
           <span style={{fontSize:'11px',color:'var(--txt3)'}}>{new Date().toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</span>
           <button onClick={load} style={{background:'none',border:'none',fontSize:'16px',color:'var(--txt3)',cursor:'pointer'}}>↻</button>
@@ -856,10 +861,10 @@ export default function TonyDashboard({ onLogout }) {
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',justifyItems:'center',marginBottom:'14px'}}>
             <Arc pct={Math.min(100,Math.round(caSem/OBJ_SEM*100))} color={colSem} label="Semaine"
               value={caSem>0?fmt(caSem):'—'} sub={caSem>0?`/ ${fmt(OBJ_SEM)}`:null}
-              sub2={caSem>=OBJ_SEM?'✓ Objectif':caSem>0?`−${fmt(OBJ_SEM-caSem)}`:null}/>
+              sub2={caSem>=OBJ_SEM?'✓ Objectif atteint':caSem>0?`encore ${fmt(OBJ_SEM-caSem)}`:null}/>
             <Arc pct={Math.min(100,Math.round(caMois/OBJ_HIV*100))} color={colMois} label="Mois"
               value={caMois>0?fmt(caMois):'—'} sub={caMois>0?`${Math.round(caMois/OBJ_HIV*100)}%`:null}
-              sub2={caMois>=OBJ_EQ?(caMois>=OBJ_HIV?'✓ Hiver couvert':'⚖️ Équilibre'):caMois>0?`−${fmt(OBJ_EQ-caMois)}`:null}/>
+              sub2={caMois>=OBJ_EQ?(caMois>=OBJ_HIV?'✓ Hiver couvert':'⚖️ Équilibre'):caMois>0?`encore ${fmt(OBJ_EQ-caMois)}`:null}/>
           </div>
           <div style={{padding:'10px 14px',background:msgMois.c+'15',borderRadius:'var(--r)',borderLeft:`3px solid ${msgMois.c}`}}>
             <span style={{fontSize:'12px',fontWeight:600,color:msgMois.c}}>{msgMois.icon} {msgMois.text}</span>

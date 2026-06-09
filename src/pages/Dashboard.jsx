@@ -34,6 +34,7 @@ const FISCAL = [
   { date:'2026-10-20', label:'Modelo 303 + 130', periode:'T3 (juil-sept)', urgent: false },
   { date:'2027-01-30', label:'Modelo 303 + 130', periode:'T4 (oct-déc)',  urgent: false },
   { date:'2026-10-31', label:'Renta 2025', periode:'Déclaration annuelle IRPF', urgent: false },
+  { date:'2027-01-30', label:'Modelo 303 + 130', periode:'T4 (oct-déc 2026)', urgent: false },
 ]
 const today = new Date()
 const daysUntil = (dateStr) => Math.round((new Date(dateStr) - today) / 86400000)
@@ -165,7 +166,7 @@ export default function Dashboard() {
 
       {/* ── HEADER ──────────────────────────────────── */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px' }}>
-        <img src="/blackthorn-logo.png" alt="Blackthorn" style={{ height:'40px', filter:'brightness(0) opacity(0.85)', opacity:0.85 }} />
+        <img src="/blackthorn-logo.png" alt="Blackthorn" style={{ height:'40px', opacity:0.9, opacity:0.85 }} />
         <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
           <span style={{ fontSize:'11px', color:'var(--gris)' }}>{new Date().toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</span>
           <button onClick={load} style={{ background:'none', border:'none', color:'var(--gris)', fontSize:'16px', cursor:'pointer', padding:'4px' }}>↻</button>
