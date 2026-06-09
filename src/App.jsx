@@ -170,12 +170,10 @@ export default function App() {
   const unlock = (r) => { sessionStorage.setItem('bt_role', r); setRole(r) }
   const logout = () => { sessionStorage.removeItem('bt_role'); setRole(null) }
 
-  if (!role) return <><UpdateBanner /><PinScreen onUnlock={unlock} /></>
-  if (role === 'tony') return <><UpdateBanner /><TonyDashboard onLogout={logout} /></>
+  if (!role) return <PinScreen onUnlock={unlock} />
+  if (role === 'tony') return <TonyDashboard onLogout={logout} />
 
   return (
-    <>
-    <UpdateBanner />
     <div style={{ paddingBottom:'72px' }}>
       <Routes>
           <Route path="/"          element={<Dashboard />} />
@@ -185,6 +183,5 @@ export default function App() {
       </Routes>
       <NavBar onLogout={logout}/>
     </div>
-    </>
   )
 }

@@ -10,40 +10,59 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </BrowserRouter>
 )
 
-// ── SERVICE WORKER — enregistrement + détection mise à jour ──────────────
+// ── SERVICE WORKER — auto-update à la reconnexion ────────────────────────
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').then(reg => {
 
-      // Vérifier les mises à jour toutes les 30 secondes
-      setInterval(() => reg.update(), 30000)
-
-      // SW en attente = nouvelle version disponible
-      const notifyUpdate = () => {
+      // Fonction : activer immédiatement si nouveau SW en attente
+      const activerMiseAJour = () => {
         if (reg.waiting) {
-          window.dispatchEvent(new CustomEvent('sw-update', { detail: reg.waiting }))
+          reg.waiting.postMessage('skipWaiting')
         }
       }
 
-      // Déjà en attente au moment de l'enregistrement
-      if (reg.waiting) notifyUpdate()
+      // Si déjà en attente au démarrage → activer tout de suite
+      if (reg.waiting) {
+        activerMiseAJour()
+        return
+      }
 
-      // Nouvelle version installée pendant la session
+      // Nouvelle version détectée pendant la session
       reg.addEventListener('updatefound', () => {
         const installing = reg.installing
         installing?.addEventListener('statechange', () => {
           if (installing.state === 'installed' && navigator.serviceWorker.controller) {
-            notifyUpdate()
+            activerMiseAJour()
           }
         })
       })
 
-    }).catch(err => console.warn('[SW] Échec enregistrement:', err))
+      // Vérifier les mises à jour quand l'app revient au premier plan
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          reg.update().then(() => {
+            if (reg.waiting) activerMiseAJour()
+          })
+        }
+      })
 
-    // Rechargement après activation du nouveau SW
+      // Vérification périodique toutes les 60 secondes
+      setInterval(() => {
+        reg.update().then(() => {
+          if (reg.waiting) activerMiseAJour()
+        })
+      }, 60000)
+
+    }).catch(err => console.warn('[SW] Échec:', err))
+
+    // Rechargement automatique quand le nouveau SW prend le contrôle
     let refreshing = false
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!refreshing) { refreshing = true; window.location.reload() }
+      if (!refreshing) {
+        refreshing = true
+        window.location.reload()
+      }
     })
   })
 }
