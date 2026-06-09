@@ -421,64 +421,59 @@ export default function TonyDashboard({ onLogout }) {
         <button onClick={load} style={{ background:'none', border:'none', color:'var(--gris)', fontSize:'18px', cursor:'pointer' }}>↻</button>
       </div>
 
-      {/* Statut équilibre + jauge */}
+      {/* Jauge CA unique */}
       <div className="card" style={{ marginBottom:'14px' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px' }}>
-          <div style={{ fontSize:'11px', color:'var(--gris)', textTransform:'uppercase', letterSpacing:'1px' }}>CA du mois</div>
-          <span style={{ fontSize:'20px' }}>{status}</span>
+        {/* Chiffres jour / mois */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px', marginBottom:'16px' }}>
+          {[
+            { l:"Aujourd'hui", v:caJour>0?caJour+'€':'—', c:caJour>=OBJ_JOUR?'var(--vert)':caJour>0?'var(--pierre)':'var(--gris2)' },
+            { l:'Ce mois',      v:caMois>0?fmtE(caMois):'—', c:caMois>=5850?'var(--vert)':caMois>=3895?'var(--jaune)':caMois>0?'var(--pierre)':'var(--gris2)' },
+          ].map(x=>(
+            <div key={x.l} style={{ textAlign:'center', padding:'10px 6px', background:'var(--noir3)', borderRadius:'var(--r)' }}>
+              <div style={{ fontSize:'9px', color:'var(--gris)', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'4px' }}>{x.l}</div>
+              <div style={{ fontFamily:'var(--font-mono)', fontSize:'22px', color:x.c }}>{x.v}</div>
+            </div>
+          ))}
         </div>
 
-        {/* Chiffres aujourd'hui / mois */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px', marginBottom:'14px' }}>
-          <div style={{ textAlign:'center', padding:'8px', background:'var(--noir3)', borderRadius:'var(--r)' }}>
-            <div style={{ fontSize:'9px', color:'var(--gris)', textTransform:'uppercase', marginBottom:'3px' }}>Aujourd'hui</div>
-            <div style={{ fontFamily:'var(--font-mono)', fontSize:'20px', color:caJour>=OBJ_JOUR?'var(--vert)':caJour>0?'var(--pierre)':'var(--gris2)' }}>
-              {caJour > 0 ? caJour+'€' : '—'}
-            </div>
-          </div>
-          <div style={{ textAlign:'center', padding:'8px', background:'var(--noir3)', borderRadius:'var(--r)' }}>
-            <div style={{ fontSize:'9px', color:'var(--gris)', textTransform:'uppercase', marginBottom:'3px' }}>Ce mois</div>
-            <div style={{ fontFamily:'var(--font-mono)', fontSize:'20px', color:caMois>=5850?'var(--vert)':caMois>=3895?'var(--jaune)':caMois>0?'var(--pierre)':'var(--gris2)' }}>
-              {caMois > 0 ? fmtE(caMois) : '—'}
-            </div>
-          </div>
-        </div>
-
-        {/* Jauge avec 3 seuils */}
+        {/* Jauge unique */}
         {(() => {
-          const MAX = 8000
-          const pct = v => Math.min(100, Math.round((v/MAX)*100))
-          const cur = pct(caMois)
-          const eq  = pct(3895)
-          const hiv = pct(5850)
-          const conf= pct(7500)
-          const barColor = caMois >= 5850 ? '#1D9E75' : caMois >= 3895 ? '#BA7517' : '#E24B4A'
+          const MAX  = 8000
+          const cur  = Math.min(100, (caMois / MAX) * 100)
+          const barC = caMois >= 7500 ? '#1D9E75' : caMois >= 5850 ? '#BA7517' : caMois >= 3895 ? '#E8A020' : '#E24B4A'
+          const msg  = caMois >= 7500
+            ? { icon:'✅', text:"Vous êtes confortable", sub:`+${Math.round(caMois-7500)}€ au-dessus du confort`, c:'var(--vert)' }
+            : caMois >= 5850
+            ? { icon:'🌊', text:"Vous tenez l'hiver", sub:`+${Math.round(caMois-5850)}€ vers le confort (${Math.round(7500-caMois)}€ restants)`, c:'#BA7517' }
+            : caMois >= 3895
+            ? { icon:'⚖️', text:"Equilbre atteint", sub:`Encore ${Math.round(5850-caMois)}€ pour tenir l'hiver`, c:'var(--jaune)' }
+            : { icon:'🔴', text:"Pas encore à l'équilibre", sub:`Encore ${Math.round(3895-caMois)}€ pour couvrir toutes les charges`, c:'var(--rouge)' }
+
           return (
             <div>
-              <div style={{ position:'relative', height:'28px', marginBottom:'4px' }}>
-                {/* Barre fond */}
-                <div style={{ position:'absolute', top:'50%', transform:'translateY(-50%)', left:0, right:0, height:'8px', background:'var(--noir3)', borderRadius:'4px', overflow:'hidden' }}>
-                  <div style={{ height:'100%', width:cur+'%', background:barColor, borderRadius:'4px', transition:'width .6s ease' }} />
+              <div style={{ position:'relative', marginBottom:'8px' }}>
+                {/* Fond */}
+                <div style={{ height:'10px', background:'var(--noir3)', borderRadius:'5px', overflow:'visible', position:'relative' }}>
+                  {/* Remplissage */}
+                  <div style={{ height:'100%', width:`${cur}%`, background:barC, borderRadius:'5px', transition:'width .6s ease', position:'relative', zIndex:1 }} />
+                  {/* Traits seuils */}
+                  {[{p:(3895/MAX)*100,c:'#E8A020'},{p:(5850/MAX)*100,c:'#BA7517'},{p:(7500/MAX)*100,c:'#1D9E75'}].map((s,i)=>(
+                    <div key={i} style={{ position:'absolute', left:`${s.p}%`, top:'-4px', width:'2px', height:'18px', background:s.c, zIndex:2, opacity:0.8 }} />
+                  ))}
                 </div>
-                {/* Marqueurs */}
-                {[{v:eq, label:'156€/j', color:'var(--jaune)'}, {v:hiv, label:'234€/j', color:'var(--pierre)'}, {v:conf, label:'300€/j', color:'var(--vert)'}].map(m=>(
-                  <div key={m.label} style={{ position:'absolute', left:m.v+'%', top:0, transform:'translateX(-50%)' }}>
-                    <div style={{ width:'2px', height:'28px', background:m.color, opacity:0.7, margin:'0 auto' }} />
+              </div>
+              {/* Labels seuils */}
+              <div style={{ position:'relative', height:'14px', marginBottom:'12px' }}>
+                {[{p:(3895/MAX)*100,l:'156€/j',c:'#E8A020'},{p:(5850/MAX)*100,l:'234€/j',c:'#BA7517'},{p:(7500/MAX)*100,l:'300€/j',c:'#1D9E75'}].map((s,i)=>(
+                  <div key={i} style={{ position:'absolute', left:`${s.p}%`, transform:'translateX(-50%)', fontSize:'9px', color:s.c, fontWeight:600, textAlign:'center', whiteSpace:'nowrap' }}>
+                    {s.l}
                   </div>
                 ))}
               </div>
-              {/* Labels */}
-              <div style={{ position:'relative', height:'16px' }}>
-                {[{v:eq, label:'Équil.', color:'var(--jaune)'}, {v:hiv, label:'Hiver', color:'var(--pierre)'}, {v:conf, label:'Confort', color:'var(--vert)'}].map(m=>(
-                  <div key={m.label} style={{ position:'absolute', left:m.v+'%', transform:'translateX(-50%)', fontSize:'9px', color:m.color, textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px', fontWeight:600 }}>
-                    {m.label}
-                  </div>
-                ))}
-              </div>
-              <div style={{ display:'flex', justifyContent:'space-between', marginTop:'6px', fontSize:'9px', color:'var(--gris2)' }}>
-                <span>0€</span>
-                <span style={{ fontFamily:'var(--font-mono)', color:barColor, fontWeight:600 }}>{caMois > 0 ? fmtE(caMois) : '—'}</span>
-                <span>8k€</span>
+              {/* Message statut */}
+              <div style={{ padding:'10px 12px', background:caMois>=3895?'var(--epine)':'rgba(192,57,43,.1)', borderRadius:'var(--r)', borderLeft:`3px solid ${msg.c}` }}>
+                <div style={{ fontSize:'14px', fontWeight:600, color:msg.c }}>{msg.icon} {msg.text}</div>
+                <div style={{ fontSize:'11px', color:'var(--gris)', marginTop:'3px' }}>{msg.sub}</div>
               </div>
             </div>
           )
