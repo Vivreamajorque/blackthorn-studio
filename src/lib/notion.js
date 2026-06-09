@@ -122,6 +122,69 @@ export const notion = {
     } : {})
   }),
 
+
+  // ── COMMUNICATION ────────────────────────────────
+  getCalendrierEditorial: () => call(`databases/df7169664f7e46e9b5d2cc14d81c002a/query`, 'POST', {
+    sorts: [{ property: 'Date', direction: 'ascending' }],
+    page_size: 100
+  }),
+
+  addContenu: (data) => call('pages', 'POST', {
+    parent: { database_id: 'df7169664f7e46e9b5d2cc14d81c002a' },
+    properties: {
+      Contenu:    { title: [{ text: { content: data.contenu || 'Nouveau contenu' } }] },
+      Date:       { date: { start: data.date } },
+      Statut:     { select: { name: data.statut || '💡 Idée' } },
+      Pilier:     { select: { name: data.pilier || "🎨 L'Art" } },
+      Format:     { select: { name: data.format || 'Post photo' } },
+      Caption:    { rich_text: [{ text: { content: data.caption || '' } }] },
+      Hashtags:   { rich_text: [{ text: { content: data.hashtags || '' } }] },
+      Notes:      { rich_text: [{ text: { content: data.notes || '' } }] },
+      ...(data.plateformes?.length ? { Plateforme: { multi_select: data.plateformes.map(p=>({name:p})) } } : {})
+    }
+  }),
+
+  updateContenuStatut: (pageId, statut) => call(`pages/${pageId}`, 'PATCH', {
+    properties: { Statut: { select: { name: statut } } }
+  }),
+
+  getPromos: () => call(`databases/c7625e2be6c8441895c523315721a217/query`, 'POST', {
+    sorts: [{ property: 'Date début', direction: 'ascending' }],
+    page_size: 50
+  }),
+
+  addPromo: (data) => call('pages', 'POST', {
+    parent: { database_id: 'c7625e2be6c8441895c523315721a217' },
+    properties: {
+      Promotion:        { title: [{ text: { content: data.nom || 'Nouvelle promo' } }] },
+      Type:             { select: { name: data.type || '📢 Autre' } },
+      Statut:           { select: { name: data.statut || '📋 Planifiée' } },
+      'Réduction / Offre': { rich_text: [{ text: { content: data.offre || '' } }] },
+      Cible:            { rich_text: [{ text: { content: data.cible || '' } }] },
+      Notes:            { rich_text: [{ text: { content: data.notes || '' } }] },
+      ...(data.dateDebut ? { 'Date début': { date: { start: data.dateDebut } } } : {}),
+      ...(data.dateFin   ? { 'Date fin':   { date: { start: data.dateFin } } } : {}),
+    }
+  }),
+
+  getEvenements: () => call(`databases/b2428071dba343f89a54cca1eaea82b6/query`, 'POST', {
+    sorts: [{ property: 'Date', direction: 'ascending' }],
+    page_size: 50
+  }),
+
+  addEvenement: (data) => call('pages', 'POST', {
+    parent: { database_id: 'b2428071dba343f89a54cca1eaea82b6' },
+    properties: {
+      'Événement':       { title: [{ text: { content: data.nom || 'Événement' } }] },
+      Type:             { select: { name: data.type || '🎉 Fête locale' } },
+      Statut:           { select: { name: data.statut || '📋 À préparer' } },
+      Lieu:             { rich_text: [{ text: { content: data.lieu || '' } }] },
+      'Action Blackthorn': { rich_text: [{ text: { content: data.action || '' } }] },
+      Notes:            { rich_text: [{ text: { content: data.notes || '' } }] },
+      ...(data.date ? { Date: { date: { start: data.date } } } : {}),
+    }
+  }),
+
   getMetriquesRS: () => call(`databases/${METRIQUES_RS_DB}/query`, 'POST', {
     sorts: [{ property: 'Date', direction: 'descending' }],
     page_size: 52
