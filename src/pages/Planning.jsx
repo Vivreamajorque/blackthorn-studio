@@ -261,34 +261,38 @@ export default function Planning({ onBack, onEditRdv }) {
                   return (
                     <div key={s.id} style={{ marginLeft:'46px', marginBottom:'8px' }}>
                       <div className="card" style={{ padding:'12px 14px', borderLeft:`3px solid ${isPast?'var(--red)':isToday?'var(--gold)':'var(--pierre)'}`, boxShadow:isToday?'var(--shadow)':'var(--shadow-sm)' }}>
+                        {/* Heure — grand et visible */}
+                        {heure && (
+                          <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'8px' }}>
+                            <span style={{ fontFamily:'var(--font-mono)', fontSize:'22px', fontWeight:600, color:'var(--txt)', letterSpacing:'-0.5px' }}>{heure}</span>
+                            {isPast && <span style={{ fontSize:'9px', padding:'2px 8px', background:'var(--red-bg)', color:'var(--red)', borderRadius:'10px', fontWeight:700, letterSpacing:'.5px' }}>À VALIDER</span>}
+                          </div>
+                        )}
                         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'8px' }}>
                           <div style={{ flex:1 }}>
-                            <div style={{ display:'flex', alignItems:'center', gap:'6px', flexWrap:'wrap', marginBottom:'2px' }}>
-                              {heure && <span style={{ fontSize:'12px', fontFamily:'var(--font-mono)', fontWeight:500, color:'var(--txt3)', background:'var(--bg)', padding:'2px 6px', borderRadius:'6px' }}>🕐 {heure}</span>}
-                              {isPast && <span style={{ fontSize:'9px', padding:'2px 6px', background:'var(--red-bg)', color:'var(--red)', borderRadius:'10px', fontWeight:700 }}>À VALIDER</span>}
-                            </div>
-                            <div style={{ fontSize:'14px', fontWeight:700 }}>{client}</div>
-                            {style && <div style={{ fontSize:'11px', color:'var(--txt3)', marginTop:'1px' }}>{style}</div>}
+                            {!heure && isPast && <div style={{ marginBottom:'4px' }}><span style={{ fontSize:'9px', padding:'2px 8px', background:'var(--red-bg)', color:'var(--red)', borderRadius:'10px', fontWeight:700 }}>À VALIDER</span></div>}
+                            <div style={{ fontSize:'15px', fontWeight:700 }}>{client}</div>
+                            {style && <div style={{ fontSize:'11px', color:'var(--txt3)', marginTop:'2px' }}>{style}</div>}
                             {source && <div style={{ fontSize:'10px', color:'var(--txt3)', marginTop:'2px' }}>{source}</div>}
                           </div>
                           <div style={{ textAlign:'right', flexShrink:0, marginLeft:'12px' }}>
-                            <div style={{ fontFamily:'var(--font-mono)', fontSize:'18px', fontWeight:600 }}>{prix}€</div>
+                            <div style={{ fontFamily:'var(--font-mono)', fontSize:'20px', fontWeight:600 }}>{prix}€</div>
                             {acompte>0 && <div style={{ fontSize:'10px', color:'var(--green)', marginTop:'1px' }}>Acompte: {acompte}€</div>}
                           </div>
                         </div>
-                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'6px' }}>
-                          <button onClick={()=>openConfirm(s)} style={{
+                        <div style={{ display:'grid', gridTemplateColumns:(isPast||isToday)?'1fr 1fr 1fr':'1fr', gap:'6px' }}>
+                          {(isPast||isToday) && <button onClick={()=>openConfirm(s)} style={{
                             padding:'9px', borderRadius:'var(--r)',
-                            background:isPast?'var(--green)':'rgba(22,121,74,.1)',
-                            border:isPast?'none':'1.5px solid rgba(22,121,74,.25)',
-                            color:isPast?'#fff':'var(--green)',
+                            background:isPast?'var(--green)':'var(--amber)',
+                            border:'none',
+                            color:'#fff',
                             fontFamily:'var(--font-head)', fontWeight:700, fontSize:'12px', cursor:'pointer'
-                          }}>✅ {isPast?'Valider':'Client venu'}</button>
-                          <button onClick={()=>doNoShow(s)} style={{
+                          }}>✅ {isPast?'Valider':'Client venu'}</button>}
+                          {(isPast||isToday) && <button onClick={()=>doNoShow(s)} style={{
                             padding:'9px', borderRadius:'var(--r)',
                             background:'var(--surface)', border:'1.5px solid var(--border2)',
                             color:'var(--txt3)', fontFamily:'var(--font-head)', fontWeight:700, fontSize:'12px', cursor:'pointer'
-                          }}>👻 No-show</button>
+                          }}>👻 No-show</button>}
                           {onEditRdv && <button onClick={()=>{
                             const dr=s.properties.Date?.date?.start||''
                             const h=dr.includes('T')?dr.substring(11,16):''
