@@ -580,6 +580,90 @@ export default function TonyDashboard({ onLogout }) {
           )}
         </div>
 
+        {/* CARTE PRÉVISIONNEL — jauge CA restant */}
+        {(()=>{
+          const totalPrevu   = caMois + caPrevMois
+          const restant      = Math.max(0, OBJ_HIV - totalPrevu)
+          const pctConf      = Math.min(100, (caMois   / OBJ_HIV) * 100)
+          const pctPrev      = Math.min(100 - pctConf, (caPrevMois / OBJ_HIV) * 100)
+          const pctTotal     = Math.min(100, pctConf + pctPrev)
+          const depasse      = totalPrevu >= OBJ_HIV
+
+          return (
+            <div className="card" style={{marginBottom:'14px',padding:'16px'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
+                <div style={{fontSize:'10px',color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1.5px',fontWeight:600}}>Prévisionnel mois</div>
+                <div style={{fontSize:'11px',color:depasse?'#1A8C5A':'var(--txt3)'}}>
+                  obj. {fmt(OBJ_HIV)}
+                </div>
+              </div>
+
+              {/* BARRE DE PROGRESSION double couche */}
+              <div style={{position:'relative',height:'14px',background:'var(--bg2)',borderRadius:'7px',overflow:'hidden',marginBottom:'8px'}}>
+                {/* Fond prévu (bleu clair) */}
+                {pctPrev > 0 && (
+                  <div style={{
+                    position:'absolute',left:pctConf+'%',top:0,bottom:0,
+                    width:pctPrev+'%',
+                    background:'rgba(41,128,185,.35)',
+                    backgroundImage:'repeating-linear-gradient(45deg,transparent,transparent 4px,rgba(255,255,255,.3) 4px,rgba(255,255,255,.3) 8px)',
+                    transition:'width .5s'
+                  }}/>
+                )}
+                {/* Confirmé (couleur selon seuil) */}
+                <div style={{
+                  position:'absolute',left:0,top:0,bottom:0,
+                  width:pctConf+'%',
+                  background:caMois>=OBJ_HIV?'#1A8C5A':caMois>=3895?'#D4820A':'#C0392B',
+                  borderRadius:'7px',
+                  transition:'width .5s'
+                }}/>
+                {/* Trait objectif */}
+                <div style={{position:'absolute',top:0,bottom:0,left:'100%',width:'2px',background:'rgba(0,0,0,.15)'}}/>
+              </div>
+
+              {/* Légende chiffres */}
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'6px',marginBottom:'10px'}}>
+                {[
+                  {l:'Réalisé',v:fmt(caMois),c:caMois>=3895?'#D4820A':'#C0392B',dot:caMois>=3895?'#D4820A':'#C0392B'},
+                  {l:'Planifié',v:caPrevMois>0?'+'+fmt(caPrevMois):'—',c:'#2980B9',dot:'rgba(41,128,185,.5)'},
+                  {l:'Total estimé',v:fmt(totalPrevu),c:depasse?'#1A8C5A':totalPrevu>=3895?'#D4820A':'#C0392B',dot:null},
+                ].map(x=>(
+                  <div key={x.l} style={{textAlign:'center',padding:'6px 4px',background:'var(--bg)',borderRadius:'var(--r)'}}>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'4px',marginBottom:'2px'}}>
+                      {x.dot&&<span style={{width:6,height:6,borderRadius:'50%',background:x.dot,display:'inline-block',flexShrink:0}}/>}
+                      <span style={{fontSize:'9px',color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px'}}>{x.l}</span>
+                    </div>
+                    <div style={{fontFamily:'var(--font-mono)',fontSize:'14px',fontWeight:600,color:x.c}}>{x.v}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Message restant */}
+              <div style={{padding:'8px 12px',borderRadius:'var(--r)',
+                background:depasse?'rgba(26,140,90,.08)':restant<1000?'rgba(212,130,10,.08)':'rgba(192,57,43,.06)',
+                borderLeft:`3px solid ${depasse?'#1A8C5A':restant<1000?'#D4820A':'#C0392B'}`}}>
+                {depasse ? (
+                  <span style={{fontSize:'12px',fontWeight:600,color:'#1A8C5A'}}>
+                    ✅ Objectif hiver couvert avec {fmt(totalPrevu - OBJ_HIV)} de marge
+                  </span>
+                ) : (
+                  <div>
+                    <span style={{fontSize:'12px',fontWeight:600,color:restant<1000?'#D4820A':'#C0392B'}}>
+                      📍 Encore {fmt(restant)} à réaliser
+                    </span>
+                    {caPrevMois > 0 && (
+                      <span style={{fontSize:'11px',color:'var(--txt3)',display:'block',marginTop:'2px'}}>
+                        RDV planifiés : +{fmt(caPrevMois)} → reste {fmt(Math.max(0,OBJ_HIV-totalPrevu))} à trouver
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })()}
+
         {/* PANIER + AUJOURD'HUI + NET */}
         <div className="card" style={{marginBottom:'14px'}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px'}}>

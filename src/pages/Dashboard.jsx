@@ -329,22 +329,66 @@ export default function Dashboard() {
             Prévisionnel rendez-vous
           </div>
 
-          {/* Résumé en chiffres */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'12px' }}>
-            {[
-              { l:'Cette semaine', v:prevSem, n:rdvsPrevu.filter(s=>(s.properties.Date?.date?.start||'')<=new Date(new Date().setDate(new Date().getDate()+7)).toISOString().split('T')[0]).length },
-              { l:'Ce mois', v:prevMois, n:rdvsPrevu.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m)).length },
-              { l:'Mois suivant', v:prevNext, n:rdvsPrevu.filter(s=>{ const next=new Date(); next.setMonth(next.getMonth()+1); return (s.properties.Date?.date?.start||'').startsWith(next.toISOString().substring(0,7)) }).length },
-            ].map(x=>(
-              <div key={x.l} className="card" style={{ textAlign:'center', padding:'10px 6px' }}>
-                <div style={{ fontSize:'9px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'4px', lineHeight:1.3 }}>{x.l}</div>
-                <div style={{ fontFamily:'var(--font-mono)', fontSize:'18px', fontWeight:500, color:x.v>0?'#2980B9':'var(--txt3)' }}>
-                  {x.v>0 ? fmt(x.v) : '—'}
+          {/* Jauge prévisionnel */}
+          {(()=>{
+            const totalPrevu = caMois + prevMois
+            const restant    = Math.max(0, 5850 - totalPrevu)
+            const pctConf    = Math.min(100, (caMois  / 5850) * 100)
+            const pctPrev    = Math.min(100 - pctConf, (prevMois / 5850) * 100)
+            const depasse    = totalPrevu >= 5850
+            const nRdvSem    = rdvsPrevu.filter(s=>(s.properties.Date?.date?.start||'')<=new Date(new Date().setDate(new Date().getDate()+7)).toISOString().split('T')[0]).length
+            const nRdvMois   = rdvsPrevu.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m)).length
+            return (
+              <div className="card" style={{ marginBottom:'12px', padding:'14px' }}>
+                {/* Titre + RDV count */}
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
+                  <span style={{ fontSize:'10px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1.5px', fontWeight:600 }}>Prévisionnel ce mois</span>
+                  <span style={{ fontSize:'11px', color:'var(--txt3)' }}>{nRdvMois} RDV · {nRdvSem} cette sem.</span>
                 </div>
-                <div style={{ fontSize:'10px', color:'var(--txt3)', marginTop:'2px' }}>{x.n>0?`${x.n} RDV`:'—'}</div>
+
+                {/* Barre double */}
+                <div style={{ position:'relative', height:'14px', background:'var(--bg2)', borderRadius:'7px', overflow:'hidden', marginBottom:'8px' }}>
+                  {pctPrev > 0 && (
+                    <div style={{ position:'absolute', left:pctConf+'%', top:0, bottom:0, width:pctPrev+'%',
+                      background:'rgba(41,128,185,.35)',
+                      backgroundImage:'repeating-linear-gradient(45deg,transparent,transparent 4px,rgba(255,255,255,.3) 4px,rgba(255,255,255,.3) 8px)',
+                      transition:'width .5s' }}/>
+                  )}
+                  <div style={{ position:'absolute', left:0, top:0, bottom:0, width:pctConf+'%',
+                    background:caMois>=5850?'#1A8C5A':caMois>=3895?'#D4820A':'#C0392B',
+                    borderRadius:'7px', transition:'width .5s' }}/>
+                </div>
+
+                {/* Chiffres */}
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'6px', marginBottom:'10px' }}>
+                  {[
+                    {l:'Réalisé',v:fmt(caMois),c:caMois>=3895?'#D4820A':'#C0392B'},
+                    {l:'Planifié',v:prevMois>0?'+'+fmt(prevMois):'—',c:'#2980B9'},
+                    {l:'Total estimé',v:fmt(totalPrevu),c:depasse?'#1A8C5A':totalPrevu>=3895?'#D4820A':'#C0392B'},
+                  ].map(x=>(
+                    <div key={x.l} style={{ textAlign:'center', padding:'6px 4px', background:'var(--bg)', borderRadius:'var(--r)' }}>
+                      <div style={{ fontSize:'9px', color:'var(--txt3)', textTransform:'uppercase', marginBottom:'2px' }}>{x.l}</div>
+                      <div style={{ fontFamily:'var(--font-mono)', fontSize:'14px', fontWeight:600, color:x.c }}>{x.v}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Message */}
+                <div style={{ padding:'8px 12px', borderRadius:'var(--r)',
+                  background:depasse?'rgba(26,140,90,.08)':'rgba(192,57,43,.05)',
+                  borderLeft:`3px solid ${depasse?'#1A8C5A':restant<1000?'#D4820A':'#C0392B'}` }}>
+                  {depasse ? (
+                    <span style={{ fontSize:'12px', fontWeight:600, color:'#1A8C5A' }}>✅ Objectif hiver couvert avec {fmt(totalPrevu-5850)} de marge</span>
+                  ) : (
+                    <span style={{ fontSize:'12px', fontWeight:600, color:restant<1000?'#D4820A':'#C0392B' }}>
+                      📍 Encore {fmt(restant)} à réaliser ce mois
+                      {prevMois>0&&<span style={{ fontSize:'11px', fontWeight:400, color:'var(--txt3)' }}> (+{fmt(prevMois)} planifié)</span>}
+                    </span>
+                  )}
+                </div>
               </div>
-            ))}
-          </div>
+            )
+          })()}
 
           {/* Liste des RDV à venir */}
           {rdvsPrevu.slice(0,8).map(s => {
