@@ -64,7 +64,12 @@ export default function Dashboard() {
   const m   = thisMonth()
   const ws  = weekStart()
 
-  const sessActifs = sessions.filter(s => !(s.properties.Type?.select?.name||'').includes('Amely'))
+  const isConfirme  = (s) => { const st=s.properties.Statut?.select?.name||''; return st===''||st==='✅ Confirmé' }
+  const isPrevu     = (s) => s.properties.Statut?.select?.name==='🗓 Prévu'
+
+  const sessActifs  = sessions.filter(s => !(s.properties.Type?.select?.name||'').includes('Amely'))
+  const sessConf    = sessActifs.filter(isConfirme)
+  const sessPrevu   = sessActifs.filter(isPrevu)
 
   const caMois    = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m)).reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
   const caSemaine = sessConf.filter(s=>(s.properties.Date?.date?.start||'') >= ws).reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
