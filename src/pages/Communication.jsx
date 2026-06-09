@@ -63,7 +63,7 @@ const TASK_BORDER = {film:'var(--blue)',publish:'var(--green)',engage:'var(--gol
 // Toutes les promos
 const PROMOS_STATIC = [
   {nom:'🏆 World Cup Ink — Rep ta nation',type:'🌍',quand:'11 juin - 19 juillet 2026',cible:'Toutes nationalités · 48 pays',offre:'Flash drapeaux + designs nations · Designs footballistiques · Post par match des équipes qualifiées',statut:'🚀 Active'},
-  {nom:'🌑 Flash Éclipse Totale',type:'☀️',quand:'12 août 2026 (soir)',cible:'Eclipse-chasers + touristes août',offre:'10 designs célestes 80-100€ · Regarder l'éclipse Es Trenc + tatouage au soir · Commemoratif unique',statut:'📋 Planifiée'},
+  {nom:'🌑 Flash Éclipse Totale',type:'☀️',quand:'12 août 2026 (soir)',cible:'Eclipse-chasers + touristes août',offre:"10 designs célestes 80-100€ · Regarder l'éclipse Es Trenc + tatouage au soir · Commemoratif unique",statut:'📋 Planifiée'},
   {nom:'Flash été "Souvenir de Majorque"',type:'🏖️',quand:'Juil-Août',cible:'Touristes Es Trenc',offre:'Prix fixe 80-120€ · Flash designs Majorque · Slot 1h',statut:'📋 Planifiée'},
   {nom:"Cyclist's Ink",type:'🚴',quand:'Avr-Oct',cible:'Cyclistes EU',offre:'-15% sur présentation dossard ou photo sur vélo',statut:'📋 Planifiée'},
   {nom:'Pack Expat',type:'🌍',quand:'Toute l\'année',cible:'Nouveaux résidents',offre:'2ème séance -20% sur présentation NIE',statut:'📋 Planifiée'},
