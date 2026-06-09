@@ -76,7 +76,7 @@ export default function TonyDashboard({ onLogout }) {
   const cameraRef = useRef(null)
 
   // Formulaires
-  const [caForm,   setCaForm]   = useState({ ca:'', sessions:'1', paiement:'cash', natio:'🇫🇷 FR', notes:'', date:todayStr() })
+  const [caForm,   setCaForm]   = useState({ ca:'', sessions:'1', paiement:'cash', natio:'🇫🇷 FR', source:'📸 Instagram', notes:'', date:todayStr() })
   const [caSaving, setCaSaving] = useState(false)
   const [depForm,  setDepForm]  = useState({ montant:'', fournisseur:'', categorie:'🖊️ Matériel tatouage', date:todayStr(), notes:'', iva_recuperable:true })
   const [depSaving,setDepSaving]= useState(false)
@@ -85,7 +85,7 @@ export default function TonyDashboard({ onLogout }) {
   const [analyzing,setAnalyzing]= useState(false)
   const [uploading,setUploading]= useState(false)
   // RDV
-  const [rdvForm,  setRdvForm]  = useState({ client:'', style:'', prixEstime:'', acompte:'0', natio:'🇫🇷 FR', date:'' })
+  const [rdvForm,  setRdvForm]  = useState({ client:'', style:'', prixEstime:'', acompte:'0', natio:'🇫🇷 FR', source:'📸 Instagram', date:'' })
   const [rdvSaving,setRdvSaving]= useState(false)
   const [confirming,setConfirming] = useState(null) // session à confirmer
   const [confForm, setConfForm] = useState({ prix:'', paiement:'cash', sessions:'1', acompte:'0' })
@@ -164,12 +164,12 @@ export default function TonyDashboard({ onLogout }) {
       await notion.addSession({
         paiement:caForm.paiement, prix:parseFloat(caForm.ca)||0,
         acompte:0, solde:parseFloat(caForm.ca)||0,
-        natio:caForm.natio, date:caForm.date,
+        natio:caForm.natio, source:caForm.source, date:caForm.date,
         notes:`${caForm.sessions||1} session(s)${caForm.notes?' · '+caForm.notes:''}`,
         style:caForm.notes, client:'', avis:false
       })
       showToast(parseFloat(caForm.ca)>=156?'🔥 Belle session !':'✓ CA enregistré')
-      setCaForm({ca:'',sessions:'1',paiement:'cash',natio:'🇫🇷 FR',notes:'',date:todayStr()})
+      setCaForm({ca:'',sessions:'1',paiement:'cash',natio:'🇫🇷 FR',source:'📸 Instagram',notes:'',date:todayStr()})
       setTab('home'); load()
     } catch(e) { showToast('Erreur — réessaie') }
     setCaSaving(false)
@@ -180,7 +180,7 @@ export default function TonyDashboard({ onLogout }) {
     if (!rdvForm.date || !rdvForm.client) return
     setRdvSaving(true)
     try {
-      await notion.addAppointment(rdvForm)
+      await notion.addAppointment({...rdvForm})
       showToast('📅 RDV enregistré')
       setRdvForm({client:'',style:'',prixEstime:'',acompte:'0',natio:'🇫🇷 FR',date:''})
       setTab('home'); load()
@@ -287,6 +287,18 @@ export default function TonyDashboard({ onLogout }) {
 
   // ── PAGES ─────────────────────────────────────────
 
+
+  const SrcBtns = ({val,onChange}) => (
+    <div style={{display:'flex',gap:'6px',flexWrap:'wrap',marginTop:'4px'}}>
+      {['📸 Instagram','👥 Facebook','🎵 TikTok','🗣️ Bouche à oreille','🔍 Google','📍 Passage','🎁 Fidèle'].map(s=>(
+        <button key={s} type="button" onClick={()=>onChange(s)} style={{
+          padding:'6px 10px',borderRadius:'20px',fontSize:'11px',fontWeight:600,cursor:'pointer',transition:'all .15s',
+          background:val===s?'var(--txt)':'var(--card)',color:val===s?'var(--bg)':'var(--txt2)',
+          border:val===s?'none':'1.5px solid var(--border2)',flexShrink:0
+        }}>{s}</button>
+      ))}
+    </div>
+  )
   const NatBtns = ({val,onChange}) => (
     <div style={{display:'flex',gap:'6px',flexWrap:'wrap',marginTop:'4px'}}>
       {NATS.map(n=>(
@@ -343,6 +355,10 @@ export default function TonyDashboard({ onLogout }) {
         <label>Nationalité client</label>
         <NatBtns val={caForm.natio} onChange={n=>setCaForm({...caForm,natio:n})}/>
       </div>
+      <div className="form-group" style={{marginBottom:'12px'}}>
+        <label>Origine du client</label>
+        <SrcBtns val={caForm.source} onChange={s=>setCaForm({...caForm,source:s})}/>
+      </div>
       <div className="form-group" style={{marginBottom:'20px'}}>
         <label>Notes (style, infos...)</label>
         <textarea rows="2" value={caForm.notes} onChange={e=>setCaForm({...caForm,notes:e.target.value})} style={{resize:'none'}} placeholder="Ex: botanical avant-bras..."/>
@@ -382,9 +398,13 @@ export default function TonyDashboard({ onLogout }) {
         <label>Date du RDV *</label>
         <input type="date" min={todayStr()} value={rdvForm.date} onChange={e=>setRdvForm({...rdvForm,date:e.target.value})}/>
       </div>
-      <div className="form-group" style={{marginBottom:'20px'}}>
+      <div className="form-group" style={{marginBottom:'12px'}}>
         <label>Nationalité</label>
         <NatBtns val={rdvForm.natio} onChange={n=>setRdvForm({...rdvForm,natio:n})}/>
+      </div>
+      <div className="form-group" style={{marginBottom:'20px'}}>
+        <label>Origine du client</label>
+        <SrcBtns val={rdvForm.source} onChange={s=>setRdvForm({...rdvForm,source:s})}/>
       </div>
       <button className="btn btn-primary" onClick={submitRDV} disabled={rdvSaving||!rdvForm.client||!rdvForm.date} style={{width:'100%',padding:'16px',fontSize:'15px'}}>
         {rdvSaving?'Enregistrement...':'📅 Enregistrer le RDV'}
@@ -612,7 +632,10 @@ export default function TonyDashboard({ onLogout }) {
                         </div>
                         <div style={{fontSize:'13px',fontWeight:600}}>{client}</div>
                         {style&&<div style={{fontSize:'11px',color:'var(--txt3)',marginTop:'1px'}}>{style}</div>}
-                        {acompte>0&&<div style={{fontSize:'10px',color:'#1A8C5A',marginTop:'2px'}}>Acompte: {acompte}€</div>}
+                        <div style={{display:'flex',gap:'6px',marginTop:'3px',flexWrap:'wrap',alignItems:'center'}}>
+                      {s.properties.Source?.select?.name&&<span style={{fontSize:'10px',padding:'1px 6px',background:'var(--bg2)',borderRadius:'10px',color:'var(--txt3)'}}>{s.properties.Source.select.name}</span>}
+                      {acompte>0&&<span style={{fontSize:'10px',color:'#1A8C5A'}}>Acompte: {acompte}€</span>}
+                    </div>
                       </div>
                       <div style={{textAlign:'right',flexShrink:0,marginLeft:'12px'}}>
                         <div style={{fontFamily:'var(--font-mono)',fontSize:'18px',fontWeight:600}}>{prix}€</div>

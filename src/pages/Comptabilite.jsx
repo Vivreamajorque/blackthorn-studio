@@ -239,6 +239,32 @@ export default function Comptabilite() {
             ))}
           </div>
 
+          {/* Sources */}
+          {(() => {
+            const srcCount = {}
+            sessM.forEach(s => {
+              const src = s.properties.Source?.select?.name || '—'
+              srcCount[src] = (srcCount[src]||0) + (s.properties.Prix?.number||0)
+            })
+            const entries = Object.entries(srcCount).sort(([,a],[,b])=>b-a)
+            if(entries.length===0||entries.every(([k])=>k==='—')) return null
+            return (
+              <div className="card" style={{marginBottom:'12px'}}>
+                <div style={{fontSize:'10px',color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',fontWeight:600,marginBottom:'8px'}}>Origine des clients</div>
+                {entries.filter(([k])=>k!=='—').map(([src,ca])=>(
+                  <div key={src} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'5px 0',borderBottom:'1px solid var(--border)'}}>
+                    <span style={{fontSize:'12px',color:'var(--txt2)'}}>{src}</span>
+                    <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                      <div style={{height:'4px',width:Math.round((ca/caMois)*60)+'px',background:'var(--pierre)',borderRadius:'2px'}}/>
+                      <span style={{fontFamily:'var(--font-mono)',fontSize:'12px',fontWeight:500}}>{fmt(ca)}</span>
+                      <span style={{fontSize:'10px',color:'var(--txt3)'}}>{Math.round(ca/caMois*100)}%</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
+
           {/* Liste des sessions */}
           {sessM.length === 0
             ? <div style={{ textAlign:'center', padding:'40px 0', color:'var(--txt3)', fontSize:'13px' }}>Aucune session ce mois</div>

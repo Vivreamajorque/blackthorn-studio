@@ -36,6 +36,7 @@ export const notion = {
       Notes:          { rich_text: [{ text: { content: data.notes || '' } }] },
       'Avis Google':  { checkbox: !!data.avis },
       'Statut':       { select: { name: '✅ Confirmé' } },
+      ...(data.source ? { 'Source': { select: { name: data.source } } } : {}),
       'Client prénom':{ rich_text: [{ text: { content: data.client || '' } }] },
       'Style / Type': { rich_text: [{ text: { content: data.style || '' } }] },
     }
@@ -54,6 +55,7 @@ export const notion = {
       Date:           { date: { start: data.date } },
       Notes:          { rich_text: [{ text: { content: '1 session' } }] },
       'Statut':       { select: { name: '🗓 Prévu' } },
+      ...(data.source ? { 'Source': { select: { name: data.source } } } : {}),
       'Client prénom':{ rich_text: [{ text: { content: data.client || '' } }] },
       'Style / Type': { rich_text: [{ text: { content: data.style || '' } }] },
     }
