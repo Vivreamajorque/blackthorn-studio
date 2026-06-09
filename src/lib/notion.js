@@ -1,7 +1,7 @@
-const SESSIONS_DB  = 'ce868414-a4a5-4450-ab3f-804be7fd5eb1'
-const CLIENTS_DB   = '3bbdc6c0-6e3a-4b59-987e-97056eac6d22'
-const KPIS_DB      = '61f7823f-c723-4203-b1d7-0fdc74312dd3'
-const DEPENSES_DB  = '80f3edb9-78ba-4eaa-b762-db1122d26c19'
+const SESSIONS_DB  = 'd5c3846e-3d3c-4eae-ade8-2e7efa3c896f'
+const CLIENTS_DB   = '53149c61-3639-45a2-ab49-c2ea77a7c088'
+const KPIS_DB      = '450c0c95-33e0-47c6-ae27-3c9540162cd2'
+const DEPENSES_DB  = '323d80c7-6418-4b25-a4c6-70cea0fd20a1'
 
 const call = async (path, method = 'POST', body = null) => {
   const url = `/api/notion?path=${encodeURIComponent(path)}`
