@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
+import { Routes, Route, NavLink } from 'react-router-dom'
 import Dashboard      from './pages/Dashboard'
 import TonyDashboard  from './pages/TonyDashboard'
 import Metriques      from './pages/Metriques'
@@ -106,15 +106,13 @@ export default function App() {
   if (role === 'tony') return <TonyDashboard onLogout={logout} />
 
   return (
-    <BrowserRouter>
-      <div style={{ paddingBottom:'72px' }}>
-        <Routes>
+    <div style={{ paddingBottom:'72px' }}>
+      <Routes>
           <Route path="/"          element={<Dashboard />} />
           <Route path="/metriques" element={<Metriques />} />
           <Route path="/compta"    element={<Comptabilite />} />
-        </Routes>
-        <NavBar onLogout={logout}/>
-      </div>
-    </BrowserRouter>
+      </Routes>
+      <NavBar onLogout={logout}/>
+    </div>
   )
 }
