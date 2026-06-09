@@ -87,7 +87,9 @@ export default function TonyDashboard({ onLogout }) {
   // RDV
   const [rdvForm,  setRdvForm]  = useState({ client:'', style:'', prixEstime:'', acompte:'0', natio:'🇫🇷 FR', source:'📸 Instagram', date:'' })
   const [rdvSaving,setRdvSaving]= useState(false)
-  const [confirming,setConfirming] = useState(null) // session à confirmer
+  const [confirming,setConfirming] = useState(null)
+  const [editRdv,  setEditRdv]    = useState(null)   // RDV prévu à modifier
+  const [editRdvSaving, setEditRdvSaving] = useState(false)
   const [confForm, setConfForm] = useState({ prix:'', paiement:'cash', sessions:'1', acompte:'0' })
   // Edit
   const [editing,  setEditing]  = useState(null)
@@ -216,6 +218,19 @@ export default function TonyDashboard({ onLogout }) {
       showToast('👻 No-show enregistré')
       load()
     } catch(e) { showToast('Erreur') }
+  }
+
+  // Edit RDV prévu
+  const submitEditRdv = async () => {
+    if (!editRdv) return
+    setEditRdvSaving(true)
+    try {
+      await notion.updateRdv(editRdv.id, editRdv)
+      showToast('✓ RDV modifié')
+      setEditRdv(null)
+      load()
+    } catch(e) { showToast('Erreur') }
+    setEditRdvSaving(false)
   }
 
   // Submit dépense
@@ -544,6 +559,55 @@ export default function TonyDashboard({ onLogout }) {
     </div>
   )
 
+  if (tab==='editRdv'&&editRdv) return (
+    <div style={{padding:'24px 20px 40px',minHeight:'100vh',background:'var(--bg)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'24px'}}>
+        <div style={{fontFamily:'var(--font-head)',fontSize:'18px',fontWeight:800}}>Modifier le RDV</div>
+        <button className="btn btn-ghost" onClick={()=>setEditRdv(null)} style={{padding:'6px 14px',fontSize:'12px'}}>← Retour</button>
+      </div>
+      <div className="form-group" style={{marginBottom:'12px'}}>
+        <label>Client</label>
+        <input value={editRdv.client} onChange={e=>setEditRdv({...editRdv,client:e.target.value})} placeholder="Prénom / identifiant"/>
+      </div>
+      <div className="form-group" style={{marginBottom:'12px'}}>
+        <label>Style / Projet</label>
+        <input value={editRdv.style} onChange={e=>setEditRdv({...editRdv,style:e.target.value})} placeholder="Botanical, portrait..."/>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'12px'}}>
+        <div className="form-group" style={{margin:0}}>
+          <label>Prix estimé (€)</label>
+          <input type="number" inputMode="decimal" value={editRdv.prixEstime} onChange={e=>setEditRdv({...editRdv,prixEstime:e.target.value})}
+            style={{textAlign:'center',fontSize:'22px',fontFamily:'var(--font-mono)',fontWeight:500}}/>
+        </div>
+        <div className="form-group" style={{margin:0}}>
+          <label>Acompte reçu (€)</label>
+          <input type="number" inputMode="decimal" value={editRdv.acompte} onChange={e=>setEditRdv({...editRdv,acompte:e.target.value})}
+            style={{textAlign:'center',fontSize:'22px',fontFamily:'var(--font-mono)'}}/>
+        </div>
+      </div>
+      <div className="form-group" style={{marginBottom:'12px'}}>
+        <label>Date</label>
+        <input type="date" value={editRdv.date} onChange={e=>setEditRdv({...editRdv,date:e.target.value})}/>
+      </div>
+      <div className="form-group" style={{marginBottom:'12px'}}>
+        <label>Nationalité</label>
+        <NatBtns val={editRdv.natio} onChange={n=>setEditRdv({...editRdv,natio:n})}/>
+      </div>
+      <div className="form-group" style={{marginBottom:'20px'}}>
+        <label>Origine</label>
+        <SrcBtns val={editRdv.source} onChange={s=>setEditRdv({...editRdv,source:s})}/>
+      </div>
+      <button className="btn btn-primary" onClick={submitEditRdv} disabled={editRdvSaving} style={{width:'100%',padding:'14px',marginBottom:'10px'}}>
+        {editRdvSaving?'Sauvegarde...':'✓ Sauvegarder les modifications'}
+      </button>
+      <button onClick={()=>{if(confirm('Supprimer ce RDV ?')){doDelete(editRdv.id);setEditRdv(null)}}}
+        style={{width:'100%',padding:'12px',background:'transparent',border:'1.5px solid #C0392B',color:'#C0392B',borderRadius:'var(--r)',cursor:'pointer',fontSize:'13px',fontFamily:'var(--font-head)',fontWeight:600}}>
+        🗑 Supprimer le RDV
+      </button>
+      {toast&&<div className="toast">{toast}</div>}
+    </div>
+  )
+
   // ── HOME ──────────────────────────────────────────
   return (
     <div style={{background:'var(--bg)',minHeight:'100vh',paddingBottom:'80px'}}>
@@ -642,7 +706,7 @@ export default function TonyDashboard({ onLogout }) {
                         {acompte>0&&<div style={{fontSize:'10px',color:'var(--txt3)'}}> reste: {Math.max(0,prix-acompte)}€</div>}
                       </div>
                     </div>
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px'}}>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 40px',gap:'6px'}}>
                       <button onClick={()=>openConfirm(s)} style={{
                         padding:'10px',borderRadius:'var(--r)',
                         background:isPast?'#1A8C5A':'rgba(26,140,90,.1)',
@@ -659,6 +723,20 @@ export default function TonyDashboard({ onLogout }) {
                       }}>
                         👻 No-show
                       </button>
+                      <button onClick={()=>setEditRdv({
+                        id:s.id,
+                        client:s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'',
+                        style:s.properties['Style / Type']?.rich_text?.[0]?.plain_text||'',
+                        prixEstime:String(s.properties.Prix?.number||0),
+                        acompte:String(s.properties['Acompte reçu']?.number||0),
+                        natio:s.properties.Nationalité?.select?.name||'🇫🇷 FR',
+                        source:s.properties.Source?.select?.name||'📸 Instagram',
+                        date:s.properties.Date?.date?.start||''
+                      })} style={{
+                        padding:'10px',borderRadius:'var(--r)',
+                        background:'var(--card)',border:'1.5px solid var(--border2)',
+                        color:'var(--txt2)',fontSize:'15px',cursor:'pointer'
+                      }}>✏️</button>
                     </div>
                   </div>
                 )
