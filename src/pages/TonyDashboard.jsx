@@ -144,11 +144,17 @@ export default function TonyDashboard({ onLogout }) {
   const caPrevSem  = sessPrevu.filter(s=>(s.properties.Date?.date?.start||'')>=ws).reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
 
   // Prochains RDV (7 jours)
-  const rdvsProchains = sessPrevu.filter(s=>{
-    const d=s.properties.Date?.date?.start||''
-    const limit=new Date(); limit.setDate(limit.getDate()+30)
-    return d<=limit.toISOString().split('T')[0]
-  }).sort((a,b)=>(a.properties.Date?.date?.start||'').localeCompare(b.properties.Date?.date?.start||''))
+  // RDV : inclure passés non validés + 30 jours à venir, triés par date
+  const rdvsProchains = sessPrevu
+    .filter(s=>{ const d=s.properties.Date?.date?.start||''; const limit=new Date(); limit.setDate(limit.getDate()+45); return d<=limit.toISOString().split('T')[0] })
+    .sort((a,b)=>{
+      // Passés d'abord (à valider en urgence), puis futurs par date
+      const da=a.properties.Date?.date?.start||'', db=b.properties.Date?.date?.start||''
+      const aPast=da<td, bPast=db<td
+      if(aPast&&!bPast) return -1
+      if(!aPast&&bPast) return 1
+      return da.localeCompare(db)
+    })
 
   // Submit CA
   const submitCA = async () => {
@@ -559,24 +565,82 @@ export default function TonyDashboard({ onLogout }) {
 
       <div style={{padding:'20px'}}>
 
-        {/* ARCS */}
-        <div className="card" style={{marginBottom:'14px',padding:'20px'}}>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',justifyItems:'center',marginBottom:'14px'}}>
-            <Arc pct={Math.min(100,Math.round(caSem/OBJ_SEM*100))} color={colSem} label="Semaine"
-              value={caSem>0?fmt(caSem):'—'} sub={caSem>0?`/ ${fmt(OBJ_SEM)}`:null}
-              sub2={caSem>=OBJ_SEM?'✓ Objectif':caSem>0?`−${fmt(OBJ_SEM-caSem)}`:null}/>
-            <Arc pct={Math.min(100,Math.round(caMois/OBJ_HIV*100))} color={colMois} label="Mois"
-              value={caMois>0?fmt(caMois):'—'} sub={caMois>0?`${Math.round(caMois/OBJ_HIV*100)}%`:null}
-              sub2={caMois>=OBJ_EQ?(caMois>=OBJ_HIV?'✓ Hiver couvert':'⚖️ Équilibre'):caMois>0?`−${fmt(OBJ_EQ-caMois)}`:null}/>
-          </div>
-          <div style={{padding:'10px 14px',background:msgMois.c+'15',borderRadius:'var(--r)',borderLeft:`3px solid ${msgMois.c}`}}>
-            <span style={{fontSize:'12px',fontWeight:600,color:msgMois.c}}>{msgMois.icon} {msgMois.text}</span>
-          </div>
-          {/* Prévisionnel affiché si RDV planifiés */}
-          {(caPrevSem>0||caPrevMois>0)&&(
-            <div style={{marginTop:'8px',padding:'8px 12px',background:'rgba(41,128,185,.08)',borderRadius:'var(--r)',fontSize:'11px',color:'#2980B9'}}>
-              📅 Prévisionnel : +{fmt(caPrevSem)} cette semaine · +{fmt(caPrevMois)} ce mois
+        {/* ─── PRÉVISIONNEL TOUJOURS VISIBLE ─── */}
+        <div style={{marginBottom:'14px'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
+            <div style={{fontSize:'10px',color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'2px',fontWeight:600}}>
+              📅 Rendez-vous à venir
             </div>
+            <button onClick={()=>setTab('rdv')} style={{fontSize:'11px',padding:'5px 12px',borderRadius:'20px',background:'var(--txt)',color:'var(--bg)',border:'none',cursor:'pointer',fontFamily:'var(--font-head)',fontWeight:600}}>
+              + Nouveau RDV
+            </button>
+          </div>
+
+          {rdvsProchains.length===0 ? (
+            <div className="card" style={{padding:'20px',textAlign:'center',border:'1.5px dashed var(--border2)'}}>
+              <div style={{fontSize:'28px',marginBottom:'8px'}}>📅</div>
+              <div style={{fontSize:'13px',fontWeight:600,color:'var(--txt2)',marginBottom:'4px'}}>Aucun RDV planifié</div>
+              <div style={{fontSize:'11px',color:'var(--txt3)',marginBottom:'14px'}}>Enregistre tes prochains clients pour piloter tes revenus</div>
+              <button onClick={()=>setTab('rdv')} className="btn btn-primary" style={{padding:'10px 20px',fontSize:'13px'}}>
+                + Ajouter un RDV
+              </button>
+            </div>
+          ) : (
+            <>
+              {rdvsProchains.map((s,idx)=>{
+                const client=s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'Client'
+                const style=s.properties['Style / Type']?.rich_text?.[0]?.plain_text||''
+                const prix=s.properties.Prix?.number||0
+                const acompte=s.properties['Acompte reçu']?.number||0
+                const date=s.properties.Date?.date?.start||''
+                const isToday=date===td
+                const isPast=date<td
+                return (
+                  <div key={s.id} className="card" style={{
+                    marginBottom:'8px',padding:'12px 14px',
+                    borderLeft:`3px solid ${isPast?'#C0392B':isToday?'#D4820A':'var(--pierre)'}`,
+                    opacity:isPast?0.85:1
+                  }}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'10px'}}>
+                      <div style={{flex:1}}>
+                        <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'3px',flexWrap:'wrap'}}>
+                          <span style={{fontSize:'13px',fontWeight:700,color:isPast?'#C0392B':isToday?'#D4820A':'var(--txt)'}}>
+                            {isPast ? '⚠️ '+labelDate(date) : labelDate(date)}
+                          </span>
+                          {isToday && <span style={{fontSize:'9px',padding:'2px 6px',background:'rgba(212,130,10,.12)',color:'#D4820A',borderRadius:'4px',fontWeight:700}}>AUJOURD'HUI</span>}
+                          {isPast && <span style={{fontSize:'9px',padding:'2px 6px',background:'rgba(192,57,43,.1)',color:'#C0392B',borderRadius:'4px',fontWeight:700}}>À VALIDER</span>}
+                        </div>
+                        <div style={{fontSize:'13px',fontWeight:600}}>{client}</div>
+                        {style&&<div style={{fontSize:'11px',color:'var(--txt3)',marginTop:'1px'}}>{style}</div>}
+                        {acompte>0&&<div style={{fontSize:'10px',color:'#1A8C5A',marginTop:'2px'}}>Acompte: {acompte}€</div>}
+                      </div>
+                      <div style={{textAlign:'right',flexShrink:0,marginLeft:'12px'}}>
+                        <div style={{fontFamily:'var(--font-mono)',fontSize:'18px',fontWeight:600}}>{prix}€</div>
+                        {acompte>0&&<div style={{fontSize:'10px',color:'var(--txt3)'}}> reste: {Math.max(0,prix-acompte)}€</div>}
+                      </div>
+                    </div>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px'}}>
+                      <button onClick={()=>openConfirm(s)} style={{
+                        padding:'10px',borderRadius:'var(--r)',
+                        background:isPast?'#1A8C5A':'rgba(26,140,90,.1)',
+                        border:isPast?'none':'1.5px solid rgba(26,140,90,.3)',
+                        color:isPast?'#fff':'#1A8C5A',
+                        fontFamily:'var(--font-head)',fontWeight:700,fontSize:'12px',cursor:'pointer'
+                      }}>
+                        ✅ {isPast?'Valider':'Client venu'}
+                      </button>
+                      <button onClick={()=>doNoShow(s)} style={{
+                        padding:'10px',borderRadius:'var(--r)',
+                        background:'var(--card)',border:'1.5px solid var(--border2)',
+                        color:'var(--txt3)',fontFamily:'var(--font-head)',fontWeight:700,fontSize:'12px',cursor:'pointer'
+                      }}>
+                        👻 No-show
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </>
           )}
         </div>
 
@@ -664,6 +728,27 @@ export default function TonyDashboard({ onLogout }) {
           )
         })()}
 
+        {/* ARCS */}
+        <div className="card" style={{marginBottom:'14px',padding:'20px'}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',justifyItems:'center',marginBottom:'14px'}}>
+            <Arc pct={Math.min(100,Math.round(caSem/OBJ_SEM*100))} color={colSem} label="Semaine"
+              value={caSem>0?fmt(caSem):'—'} sub={caSem>0?`/ ${fmt(OBJ_SEM)}`:null}
+              sub2={caSem>=OBJ_SEM?'✓ Objectif':caSem>0?`−${fmt(OBJ_SEM-caSem)}`:null}/>
+            <Arc pct={Math.min(100,Math.round(caMois/OBJ_HIV*100))} color={colMois} label="Mois"
+              value={caMois>0?fmt(caMois):'—'} sub={caMois>0?`${Math.round(caMois/OBJ_HIV*100)}%`:null}
+              sub2={caMois>=OBJ_EQ?(caMois>=OBJ_HIV?'✓ Hiver couvert':'⚖️ Équilibre'):caMois>0?`−${fmt(OBJ_EQ-caMois)}`:null}/>
+          </div>
+          <div style={{padding:'10px 14px',background:msgMois.c+'15',borderRadius:'var(--r)',borderLeft:`3px solid ${msgMois.c}`}}>
+            <span style={{fontSize:'12px',fontWeight:600,color:msgMois.c}}>{msgMois.icon} {msgMois.text}</span>
+          </div>
+          {/* Prévisionnel affiché si RDV planifiés */}
+          {(caPrevSem>0||caPrevMois>0)&&(
+            <div style={{marginTop:'8px',padding:'8px 12px',background:'rgba(41,128,185,.08)',borderRadius:'var(--r)',fontSize:'11px',color:'#2980B9'}}>
+              📅 Prévisionnel : +{fmt(caPrevSem)} cette semaine · +{fmt(caPrevMois)} ce mois
+            </div>
+          )}
+        </div>
+
         {/* PANIER + AUJOURD'HUI + NET */}
         <div className="card" style={{marginBottom:'14px'}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px'}}>
@@ -680,47 +765,6 @@ export default function TonyDashboard({ onLogout }) {
             ))}
           </div>
         </div>
-
-        {/* PROCHAINS RDV */}
-        {rdvsProchains.length>0&&(
-          <div style={{marginBottom:'14px'}}>
-            <div className="section-title">Prochains rendez-vous</div>
-            {rdvsProchains.slice(0,5).map(s=>{
-              const client=s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'Client'
-              const style=s.properties['Style / Type']?.rich_text?.[0]?.plain_text||''
-              const prix=s.properties.Prix?.number||0
-              const acompte=s.properties['Acompte reçu']?.number||0
-              const date=s.properties.Date?.date?.start||''
-              const isToday=date===td
-              return (
-                <div key={s.id} className="card" style={{marginBottom:'8px',padding:'12px 14px',borderLeft:`3px solid ${isToday?'#D4820A':'var(--pierre)'}`}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'10px'}}>
-                    <div>
-                      <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-                        <span style={{fontSize:'13px',fontWeight:700,color:isToday?'#D4820A':'var(--txt)'}}>{labelDate(date)}</span>
-                        {isToday&&<span style={{fontSize:'10px',padding:'2px 6px',background:'rgba(212,130,10,.1)',color:'#D4820A',borderRadius:'4px',fontWeight:600}}>AUJOURD'HUI</span>}
-                      </div>
-                      <div style={{fontSize:'12px',fontWeight:500,marginTop:'2px'}}>{client}</div>
-                      {style&&<div style={{fontSize:'11px',color:'var(--txt3)',marginTop:'1px'}}>{style}</div>}
-                    </div>
-                    <div style={{textAlign:'right'}}>
-                      <div style={{fontFamily:'var(--font-mono)',fontSize:'16px',fontWeight:600}}>{prix}€</div>
-                      {acompte>0&&<div style={{fontSize:'10px',color:'#1A8C5A'}}>Acompte: {acompte}€</div>}
-                    </div>
-                  </div>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px'}}>
-                    <button onClick={()=>openConfirm(s)} style={{padding:'9px',borderRadius:'var(--r)',background:'rgba(26,140,90,.1)',border:'1.5px solid rgba(26,140,90,.3)',color:'#1A8C5A',fontFamily:'var(--font-head)',fontWeight:700,fontSize:'12px',cursor:'pointer'}}>
-                      ✅ Client venu
-                    </button>
-                    <button onClick={()=>doNoShow(s)} style={{padding:'9px',borderRadius:'var(--r)',background:'rgba(150,150,150,.08)',border:'1.5px solid var(--border2)',color:'var(--txt3)',fontFamily:'var(--font-head)',fontWeight:700,fontSize:'12px',cursor:'pointer'}}>
-                      👻 No-show
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
 
         {/* GRAPHE ANNUEL DÉTAILLÉ */}
         {(()=>{
