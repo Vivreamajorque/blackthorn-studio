@@ -412,9 +412,9 @@ export default function TonyDashboard({ onLogout }) {
     <div style={{ padding:'24px 16px 32px', minHeight:'100vh' }}>
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'20px' }}>
-        <div>
-          <div style={{ fontFamily:'var(--font-head)', fontSize:'22px', fontWeight:800, letterSpacing:'2px', color:'var(--pierre)' }}>BLACKTHORN</div>
-          <div style={{ fontSize:'11px', color:'var(--gris)', marginTop:'2px' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+          <img src="/blackthorn-logo.png" alt="Blackthorn" style={{ height:'44px', filter:'invert(1) sepia(1) saturate(0.3) brightness(0.85)', opacity:0.85 }} />
+          <div style={{ fontSize:'11px', color:'var(--gris)' }}>
             {new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}
           </div>
         </div>
@@ -516,6 +516,57 @@ export default function TonyDashboard({ onLogout }) {
             <span style={{ fontFamily:'var(--font-mono)', color:caJour>0&&caJour/1>=s.pm?'var(--vert)':'var(--gris2)' }}>{s.pm}€/j</span>
           </div>
         ))}
+      </div>
+
+      {/* Visibilité annuelle */}
+      <div className="card" style={{ marginBottom:'14px' }}>
+        <div style={{ fontSize:'11px', color:'var(--gris)', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'12px' }}>Juin 2026 → Mai 2027</div>
+        {(() => {
+          const MOIS  = ['J','Jl','A','S','O','N','D','J','F','M','A','M']
+          const JOURS = [25,25,25,25,22,15,0,0,5,12,18,20]
+          const IS_ETE= [1,1,1,1,1,0,0,0,0,0,0,0]
+          const PM_H  = [0,0,0,0,0,200,0,0,130,130,200,200]
+          const nowM  = new Date().toISOString().substring(0,7)
+          const MKEYS = ['2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12','2027-01','2027-02','2027-03','2027-04','2027-05']
+          const curIdx = MKEYS.indexOf(nowM)
+          const caByM = {}
+          sessions.forEach(s=>{ const d=s.properties.Date?.date?.start; if(d){ const mk=d.substring(0,7); caByM[mk]=(caByM[mk]||0)+(s.properties.Prix?.number||0) } })
+          const vals = MKEYS.map(k=>Math.round(caByM[k]||0))
+          const MAX_BAR = Math.max(...vals, 5850)
+          return (
+            <div>
+              <div style={{ display:'flex', alignItems:'flex-end', gap:'3px', height:'60px', marginBottom:'6px' }}>
+                {vals.map((v,i)=>{
+                  const isPast = i < curIdx
+                  const isCur  = i === curIdx
+                  const isFut  = i > curIdx
+                  const h = isFut ? (JOURS[i]>0 ? 8 : 2) : Math.max(2, Math.round((v/MAX_BAR)*60))
+                  const col = isFut ? 'var(--noir3)' : v>=5850 ? '#1D9E75' : v>=3895 ? '#BA7517' : v>0 ? '#E24B4A' : 'var(--noir3)'
+                  return (
+                    <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'flex-end', gap:'2px' }}>
+                      <div style={{ width:'100%', height:h+'px', background:col, borderRadius:'2px 2px 0 0', opacity:isFut?0.4:1, position:'relative' }}>
+                        {isCur && <div style={{ position:'absolute', top:'-4px', left:'50%', transform:'translateX(-50%)', width:'4px', height:'4px', borderRadius:'50%', background:'var(--pierre)' }} />}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              <div style={{ display:'flex', gap:'3px' }}>
+                {MOIS.map((m,i)=>(
+                  <div key={i} style={{ flex:1, textAlign:'center', fontSize:'9px', color:i===curIdx?'var(--pierre)':'var(--gris2)', fontWeight:i===curIdx?700:400 }}>{m}</div>
+                ))}
+              </div>
+              <div style={{ display:'flex', gap:'10px', marginTop:'8px', fontSize:'10px' }}>
+                {[{c:'#1D9E75',l:'Confort'},{c:'#BA7517',l:'Hiver'},{c:'#E24B4A',l:'En dessous'}].map(x=>(
+                  <span key={x.l} style={{ display:'flex', alignItems:'center', gap:'3px', color:'var(--gris2)' }}>
+                    <span style={{ width:8, height:8, borderRadius:1, background:x.c, display:'inline-block' }}/>
+                    {x.l}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Actions */}

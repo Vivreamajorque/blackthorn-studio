@@ -197,9 +197,9 @@ export default function Dashboard() {
 
       {/* ── HEADER ──────────────────────────────── */}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'18px'}}>
-        <div>
-          <div style={{fontFamily:'var(--font-head)',fontSize:'22px',fontWeight:800,letterSpacing:'3px',color:'var(--pierre)'}}>BLACKTHORN</div>
-          <div style={{fontSize:'11px',color:'var(--gris)',marginTop:'2px'}}>
+        <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+          <img src="/blackthorn-logo.png" alt="Blackthorn" style={{ height:'44px', filter:'invert(1) sepia(1) saturate(0.3) brightness(0.85)', opacity:0.85 }} />
+          <div style={{fontSize:'11px',color:'var(--gris)'}}>
             {new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}
           </div>
         </div>
