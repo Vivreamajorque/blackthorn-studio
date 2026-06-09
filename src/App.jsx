@@ -34,7 +34,8 @@ function PinScreen({ onUnlock }) {
       {/* Logo */}
       <img src="/blackthorn-logo.png" alt="Blackthorn" style={{
         width:'180px', opacity:.92,
-        filter:'invert(1) sepia(1) saturate(.5) hue-rotate(10deg) brightness(0.95)',
+        filter:'invert(1) sepia(.4) brightness(.92)',
+        mixBlendMode:'screen',
         marginBottom:'48px'
       }}/>
 

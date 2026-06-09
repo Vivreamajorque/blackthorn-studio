@@ -658,7 +658,7 @@ export default function TonyDashboard({ onLogout }) {
       )}
 
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 20px 14px',background:'var(--surface)',borderBottom:'1px solid var(--border)',position:'sticky',top:0,zIndex:10,boxShadow:'0 2px 8px rgba(26,18,9,.04)'}}>
-        <img src="/blackthorn-logo.png" alt="Blackthorn" style={{height:'34px',opacity:.88}}/>
+        <img src="/blackthorn-logo.png" alt="Blackthorn" style={{height:'34px',opacity:.92,filter:'contrast(1.1)'}}/>
         <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
           <span style={{fontSize:'11px',color:'var(--txt3)',fontWeight:500}}>{new Date().toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</span>
           <button onClick={load} style={{width:32,height:32,borderRadius:'50%',background:'var(--bg)',border:'1px solid var(--border2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'14px',color:'var(--txt3)',cursor:'pointer',transition:'all .15s'}}
