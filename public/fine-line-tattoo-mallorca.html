@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fine Line Tattoo Mallorca — Blackthorn Tattoo Campos</title>
+  <meta name="description" content="Fine line tattoo in Mallorca. Blackthorn Tattoo, Campos — south Mallorca's only dedicated fine line studio. Custom work, precision, no walk-in chaos. Book your session.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://www.blackthorntattoocampos.ink/fine-line-tattoo-mallorca">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Fine Line Tattoo Mallorca — Blackthorn Tattoo Campos">
+  <meta property="og:description" content="South Mallorca's fine line studio. Not a tourist trap. Serious work, serious artist.">
+  <meta property="og:url" content="https://www.blackthorntattoocampos.ink/fine-line-tattoo-mallorca">
+  <meta property="og:type" content="website">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "TattooShop",
+    "name": "Blackthorn Tattoo",
+    "url": "https://www.blackthorntattoocampos.ink",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "Carrer de Santanyí 19",
+      "addressLocality": "Campos",
+      "addressRegion": "Illes Balears",
+      "postalCode": "07630",
+      "addressCountry": "ES"
+    },
+    "geo": { "@type": "GeoCoordinates", "latitude": 39.4306, "longitude": 3.0194 },
+    "openingHoursSpecification": [
+      { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday"], "opens": "09:30", "closes": "14:00" },
+      { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday"], "opens": "17:00", "closes": "19:00" },
+      { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Saturday"], "opens": "09:30", "closes": "19:00" }
+    ],
+    "priceRange": "€€€",
+    "knowsLanguage": ["en","fr","es","de"],
+    "hasOfferCatalog": {
+      "@type": "OfferCatalog",
+      "name": "Fine Line Tattoo",
+      "itemListElement": [{ "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Fine Line Tattoo Mallorca", "description": "Custom fine line tattoo in Campos, south Mallorca" } }]
+    }
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --black:   #0A0A0A;
+      --stone:   #1C1A17;
+      --ash:     #2E2B27;
+      --bone:    #E8E2D9;
+      --sand:    #C4B89A;
+      --gold:    #9E8A6E;
+      --ink:     #F2EDE6;
+      --white:   #FAFAF8;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--black);
+      color: var(--bone);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* NAV */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 24px 48px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: linear-gradient(to bottom, rgba(10,10,10,0.95), transparent);
+    }
+    .nav-logo {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 18px; font-weight: 300; letter-spacing: 0.15em;
+      color: var(--sand); text-decoration: none; text-transform: uppercase;
+    }
+    .nav-book {
+      font-size: 11px; font-weight: 500; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--bone);
+      text-decoration: none; border-bottom: 1px solid var(--gold);
+      padding-bottom: 2px; transition: color 0.2s;
+    }
+    .nav-book:hover { color: var(--gold); }
+
+    /* HERO */
+    .hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column; justify-content: flex-end;
+      padding: 0 48px 80px;
+      position: relative; overflow: hidden;
+    }
+    .hero-bg {
+      position: absolute; inset: 0;
+      background: linear-gradient(160deg, var(--stone) 0%, var(--black) 60%);
+    }
+    .hero-bg::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 70% 40%, rgba(158,138,110,0.08) 0%, transparent 60%);
+    }
+    .hero-eyebrow {
+      position: relative; z-index: 1;
+      font-size: 11px; font-weight: 500; letter-spacing: 0.3em;
+      text-transform: uppercase; color: var(--gold);
+      margin-bottom: 24px;
+    }
+    .hero-title {
+      position: relative; z-index: 1;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(52px, 8vw, 110px);
+      font-weight: 300; line-height: 0.95;
+      color: var(--ink); letter-spacing: -0.02em;
+    }
+    .hero-title em {
+      font-style: italic; color: var(--sand);
+    }
+    .hero-sub {
+      position: relative; z-index: 1;
+      margin-top: 32px;
+      font-size: 15px; font-weight: 300;
+      color: var(--gold); letter-spacing: 0.05em;
+      max-width: 480px;
+    }
+    .hero-line {
+      position: absolute; bottom: 0; left: 48px;
+      width: 1px; height: 80px;
+      background: linear-gradient(to bottom, var(--gold), transparent);
+    }
+
+    /* SECTION BASE */
+    section { padding: 120px 48px; }
+    .section-label {
+      font-size: 10px; font-weight: 500; letter-spacing: 0.35em;
+      text-transform: uppercase; color: var(--gold);
+      margin-bottom: 48px;
+    }
+
+    /* STATEMENT */
+    .statement { background: var(--stone); }
+    .statement-text {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(28px, 4vw, 52px);
+      font-weight: 300; line-height: 1.25;
+      color: var(--ink); max-width: 820px;
+    }
+    .statement-text em { font-style: italic; color: var(--sand); }
+    .statement-detail {
+      margin-top: 48px; max-width: 560px;
+      font-size: 15px; color: var(--sand); line-height: 1.8;
+    }
+
+    /* WHAT IS FINE LINE */
+    .what { background: var(--black); }
+    .what-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 1px; background: var(--ash);
+      margin-top: 48px;
+    }
+    .what-cell {
+      background: var(--black);
+      padding: 48px;
+    }
+    .what-cell-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 22px; font-weight: 400;
+      color: var(--bone); margin-bottom: 16px;
+    }
+    .what-cell-body {
+      font-size: 14px; color: var(--gold); line-height: 1.8;
+    }
+
+    /* WHY HERE */
+    .why { background: var(--stone); }
+    .why-list { margin-top: 48px; }
+    .why-item {
+      display: grid; grid-template-columns: 48px 1fr;
+      gap: 24px; padding: 40px 0;
+      border-bottom: 1px solid var(--ash);
+      align-items: start;
+    }
+    .why-item:first-child { border-top: 1px solid var(--ash); }
+    .why-num {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 13px; color: var(--gold);
+      padding-top: 4px;
+    }
+    .why-content-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 24px; font-weight: 400;
+      color: var(--ink); margin-bottom: 8px;
+    }
+    .why-content-body {
+      font-size: 14px; color: var(--sand); line-height: 1.8;
+    }
+
+    /* PROCESS */
+    .process { background: var(--black); }
+    .process-steps {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 2px; background: var(--ash);
+      margin-top: 48px;
+    }
+    .process-step {
+      background: var(--black); padding: 48px 40px;
+    }
+    .step-n {
+      font-size: 11px; letter-spacing: 0.3em;
+      color: var(--gold); margin-bottom: 24px;
+    }
+    .step-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 20px; color: var(--bone); margin-bottom: 12px;
+    }
+    .step-body { font-size: 13px; color: var(--gold); line-height: 1.8; }
+
+    /* FAQ — hreflang SEO signals */
+    .faq { background: var(--stone); }
+    .faq-list { margin-top: 48px; max-width: 720px; }
+    .faq-item { padding: 32px 0; border-bottom: 1px solid var(--ash); }
+    .faq-q {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 20px; font-weight: 400;
+      color: var(--bone); margin-bottom: 12px;
+    }
+    .faq-a { font-size: 14px; color: var(--sand); line-height: 1.8; }
+
+    /* CTA */
+    .cta-block {
+      background: var(--black);
+      padding: 140px 48px;
+      text-align: center;
+    }
+    .cta-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(40px, 6vw, 80px);
+      font-weight: 300; color: var(--ink);
+      line-height: 1.1; margin-bottom: 16px;
+    }
+    .cta-title em { font-style: italic; color: var(--sand); }
+    .cta-sub {
+      font-size: 14px; color: var(--gold);
+      letter-spacing: 0.08em; margin-bottom: 56px;
+    }
+    .cta-btn {
+      display: inline-block;
+      padding: 18px 56px;
+      border: 1px solid var(--gold);
+      color: var(--bone); text-decoration: none;
+      font-size: 12px; font-weight: 500;
+      letter-spacing: 0.25em; text-transform: uppercase;
+      transition: all 0.25s;
+    }
+    .cta-btn:hover {
+      background: var(--gold); color: var(--black);
+    }
+    .cta-info {
+      margin-top: 40px;
+      font-size: 12px; color: var(--ash);
+      letter-spacing: 0.15em;
+    }
+
+    /* FOOTER */
+    footer {
+      background: var(--stone);
+      padding: 48px;
+      display: flex; justify-content: space-between; align-items: center;
+      border-top: 1px solid var(--ash);
+    }
+    .footer-loc {
+      font-size: 12px; color: var(--gold);
+      letter-spacing: 0.15em;
+    }
+    .footer-links { display: flex; gap: 32px; }
+    .footer-links a {
+      font-size: 11px; color: var(--gold);
+      text-decoration: none; letter-spacing: 0.2em;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    .footer-links a:hover { color: var(--bone); }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      nav { padding: 20px 24px; }
+      section { padding: 80px 24px; }
+      .hero { padding: 0 24px 64px; }
+      .hero-line { left: 24px; }
+      .what-grid { grid-template-columns: 1fr; }
+      .process-steps { grid-template-columns: 1fr; }
+      .cta-block { padding: 100px 24px; }
+      footer { flex-direction: column; gap: 24px; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a class="nav-logo" href="https://www.blackthorntattoocampos.ink">Blackthorn Tattoo</a>
+    <a class="nav-book" href="https://www.blackthorntattoocampos.ink/#book">Book a session</a>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-bg"></div>
+    <p class="hero-eyebrow">Fine Line Tattoo · Campos · South Mallorca</p>
+    <h1 class="hero-title">Fine line.<br><em>Not fine print.</em></h1>
+    <p class="hero-sub">Blackthorn Tattoo. Campos, south Mallorca. One artist, full dedication, no compromises.</p>
+    <div class="hero-line"></div>
+  </section>
+
+  <!-- STATEMENT -->
+  <section class="statement">
+    <p class="section-label">The work</p>
+    <h2 class="statement-text">Fine line is not a trend.<br>It is a <em>discipline.</em><br>It demands precision.<br>It demands patience.</h2>
+    <p class="statement-detail">At Blackthorn, every fine line piece is designed from scratch, drawn specifically for your body, your skin, your proportions. We do not pick from a catalogue. We do not rush. We do not discount. What we do is make sure the work ages well — because fine line done wrong disappears in two years. Fine line done right lasts a lifetime.</p>
+  </section>
+
+  <!-- WHAT IS FINE LINE -->
+  <section class="what">
+    <p class="section-label">The technique</p>
+    <div class="what-grid">
+      <div class="what-cell">
+        <h3 class="what-cell-title">What fine line actually is</h3>
+        <p class="what-cell-body">Single-needle or tight-grouped needle work that creates hair-thin lines, precise shading, and intricate detail without heavy black fill. The result is graphic, precise, and when done correctly, permanent. It requires a very controlled hand, quality pigment, and an understanding of how individual skin holds ink.</p>
+      </div>
+      <div class="what-cell">
+        <h3 class="what-cell-title">What makes it fail</h3>
+        <p class="what-cell-body">Speed. Wrong needle depth. Cheap pigment. Artists who dabble in fine line rather than specialise in it. A fine line tattoo that blurs in three years was never fine line — it was marketing. We have built the entire studio around doing this right, every single time.</p>
+      </div>
+      <div class="what-cell">
+        <h3 class="what-cell-title">Our approach</h3>
+        <p class="what-cell-body">Tony works with a limited number of clients per week. Every piece gets proper consultation, proper design time, and proper execution. No double bookings. No rushing the last session of the day. The work we put out carries the studio's name.</p>
+      </div>
+      <div class="what-cell">
+        <h3 class="what-cell-title">Who this is for</h3>
+        <p class="what-cell-body">People who have thought about this. Who want something personal, designed for them, executed with care. Whether you are based on the island, visiting Mallorca, or planning a trip specifically for this — this studio is built for clients who treat a tattoo as what it actually is: permanent art on their skin.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHY HERE -->
+  <section class="why">
+    <p class="section-label">South Mallorca</p>
+    <div class="why-list">
+      <div class="why-item">
+        <span class="why-num">I</span>
+        <div>
+          <h3 class="why-content-title">Not Palma. Not Magaluf. Campos.</h3>
+          <p class="why-content-body">We are in the south of the island, in Campos — a real Mallorcan village, 10 minutes from Es Trenc, surrounded by fincas, salines, and the slower pace that defines this part of the island. Our studio reflects that. Calm, considered, without the noise of the tourist strip. If you are willing to make the drive, you will understand immediately why this is where we chose to work.</p>
+        </div>
+      </div>
+      <div class="why-item">
+        <span class="why-num">II</span>
+        <div>
+          <h3 class="why-content-title">One artist. Total focus.</h3>
+          <p class="why-content-body">Blackthorn is Tony. There are no rotating guest artists, no shared space, no studio politics. One artist who has built his entire practice around precision work. When you book, you get his full attention — from the first sketch to the moment you walk out.</p>
+        </div>
+      </div>
+      <div class="why-item">
+        <span class="why-num">III</span>
+        <div>
+          <h3 class="why-content-title">Fine line, realism, blackwork — built to last</h3>
+          <p class="why-content-body">Three styles. All demanding technical disciplines. None of them appropriate for a rushed session between two tourist bookings. We do not offer every style — we have chosen the ones Tony executes at the level we are proud to put under the Blackthorn name.</p>
+        </div>
+      </div>
+      <div class="why-item">
+        <span class="why-num">IV</span>
+        <div>
+          <h3 class="why-content-title">Languages spoken: EN · FR · ES · DE</h3>
+          <p class="why-content-body">We work with clients from across Europe. Consultations, design discussions, and aftercare instructions happen in your language. No approximations, no misunderstandings about what you want on your skin permanently.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROCESS -->
+  <section class="process">
+    <p class="section-label">How it works</p>
+    <div class="process-steps">
+      <div class="process-step">
+        <p class="step-n">STEP 01</p>
+        <h3 class="step-title">Book your consultation</h3>
+        <p class="step-body">Fill in the booking form with your idea, reference images if you have them, and your preferred dates. Tony reviews every request personally and responds within 24 hours. A deposit secures your session.</p>
+      </div>
+      <div class="process-step">
+        <p class="step-n">STEP 02</p>
+        <h3 class="step-title">Design</h3>
+        <p class="step-body">Your piece is drawn from scratch. No stock designs adapted from a flash sheet. The consultation can happen in person or remotely before you travel. You approve before anything touches your skin.</p>
+      </div>
+      <div class="process-step">
+        <p class="step-n">STEP 03</p>
+        <h3 class="step-title">Session in Campos</h3>
+        <p class="step-body">You come to the studio in Campos. The session is yours — no other clients, no background noise. Just focused work in a calm, clean space with natural light. Aftercare instructions provided in your language.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="faq">
+    <p class="section-label">Before you book</p>
+    <div class="faq-list">
+      <div class="faq-item">
+        <h3 class="faq-q">How much does a fine line tattoo cost in Mallorca?</h3>
+        <p class="faq-a">Pricing at Blackthorn starts at €150 for small pieces and scales with size, complexity, and session time. A standard fine line session runs €200–350. Large or multi-session projects are quoted individually. We do not post a price list — every piece is different. Contact us for a specific quote.</p>
+      </div>
+      <div class="faq-item">
+        <h3 class="faq-q">How far in advance should I book if I'm visiting Mallorca?</h3>
+        <p class="faq-a">For high season (June–September), we recommend booking 3–4 weeks in advance. Slots fill quickly during summer. If you are planning a trip to Mallorca and want to include a session at Blackthorn, book before you book your flights.</p>
+      </div>
+      <div class="faq-item">
+        <h3 class="faq-q">Do you do walk-ins?</h3>
+        <p class="faq-a">No. Every session at Blackthorn is booked in advance. Fine line work requires preparation — design, stencil, placement discussion. Walk-in work and fine line are not compatible. If you want quality, you plan ahead.</p>
+      </div>
+      <div class="faq-item">
+        <h3 class="faq-q">Can I book a session while on holiday in Mallorca?</h3>
+        <p class="faq-a">Yes. Many of our clients are visiting the island. We handle remote consultation before you arrive — design is approved in advance so the session itself is focused on execution. You leave Mallorca with the piece done. Allow at least 48 hours between the session and your flight for the initial healing stage.</p>
+      </div>
+      <div class="faq-item">
+        <h3 class="faq-q">Where exactly are you located?</h3>
+        <p class="faq-a">Carrer de Santanyí 19, Campos, Mallorca. Campos is 40 minutes south of Palma, 10 minutes from Es Trenc beach. Free street parking. If you are staying in Santanyí, Ses Salines, Colònia de Sant Jordi, or the south coast, we are your closest serious studio.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <div class="cta-block">
+    <h2 class="cta-title">Ready to<br><em>book your session?</em></h2>
+    <p class="cta-sub">Campos · South Mallorca · Fine Line · Realism · Blackwork</p>
+    <a class="cta-btn" href="https://www.blackthorntattoocampos.ink/#book">Book now</a>
+    <p class="cta-info">Carrer de Santanyí 19, Campos, Mallorca · Mon–Fri 9:30–14:00 / 17:00–19:00 · Sat 9:30–19:00</p>
+  </div>
+
+  <footer>
+    <span class="footer-loc">Blackthorn Tattoo · Campos · Mallorca · 07630</span>
+    <div class="footer-links">
+      <a href="https://www.blackthorntattoocampos.ink">Home</a>
+      <a href="https://www.instagram.com/blackthorntattoo_campos" target="_blank" rel="noopener">Instagram</a>
+      <a href="https://www.tiktok.com/@blackthorn_tattoo" target="_blank" rel="noopener">TikTok</a>
+    </div>
+  </footer>
+
+</body>
+</html>
