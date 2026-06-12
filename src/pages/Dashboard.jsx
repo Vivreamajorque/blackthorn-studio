@@ -303,37 +303,77 @@ export default function Dashboard() {
               <span style={{fontSize:'12px',fontWeight:700,color:msgMois.c}}>{msgMois.icon} {msgMois.text}</span>
             </div>
 
-            {/* 3 jauges Jour / Semaine / Mois */}
+            {/* 3 jauges — objectif glissant calendaire */}
             {(()=>{
-              const OBJ_JOUR = Math.round(OBJ_CONF / (4.33 * 6))
-              const OBJ_SEM6 = Math.round(OBJ_CONF / 4.33 * 6 / 7)
-              const colJour  = caJ>=OBJ_JOUR?'var(--green)':caJ>=OBJ_JOUR*0.5?'var(--amber)':'var(--red)'
-              const colSem6  = caSem>=OBJ_SEM6?'var(--green)':caSem>=OBJ_SEM6*0.5?'var(--amber)':'var(--red)'
-              const colMois6 = caMois>=OBJ_CONF?'var(--green)':caMois>=OBJ_EQ?'var(--amber)':'var(--red)'
-              const pctJour  = Math.min(100, Math.round(caJ/OBJ_JOUR*100))
-              const pctSem6  = Math.min(100, Math.round(caSem/OBJ_SEM6*100))
-              const pctMois6 = Math.min(100, Math.round(caMois/OBJ_CONF*100))
+              const now      = new Date()
+              const daysInM  = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate()
+              const dayOfM   = now.getDate()
+
+              const joursRestants = daysInM - dayOfM + 1
+              const joursEcoules  = dayOfM - 1
+
+              const OBJ_JOUR_BASE = Math.round(OBJ_CONF / daysInM)
+              const resteAFaire   = Math.max(0, OBJ_CONF - caMois)
+              const OBJ_JOUR_ADJ  = joursRestants > 0 ? Math.round(resteAFaire / joursRestants) : 0
+
+              const todayDow     = now.getDay()
+              const joursRestSem = todayDow === 0 ? 1 : 7 - todayDow + 1
+              const OBJ_SEM_ADJ  = OBJ_JOUR_ADJ * joursRestSem
+
+              const caAttendu = OBJ_JOUR_BASE * joursEcoules
+              const deltaM    = caMois - caAttendu
+              const enAvance  = deltaM >= 0
+
+              const colJour  = caJ>=OBJ_JOUR_ADJ?'var(--green)':caJ>=OBJ_JOUR_ADJ*0.5?'var(--amber)':'var(--red)'
+              const colSem   = caSem>=OBJ_SEM_ADJ?'var(--green)':caSem>=OBJ_SEM_ADJ*0.5?'var(--amber)':'var(--red)'
+              const colMois  = caMois>=OBJ_CONF?'var(--green)':caMois>=OBJ_EQ?'var(--amber)':'var(--red)'
+              const pctJour  = Math.min(100, OBJ_JOUR_ADJ>0?Math.round(caJ/OBJ_JOUR_ADJ*100):0)
+              const pctSem   = Math.min(100, OBJ_SEM_ADJ>0?Math.round(caSem/OBJ_SEM_ADJ*100):0)
+              const pctMois  = Math.min(100, Math.round(caMois/OBJ_CONF*100))
+
               return (
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',justifyItems:'center',marginBottom:'14px'}}>
-                  <Arc pct={pctJour} color={colJour} size={108} stroke={9}
-                    label="Jour"
-                    value={caJ>0?fmt(caJ):'—'}
-                    sub={`/ ${fmt(OBJ_JOUR)}`}
-                    sub2={caJ>=OBJ_JOUR?'✓ Ok':caJ>0?`-${fmt(OBJ_JOUR-caJ)}`:null}
-                  />
-                  <Arc pct={pctSem6} color={colSem6} size={108} stroke={9}
-                    label="Semaine"
-                    value={caSem>0?fmt(caSem):'—'}
-                    sub={`/ ${fmt(OBJ_SEM6)}`}
-                    sub2={caSem>=OBJ_SEM6?'✓ Ok':caSem>0?`-${fmt(OBJ_SEM6-caSem)}`:null}
-                  />
-                  <Arc pct={pctMois6} color={colMois6} size={108} stroke={9}
-                    label="Mois"
-                    value={caMois>0?fmt(caMois):'—'}
-                    sub={`/ ${fmt(OBJ_CONF)}`}
-                    sub2={caMois>=OBJ_CONF?'🎯 Confort':caMois>=OBJ_EQ?`⚖️ ${pctMois6}%`:caMois>0?`-${fmt(OBJ_CONF-caMois)}`:null}
-                  />
-                </div>
+                <>
+                  <div style={{textAlign:'center',marginBottom:'16px'}}>
+                    <div style={{fontSize:'10px',fontWeight:700,color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px'}}>
+                      Objectif aujourd'hui
+                    </div>
+                    <div style={{fontFamily:'var(--font-mono)',fontSize:'38px',fontWeight:500,lineHeight:1,
+                      color:OBJ_JOUR_ADJ<=OBJ_JOUR_BASE?'var(--green)':OBJ_JOUR_ADJ<=OBJ_JOUR_BASE*1.3?'var(--amber)':'var(--red)'}}>
+                      {fmt(OBJ_JOUR_ADJ)}
+                    </div>
+                    <div style={{fontSize:'11px',color:'var(--txt3)',marginTop:'4px'}}>
+                      base {fmt(OBJ_JOUR_BASE)}/j · {joursRestants} j. restants
+                    </div>
+                    {joursEcoules>0&&(
+                      <div style={{display:'inline-flex',alignItems:'center',gap:'4px',marginTop:'6px',fontSize:'10px',fontWeight:700,padding:'3px 10px',borderRadius:'20px',
+                        background:enAvance?'rgba(26,140,90,.1)':'rgba(192,57,43,.1)',
+                        color:enAvance?'var(--green)':'var(--red)'}}>
+                        {enAvance?'▲':'▼'} {enAvance?'+':''}{fmt(deltaM)} vs rythme
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',justifyItems:'center',marginBottom:'14px'}}>
+                    <Arc pct={pctJour} color={colJour} size={108} stroke={9}
+                      label="Jour"
+                      value={caJ>0?fmt(caJ):'—'}
+                      sub={`/ ${fmt(OBJ_JOUR_ADJ)}`}
+                      sub2={caJ>=OBJ_JOUR_ADJ?'✓ Ok':caJ>0?`-${fmt(OBJ_JOUR_ADJ-caJ)}`:null}
+                    />
+                    <Arc pct={pctSem} color={colSem} size={108} stroke={9}
+                      label="Semaine"
+                      value={caSem>0?fmt(caSem):'—'}
+                      sub={`/ ${fmt(OBJ_SEM_ADJ)}`}
+                      sub2={caSem>=OBJ_SEM_ADJ?'✓ Ok':caSem>0?`-${fmt(OBJ_SEM_ADJ-caSem)}`:null}
+                    />
+                    <Arc pct={pctMois} color={colMois} size={108} stroke={9}
+                      label="Mois"
+                      value={caMois>0?fmt(caMois):'—'}
+                      sub={`/ ${fmt(OBJ_CONF)}`}
+                      sub2={caMois>=OBJ_CONF?'🎯 Confort':caMois>=OBJ_EQ?`⚖️ ${pctMois}%`:caMois>0?`-${fmt(OBJ_CONF-caMois)}`:null}
+                    />
+                  </div>
+                </>
               )
             })()}
 

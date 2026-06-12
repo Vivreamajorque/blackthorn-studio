@@ -1030,57 +1030,89 @@ export default function TonyDashboard({ onLogout }) {
           )
         })()}
 
-        {/* ARCS */}
+        {/* ARCS — objectif glissant calendaire */}
         {(()=>{
-          // Objectifs basés sur 6j/7 travaillés
-          // Mois : 7500€ | Semaine : 7500/4.33*6/7 | Jour : 7500/(4.33*6)
-          const OBJ_JOUR = Math.round(OBJ_CONF / (4.33 * 6))        // ~289€/j
-          const OBJ_SEM6 = Math.round(OBJ_CONF / 4.33 * 6 / 7)      // ~1 493€/sem
+          const now      = new Date()
+          const daysInM  = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate()
+          const dayOfM   = now.getDate()
 
-          const colJour  = caJour>=OBJ_JOUR?'var(--green)':caJour>=OBJ_JOUR*0.5?'var(--amber)':'var(--red)'
-          const colSem6  = caSem>=OBJ_SEM6?'var(--green)':caSem>=OBJ_SEM6*0.5?'var(--amber)':'var(--red)'
-          const colMois6 = caMois>=OBJ_CONF?'var(--green)':caMois>=OBJ_EQ?'var(--amber)':'var(--red)'
+          // Jours calendaires restants à partir d'aujourd'hui inclus
+          const joursRestants = daysInM - dayOfM + 1
+          const joursEcoules  = dayOfM - 1
 
-          const pctJour  = Math.min(100, Math.round(caJour/OBJ_JOUR*100))
-          const pctSem6  = Math.min(100, Math.round(caSem/OBJ_SEM6*100))
-          const pctMois6 = Math.min(100, Math.round(caMois/OBJ_CONF*100))
+          // Objectif de base lissé sur le mois complet
+          const OBJ_JOUR_BASE = Math.round(OBJ_CONF / daysInM)
+
+          // Objectif ajusté : ce qu'il reste ÷ jours restants
+          const resteAFaire  = Math.max(0, OBJ_CONF - caMois)
+          const OBJ_JOUR_ADJ = joursRestants > 0 ? Math.round(resteAFaire / joursRestants) : 0
+
+          // Objectif semaine : jours restants jusqu'à dimanche inclus
+          const todayDow       = now.getDay() // 0=dim,1=lun…6=sam
+          const joursRestSem   = todayDow === 0 ? 1 : 7 - todayDow + 1 // aujourd'hui + jours jusqu'à dim
+          const OBJ_SEM_ADJ    = OBJ_JOUR_ADJ * joursRestSem
+
+          // Avance/retard vs rythme attendu
+          const caAttendu = OBJ_JOUR_BASE * joursEcoules
+          const deltaM    = caMois - caAttendu
+          const enAvance  = deltaM >= 0
+
+          const colJour = caJour>=OBJ_JOUR_ADJ?'var(--green)':caJour>=OBJ_JOUR_ADJ*0.5?'var(--amber)':'var(--red)'
+          const colSem  = caSem>=OBJ_SEM_ADJ?'var(--green)':caSem>=OBJ_SEM_ADJ*0.5?'var(--amber)':'var(--red)'
+          const colMois = caMois>=OBJ_CONF?'var(--green)':caMois>=OBJ_EQ?'var(--amber)':'var(--red)'
+          const pctJour = Math.min(100, OBJ_JOUR_ADJ>0?Math.round(caJour/OBJ_JOUR_ADJ*100):0)
+          const pctSem  = Math.min(100, OBJ_SEM_ADJ>0?Math.round(caSem/OBJ_SEM_ADJ*100):0)
+          const pctMois = Math.min(100, Math.round(caMois/OBJ_CONF*100))
 
           return (
             <div className="card" style={{marginBottom:'14px',padding:'16px 12px'}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
-                <div className="section-title-gold" style={{margin:0}}>Performances</div>
-                <div style={{fontSize:'10px',color:'var(--txt3)'}}>base 6j/7</div>
+
+              {/* Objectif du jour — bien visible */}
+              <div style={{textAlign:'center',marginBottom:'16px'}}>
+                <div style={{fontSize:'10px',fontWeight:700,color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px'}}>
+                  Objectif aujourd'hui
+                </div>
+                <div style={{fontFamily:'var(--font-mono)',fontSize:'38px',fontWeight:500,lineHeight:1,
+                  color:OBJ_JOUR_ADJ<=OBJ_JOUR_BASE?'var(--green)':OBJ_JOUR_ADJ<=OBJ_JOUR_BASE*1.3?'var(--amber)':'var(--red)'}}>
+                  {fmt(OBJ_JOUR_ADJ)}
+                </div>
+                <div style={{fontSize:'11px',color:'var(--txt3)',marginTop:'4px'}}>
+                  base {fmt(OBJ_JOUR_BASE)}/j · {joursRestants} j. restants
+                </div>
+                {joursEcoules>0&&(
+                  <div style={{display:'inline-flex',alignItems:'center',gap:'4px',marginTop:'6px',fontSize:'10px',fontWeight:700,padding:'3px 10px',borderRadius:'20px',
+                    background:enAvance?'rgba(26,140,90,.1)':'rgba(192,57,43,.1)',
+                    color:enAvance?'var(--green)':'var(--red)'}}>
+                    {enAvance?'▲':'▼'} {enAvance?'+':''}{fmt(deltaM)} vs rythme
+                  </div>
+                )}
               </div>
 
+              {/* 3 jauges */}
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',justifyItems:'center',marginBottom:'14px'}}>
-
                 <Arc pct={pctJour} color={colJour} size={108} stroke={9}
                   label="Jour"
                   value={caJour>0?fmt(caJour):'—'}
-                  sub={`/ ${fmt(OBJ_JOUR)}`}
-                  sub2={caJour>=OBJ_JOUR?'✓ Ok':caJour>0?`-${fmt(OBJ_JOUR-caJour)}`:null}
+                  sub={`/ ${fmt(OBJ_JOUR_ADJ)}`}
+                  sub2={caJour>=OBJ_JOUR_ADJ?'✓ Ok':caJour>0?`-${fmt(OBJ_JOUR_ADJ-caJour)}`:null}
                 />
-
-                <Arc pct={pctSem6} color={colSem6} size={108} stroke={9}
+                <Arc pct={pctSem} color={colSem} size={108} stroke={9}
                   label="Semaine"
                   value={caSem>0?fmt(caSem):'—'}
-                  sub={`/ ${fmt(OBJ_SEM6)}`}
-                  sub2={caSem>=OBJ_SEM6?'✓ Ok':caSem>0?`-${fmt(OBJ_SEM6-caSem)}`:null}
+                  sub={`/ ${fmt(OBJ_SEM_ADJ)}`}
+                  sub2={caSem>=OBJ_SEM_ADJ?'✓ Ok':caSem>0?`-${fmt(OBJ_SEM_ADJ-caSem)}`:null}
                 />
-
-                <Arc pct={pctMois6} color={colMois6} size={108} stroke={9}
+                <Arc pct={pctMois} color={colMois} size={108} stroke={9}
                   label="Mois"
                   value={caMois>0?fmt(caMois):'—'}
                   sub={`/ ${fmt(OBJ_CONF)}`}
-                  sub2={caMois>=OBJ_CONF?'🎯 Confort':caMois>=OBJ_EQ?`⚖️ ${pctMois6}%`:caMois>0?`-${fmt(OBJ_CONF-caMois)}`:null}
+                  sub2={caMois>=OBJ_CONF?'🎯 Confort':caMois>=OBJ_EQ?`⚖️ ${pctMois}%`:caMois>0?`-${fmt(OBJ_CONF-caMois)}`:null}
                 />
-
               </div>
 
               <div style={{padding:'10px 14px',background:msgMois.c+'15',borderRadius:'var(--r)',borderLeft:`3px solid ${msgMois.c}`,marginBottom:(caPrevSem>0||caPrevMois>0)?'8px':0}}>
                 <span style={{fontSize:'12px',fontWeight:600,color:msgMois.c}}>{msgMois.icon} {msgMois.text}</span>
               </div>
-
               {(caPrevSem>0||caPrevMois>0)&&(
                 <div style={{padding:'8px 12px',background:'rgba(41,128,185,.08)',borderRadius:'var(--r)',fontSize:'11px',color:'#2980B9'}}>
                   📅 Prévisionnel : +{fmt(caPrevSem)} cette semaine · +{fmt(caPrevMois)} ce mois
