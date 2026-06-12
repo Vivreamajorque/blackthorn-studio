@@ -92,6 +92,8 @@ export default function TonyDashboard({ onLogout }) {
   const [editRdv,  setEditRdv]    = useState(null)   // RDV prévu à modifier
   const [editRdvSaving, setEditRdvSaving] = useState(false)
   const [confForm, setConfForm] = useState({ prix:'', paiement:'cash', sessions:'1', acompte:'0' })
+  const [venusIds, setVenusIds] = useState(new Set())  // IDs cochés "client venu"
+  const toggleVenu = (id) => setVenusIds(prev => { const n=new Set(prev); n.has(id)?n.delete(id):n.add(id); return n })
   // Edit
   const [editing,  setEditing]  = useState(null)
   const [editSaving,setEditSaving]=useState(false)
@@ -804,7 +806,14 @@ export default function TonyDashboard({ onLogout }) {
                       </div>
                       <div style={{flexShrink:0,marginLeft:'10px',textAlign:'right'}}>
                         <div style={{fontFamily:'var(--font-mono)',fontSize:'18px',fontWeight:600,color:isPast?'var(--red)':'var(--txt)'}}>{prix}€</div>
-                        <div style={{display:'flex',gap:'5px',marginTop:'5px',justifyContent:'flex-end'}}>
+                        <div style={{display:'flex',gap:'5px',marginTop:'5px',justifyContent:'flex-end',alignItems:'center'}}>
+                          {isToday && (
+                            <label onClick={e=>e.stopPropagation()} style={{display:'flex',alignItems:'center',gap:'5px',cursor:'pointer',padding:'5px 8px',borderRadius:'8px',background:venusIds.has(s.id)?'rgba(212,130,10,.12)':'var(--bg2)',border:`1px solid ${venusIds.has(s.id)?'var(--amber)':'var(--border2)'}`,transition:'all .15s'}}>
+                              <input type="checkbox" checked={venusIds.has(s.id)} onChange={()=>toggleVenu(s.id)}
+                                style={{width:14,height:14,accentColor:'var(--amber)',cursor:'pointer'}}/>
+                              <span style={{fontSize:'11px',fontWeight:700,color:venusIds.has(s.id)?'var(--amber)':'var(--txt3)',whiteSpace:'nowrap'}}>Venu</span>
+                            </label>
+                          )}
                           <button onClick={()=>{
                             const dr=s.properties.Date?.date?.start||''
                             const h=dr.includes('T')?dr.substring(11,16):''
@@ -825,14 +834,18 @@ export default function TonyDashboard({ onLogout }) {
                             padding:'5px 8px',borderRadius:'8px',fontSize:'13px',cursor:'pointer',
                             background:'var(--bg2)',border:'1px solid var(--border2)',color:'var(--txt3)'
                           }}>✏️</button>
-                          {(isPast||isToday)&&<button onClick={()=>openConfirm(s)} style={{
+                          {isPast&&<button onClick={()=>openConfirm(s)} style={{
                             padding:'5px 10px',borderRadius:'8px',fontSize:'11px',fontWeight:700,cursor:'pointer',
-                            background:isPast?'var(--green)':'var(--amber)',
+                            background:'var(--green)',
                             color:'#fff',border:'none',
                             fontFamily:'var(--font-head)'
-                          }}>
-                            {isPast?'Valider':'✓ Venu'}
-                          </button>}
+                          }}>Valider</button>}
+                          {isToday&&venusIds.has(s.id)&&<button onClick={()=>openConfirm(s)} style={{
+                            padding:'5px 10px',borderRadius:'8px',fontSize:'11px',fontWeight:700,cursor:'pointer',
+                            background:'var(--amber)',
+                            color:'#fff',border:'none',
+                            fontFamily:'var(--font-head)'
+                          }}>✓ Encaisser</button>}
                         </div>
                       </div>
                     </div>
