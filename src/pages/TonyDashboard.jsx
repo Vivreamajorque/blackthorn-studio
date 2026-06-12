@@ -1030,26 +1030,92 @@ export default function TonyDashboard({ onLogout }) {
           )
         })()}
 
-        {/* ARCS */}
-        <div className="card" style={{marginBottom:'14px',padding:'20px'}}>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',justifyItems:'center',marginBottom:'14px'}}>
-            <Arc pct={Math.min(100,Math.round(caSem/OBJ_SEM*100))} color={colSem} label="Semaine"
-              value={caSem>0?fmt(caSem):'—'} sub={caSem>0?`/ ${fmt(OBJ_SEM)}`:null}
-              sub2={caSem>=OBJ_SEM?'✓ Objectif atteint':caSem>0?`encore ${fmt(OBJ_SEM-caSem)}`:null}/>
-            <Arc pct={Math.min(100,Math.round(caMois/OBJ_CONF*100))} color={colMois} label="Mois"
-              value={caMois>0?fmt(caMois):'—'} sub={caMois>0?`${Math.round(caMois/OBJ_CONF*100)}%`:null}
-              sub2={caMois>=OBJ_CONF?'🎯 Confort atteint':caMois>=OBJ_EQ?`⚖️ ${Math.round(caMois/OBJ_CONF*100)}% confort`:caMois>0?`encore ${fmt(OBJ_EQ-caMois)}`:null}/>
-          </div>
-          <div style={{padding:'10px 14px',background:msgMois.c+'15',borderRadius:'var(--r)',borderLeft:`3px solid ${msgMois.c}`}}>
-            <span style={{fontSize:'12px',fontWeight:600,color:msgMois.c}}>{msgMois.icon} {msgMois.text}</span>
-          </div>
-          {/* Prévisionnel affiché si RDV planifiés */}
-          {(caPrevSem>0||caPrevMois>0)&&(
-            <div style={{marginTop:'8px',padding:'8px 12px',background:'rgba(41,128,185,.08)',borderRadius:'var(--r)',fontSize:'11px',color:'#2980B9'}}>
-              📅 Prévisionnel : +{fmt(caPrevSem)} cette semaine · +{fmt(caPrevMois)} ce mois
+        {/* ARCS — moyennes journalières */}
+        {(()=>{
+          const OBJ_JOUR = Math.round(OBJ_CONF / 25) // 300€/j lissé sur 25j ouvrés
+
+          // ── JOUR ──
+          const colJour = caJour>=OBJ_JOUR?'var(--green)':caJour>=OBJ_JOUR*0.5?'var(--amber)':'var(--red)'
+          const pctJour = Math.min(100, Math.round(caJour/OBJ_JOUR*100))
+
+          // ── SEMAINE ──
+          // Nombre de jours ouvrés écoulés depuis lundi (lundi=1 … aujourd'hui)
+          const todayDow  = new Date().getDay() // 0=dim,1=lun…6=sam
+          const joursEcoulSem = todayDow===0 ? 0 : Math.min(todayDow, 5) // lun-ven seulement, max 5
+          const moyJourSem = joursEcoulSem>0 ? Math.round(caSem/joursEcoulSem) : 0
+          const pctSem = Math.min(100, Math.round(moyJourSem/OBJ_JOUR*100))
+          const colSemM = moyJourSem>=OBJ_JOUR?'var(--green)':moyJourSem>=OBJ_JOUR*0.5?'var(--amber)':'var(--red)'
+
+          // ── MOIS ──
+          // Jours ouvrés écoulés depuis le 1er du mois (lun-ven, jusqu'à aujourd'hui inclus)
+          const now = new Date()
+          let joursEcoulMois = 0
+          for(let d=1; d<=now.getDate(); d++){
+            const dow = new Date(now.getFullYear(), now.getMonth(), d).getDay()
+            if(dow>=1&&dow<=5) joursEcoulMois++
+          }
+          const moyJourMois = joursEcoulMois>0 ? Math.round(caMois/joursEcoulMois) : 0
+          const pctMois = Math.min(100, Math.round(moyJourMois/OBJ_JOUR*100))
+          const colMoisM = moyJourMois>=OBJ_JOUR?'var(--green)':moyJourMois>=OBJ_JOUR*0.5?'var(--amber)':'var(--red)'
+          // Projection fin de mois (25j ouvrés)
+          const projMois = joursEcoulMois>0 ? Math.round(moyJourMois*25) : 0
+
+          return (
+            <div className="card" style={{marginBottom:'14px',padding:'16px 12px'}}>
+              {/* Titre + légende cible */}
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
+                <div className="section-title-gold" style={{margin:0}}>Performances</div>
+                <div style={{fontSize:'10px',color:'var(--txt3)',background:'var(--bg)',padding:'3px 8px',borderRadius:'20px',border:'1px solid var(--border)'}}>
+                  cible <span style={{fontFamily:'var(--font-mono)',fontWeight:700,color:'var(--txt)'}}>{OBJ_JOUR}€</span>/j
+                </div>
+              </div>
+
+              {/* 3 jauges */}
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',justifyItems:'center',marginBottom:'14px'}}>
+
+                {/* JOUR */}
+                <Arc
+                  pct={pctJour} color={colJour} size={108} stroke={9}
+                  label="Aujourd'hui"
+                  value={caJour>0?fmt(caJour):'—'}
+                  sub={caJour>0?`/ ${OBJ_JOUR}€`:null}
+                  sub2={caJour>=OBJ_JOUR?'✓ Objectif':caJour>0?`+${fmt(OBJ_JOUR-caJour)}`:null}
+                />
+
+                {/* SEMAINE — moyenne/jour */}
+                <Arc
+                  pct={pctSem} color={colSemM} size={108} stroke={9}
+                  label="Semaine / j"
+                  value={joursEcoulSem>0?fmt(moyJourSem):'—'}
+                  sub={joursEcoulSem>0?`moy. ${joursEcoulSem}j`:null}
+                  sub2={moyJourSem>=OBJ_JOUR?'✓ En rythme':joursEcoulSem>0?`-${fmt(OBJ_JOUR-moyJourSem)}/j`:null}
+                />
+
+                {/* MOIS — moyenne/jour */}
+                <Arc
+                  pct={pctMois} color={colMoisM} size={108} stroke={9}
+                  label="Mois / j"
+                  value={joursEcoulMois>0?fmt(moyJourMois):'—'}
+                  sub={joursEcoulMois>0?`moy. ${joursEcoulMois}j`:null}
+                  sub2={projMois>0?`proj. ${fmt(projMois)}`:null}
+                />
+
+              </div>
+
+              {/* Barre de statut mois */}
+              <div style={{padding:'10px 14px',background:msgMois.c+'15',borderRadius:'var(--r)',borderLeft:`3px solid ${msgMois.c}`,marginBottom:(caPrevSem>0||caPrevMois>0)?'8px':0}}>
+                <span style={{fontSize:'12px',fontWeight:600,color:msgMois.c}}>{msgMois.icon} {msgMois.text}</span>
+              </div>
+
+              {/* Prévisionnel */}
+              {(caPrevSem>0||caPrevMois>0)&&(
+                <div style={{padding:'8px 12px',background:'rgba(41,128,185,.08)',borderRadius:'var(--r)',fontSize:'11px',color:'#2980B9'}}>
+                  📅 Prévisionnel : +{fmt(caPrevSem)} cette semaine · +{fmt(caPrevMois)} ce mois
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          )
+        })()}
 
         {/* PANIER + AUJOURD'HUI + NET */}
         <div className="card" style={{marginBottom:'14px'}}>
