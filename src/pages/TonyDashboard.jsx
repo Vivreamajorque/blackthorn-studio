@@ -1030,84 +1030,57 @@ export default function TonyDashboard({ onLogout }) {
           )
         })()}
 
-        {/* ARCS — moyennes journalières */}
+        {/* ARCS */}
         {(()=>{
-          const OBJ_JOUR = Math.round(OBJ_CONF / 25) // 300€/j lissé sur 25j ouvrés
+          // Objectifs basés sur 6j/7 travaillés
+          // Mois : 7500€ | Semaine : 7500/4.33*6/7 | Jour : 7500/(4.33*6)
+          const OBJ_JOUR = Math.round(OBJ_CONF / (4.33 * 6))        // ~289€/j
+          const OBJ_SEM6 = Math.round(OBJ_CONF / 4.33 * 6 / 7)      // ~1 493€/sem
 
-          // ── JOUR ──
-          const colJour = caJour>=OBJ_JOUR?'var(--green)':caJour>=OBJ_JOUR*0.5?'var(--amber)':'var(--red)'
-          const pctJour = Math.min(100, Math.round(caJour/OBJ_JOUR*100))
+          const colJour  = caJour>=OBJ_JOUR?'var(--green)':caJour>=OBJ_JOUR*0.5?'var(--amber)':'var(--red)'
+          const colSem6  = caSem>=OBJ_SEM6?'var(--green)':caSem>=OBJ_SEM6*0.5?'var(--amber)':'var(--red)'
+          const colMois6 = caMois>=OBJ_CONF?'var(--green)':caMois>=OBJ_EQ?'var(--amber)':'var(--red)'
 
-          // ── SEMAINE ──
-          // Nombre de jours ouvrés écoulés depuis lundi (lundi=1 … aujourd'hui)
-          const todayDow  = new Date().getDay() // 0=dim,1=lun…6=sam
-          const joursEcoulSem = todayDow===0 ? 0 : Math.min(todayDow, 5) // lun-ven seulement, max 5
-          const moyJourSem = joursEcoulSem>0 ? Math.round(caSem/joursEcoulSem) : 0
-          const pctSem = Math.min(100, Math.round(moyJourSem/OBJ_JOUR*100))
-          const colSemM = moyJourSem>=OBJ_JOUR?'var(--green)':moyJourSem>=OBJ_JOUR*0.5?'var(--amber)':'var(--red)'
-
-          // ── MOIS ──
-          // Jours ouvrés écoulés depuis le 1er du mois (lun-ven, jusqu'à aujourd'hui inclus)
-          const now = new Date()
-          let joursEcoulMois = 0
-          for(let d=1; d<=now.getDate(); d++){
-            const dow = new Date(now.getFullYear(), now.getMonth(), d).getDay()
-            if(dow>=1&&dow<=5) joursEcoulMois++
-          }
-          const moyJourMois = joursEcoulMois>0 ? Math.round(caMois/joursEcoulMois) : 0
-          const pctMois = Math.min(100, Math.round(moyJourMois/OBJ_JOUR*100))
-          const colMoisM = moyJourMois>=OBJ_JOUR?'var(--green)':moyJourMois>=OBJ_JOUR*0.5?'var(--amber)':'var(--red)'
-          // Projection fin de mois (25j ouvrés)
-          const projMois = joursEcoulMois>0 ? Math.round(moyJourMois*25) : 0
+          const pctJour  = Math.min(100, Math.round(caJour/OBJ_JOUR*100))
+          const pctSem6  = Math.min(100, Math.round(caSem/OBJ_SEM6*100))
+          const pctMois6 = Math.min(100, Math.round(caMois/OBJ_CONF*100))
 
           return (
             <div className="card" style={{marginBottom:'14px',padding:'16px 12px'}}>
-              {/* Titre + légende cible */}
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
                 <div className="section-title-gold" style={{margin:0}}>Performances</div>
-                <div style={{fontSize:'10px',color:'var(--txt3)',background:'var(--bg)',padding:'3px 8px',borderRadius:'20px',border:'1px solid var(--border)'}}>
-                  cible <span style={{fontFamily:'var(--font-mono)',fontWeight:700,color:'var(--txt)'}}>{OBJ_JOUR}€</span>/j
-                </div>
+                <div style={{fontSize:'10px',color:'var(--txt3)'}}>base 6j/7</div>
               </div>
 
-              {/* 3 jauges */}
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',justifyItems:'center',marginBottom:'14px'}}>
 
-                {/* JOUR */}
-                <Arc
-                  pct={pctJour} color={colJour} size={108} stroke={9}
-                  label="Aujourd'hui"
+                <Arc pct={pctJour} color={colJour} size={108} stroke={9}
+                  label="Jour"
                   value={caJour>0?fmt(caJour):'—'}
-                  sub={caJour>0?`/ ${OBJ_JOUR}€`:null}
-                  sub2={caJour>=OBJ_JOUR?'✓ Objectif':caJour>0?`+${fmt(OBJ_JOUR-caJour)}`:null}
+                  sub={`/ ${fmt(OBJ_JOUR)}`}
+                  sub2={caJour>=OBJ_JOUR?'✓ Ok':caJour>0?`-${fmt(OBJ_JOUR-caJour)}`:null}
                 />
 
-                {/* SEMAINE — moyenne/jour */}
-                <Arc
-                  pct={pctSem} color={colSemM} size={108} stroke={9}
-                  label="Semaine / j"
-                  value={joursEcoulSem>0?fmt(moyJourSem):'—'}
-                  sub={joursEcoulSem>0?`moy. ${joursEcoulSem}j`:null}
-                  sub2={moyJourSem>=OBJ_JOUR?'✓ En rythme':joursEcoulSem>0?`-${fmt(OBJ_JOUR-moyJourSem)}/j`:null}
+                <Arc pct={pctSem6} color={colSem6} size={108} stroke={9}
+                  label="Semaine"
+                  value={caSem>0?fmt(caSem):'—'}
+                  sub={`/ ${fmt(OBJ_SEM6)}`}
+                  sub2={caSem>=OBJ_SEM6?'✓ Ok':caSem>0?`-${fmt(OBJ_SEM6-caSem)}`:null}
                 />
 
-                {/* MOIS — moyenne/jour */}
-                <Arc
-                  pct={pctMois} color={colMoisM} size={108} stroke={9}
-                  label="Mois / j"
-                  value={joursEcoulMois>0?fmt(moyJourMois):'—'}
-                  sub={joursEcoulMois>0?`moy. ${joursEcoulMois}j`:null}
-                  sub2={projMois>0?`proj. ${fmt(projMois)}`:null}
+                <Arc pct={pctMois6} color={colMois6} size={108} stroke={9}
+                  label="Mois"
+                  value={caMois>0?fmt(caMois):'—'}
+                  sub={`/ ${fmt(OBJ_CONF)}`}
+                  sub2={caMois>=OBJ_CONF?'🎯 Confort':caMois>=OBJ_EQ?`⚖️ ${pctMois6}%`:caMois>0?`-${fmt(OBJ_CONF-caMois)}`:null}
                 />
 
               </div>
 
-              {/* Barre de statut mois */}
               <div style={{padding:'10px 14px',background:msgMois.c+'15',borderRadius:'var(--r)',borderLeft:`3px solid ${msgMois.c}`,marginBottom:(caPrevSem>0||caPrevMois>0)?'8px':0}}>
                 <span style={{fontSize:'12px',fontWeight:600,color:msgMois.c}}>{msgMois.icon} {msgMois.text}</span>
               </div>
 
-              {/* Prévisionnel */}
               {(caPrevSem>0||caPrevMois>0)&&(
                 <div style={{padding:'8px 12px',background:'rgba(41,128,185,.08)',borderRadius:'var(--r)',fontSize:'11px',color:'#2980B9'}}>
                   📅 Prévisionnel : +{fmt(caPrevSem)} cette semaine · +{fmt(caPrevMois)} ce mois
