@@ -51,6 +51,33 @@ const MKEYS = ['2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026
 const MLABELS = ['Juin','Juil','Août','Sep','Oct','Nov','Déc','Jan','Fév','Mar','Avr','Mai']
 const MSHORT  = ['J','Jl','A','S','O','N','D','J','F','M','A','M']
 
+// Arc SVG
+function Arc({ pct, color, size=120, stroke=10, value, sub, label, sub2 }) {
+  const r=(size-stroke)/2, circ=2*Math.PI*r
+  const arcLen=circ*240/360, filled=Math.min(arcLen, arcLen*Math.min(1,pct/100))
+  return (
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'4px'}}>
+      <div style={{position:'relative',width:size,height:size*0.82}}>
+        <svg width={size} height={size} style={{position:'absolute',top:0,left:0}}>
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#E8E2D8" strokeWidth={stroke}
+            strokeDasharray={`${arcLen} ${circ-arcLen}`} strokeLinecap="round"
+            transform={`rotate(150 ${size/2} ${size/2})`}/>
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+            strokeDasharray={`${filled} ${circ-filled}`} strokeLinecap="round"
+            transform={`rotate(150 ${size/2} ${size/2})`}
+            style={{transition:'stroke-dasharray .6s ease'}}/>
+        </svg>
+        <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',paddingTop:'8px'}}>
+          <div style={{fontFamily:'var(--font-mono)',fontSize:'19px',fontWeight:500,color:'var(--txt)'}}>{value}</div>
+          {sub && <div style={{fontSize:'10px',color:'var(--txt3)',marginTop:'1px'}}>{sub}</div>}
+        </div>
+      </div>
+      <div style={{fontSize:'11px',fontWeight:700,color:'var(--txt2)',textTransform:'uppercase',letterSpacing:'1px'}}>{label}</div>
+      {sub2 && <div style={{fontSize:'10px',color,fontWeight:600,textAlign:'center',maxWidth:size}}>{sub2}</div>}
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const [sessions, setSessions] = useState([])
   const [depenses, setDepenses] = useState([])
@@ -276,11 +303,44 @@ export default function Dashboard() {
               <span style={{fontSize:'12px',fontWeight:700,color:msgMois.c}}>{msgMois.icon} {msgMois.text}</span>
             </div>
 
+            {/* 3 jauges Jour / Semaine / Mois */}
+            {(()=>{
+              const OBJ_JOUR = Math.round(OBJ_CONF / (4.33 * 6))
+              const OBJ_SEM6 = Math.round(OBJ_CONF / 4.33 * 6 / 7)
+              const colJour  = caJ>=OBJ_JOUR?'var(--green)':caJ>=OBJ_JOUR*0.5?'var(--amber)':'var(--red)'
+              const colSem6  = caSem>=OBJ_SEM6?'var(--green)':caSem>=OBJ_SEM6*0.5?'var(--amber)':'var(--red)'
+              const colMois6 = caMois>=OBJ_CONF?'var(--green)':caMois>=OBJ_EQ?'var(--amber)':'var(--red)'
+              const pctJour  = Math.min(100, Math.round(caJ/OBJ_JOUR*100))
+              const pctSem6  = Math.min(100, Math.round(caSem/OBJ_SEM6*100))
+              const pctMois6 = Math.min(100, Math.round(caMois/OBJ_CONF*100))
+              return (
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',justifyItems:'center',marginBottom:'14px'}}>
+                  <Arc pct={pctJour} color={colJour} size={108} stroke={9}
+                    label="Jour"
+                    value={caJ>0?fmt(caJ):'—'}
+                    sub={`/ ${fmt(OBJ_JOUR)}`}
+                    sub2={caJ>=OBJ_JOUR?'✓ Ok':caJ>0?`-${fmt(OBJ_JOUR-caJ)}`:null}
+                  />
+                  <Arc pct={pctSem6} color={colSem6} size={108} stroke={9}
+                    label="Semaine"
+                    value={caSem>0?fmt(caSem):'—'}
+                    sub={`/ ${fmt(OBJ_SEM6)}`}
+                    sub2={caSem>=OBJ_SEM6?'✓ Ok':caSem>0?`-${fmt(OBJ_SEM6-caSem)}`:null}
+                  />
+                  <Arc pct={pctMois6} color={colMois6} size={108} stroke={9}
+                    label="Mois"
+                    value={caMois>0?fmt(caMois):'—'}
+                    sub={`/ ${fmt(OBJ_CONF)}`}
+                    sub2={caMois>=OBJ_CONF?'🎯 Confort':caMois>=OBJ_EQ?`⚖️ ${pctMois6}%`:caMois>0?`-${fmt(OBJ_CONF-caMois)}`:null}
+                  />
+                </div>
+              )
+            })()}
+
             {/* Stats inline */}
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'6px'}}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'6px'}}>
               {[
                 {l:'Panier moyen',v:panier>0?panier+'€':'—',s:`${nbSessM} sess.`,c:'var(--txt)'},
-                {l:'CA sem.',v:fmt(caSem),s:`obj. ${fmt(OBJ_SEM)}`,c:caSem>=OBJ_SEM?'var(--green)':caSem>0?'var(--amber)':'var(--txt3)'},
                 {l:'Net estimé',v:fmt(r.net),s:'après impôts',c:r.net>1500?'var(--green)':'var(--txt)'},
                 {l:'Dépenses',v:fmt(depMois),s:'ce mois',c:depMois>FIXES?'var(--red)':'var(--txt)'},
               ].map(x=>(
