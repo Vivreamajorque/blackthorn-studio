@@ -721,30 +721,18 @@ export default function TonyDashboard({ onLogout }) {
 
       <div style={{padding:'16px 16px 0'}}>
 
-        {/* ─── 3 PROCHAINS RDV + BOUTON PLANNING ─── */}
+        {/* ─── RDV DU JOUR + BOUTON PLANNING ─── */}
         <div style={{marginBottom:'14px'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
-            <div className="section-title-gold" style={{margin:0}}>Prochains rendez-vous</div>
-            <button onClick={()=>setTab('rdv')} style={{
-              fontSize:'11px',padding:'5px 12px',borderRadius:'20px',
-              background:'var(--txt)',color:'var(--bg)',border:'none',
-              cursor:'pointer',fontFamily:'var(--font-head)',fontWeight:600
-            }}>+ Nouveau</button>
-          </div>
-
-          {rdvsProchains.length === 0 ? (
-            <div className="card" style={{padding:'20px',textAlign:'center',border:'1.5px dashed var(--border2)'}}>
-              <div style={{fontSize:'24px',marginBottom:'6px'}}>📅</div>
-              <div style={{fontSize:'12px',fontWeight:600,color:'var(--txt2)',marginBottom:'4px'}}>Aucun RDV planifié</div>
-              <div style={{fontSize:'11px',color:'var(--txt3)',marginBottom:'14px'}}>Ajoute tes prochains clients</div>
-              <button onClick={()=>setTab('rdv')} className="btn btn-primary" style={{padding:'9px 20px',fontSize:'13px'}}>
-                + Ajouter un RDV
-              </button>
-            </div>
-          ) : (
-            <>
-              {/* 3 CARDS COMPACTES */}
-              {rdvsProchains.slice(0,3).map((s,idx) => {
+          {/* RDVs du jour */}
+          {(()=>{
+            const rdvsAujourd = rdvsProchains.filter(s=>s.properties.Date?.date?.start?.split('T')[0]===td)
+            return rdvsAujourd.length > 0 ? (
+              <>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
+                  <div className="section-title-gold" style={{margin:0}}>Aujourd'hui</div>
+                  <button onClick={()=>setTab('rdv')} style={{fontSize:'11px',padding:'5px 12px',borderRadius:'20px',background:'var(--txt)',color:'var(--bg)',border:'none',cursor:'pointer',fontFamily:'var(--font-head)',fontWeight:600}}>+ Nouveau</button>
+                </div>
+                {rdvsAujourd.map((s,idx) => {
                 const client  = s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'Client'
                 const style   = s.properties['Style / Type']?.rich_text?.[0]?.plain_text||''
                 const prix    = s.properties.Prix?.number||0
@@ -853,21 +841,87 @@ export default function TonyDashboard({ onLogout }) {
                 )
               })}
 
-              {/* BOUTON VOIR PLANNING */}
+              {/* BOUTON VOIR TOUS LES RDV */}
               <button onClick={()=>setTab('planning')} style={{
                 width:'100%', padding:'11px', borderRadius:'var(--r)',
                 background:'var(--surface)', border:'1.5px solid var(--border2)',
                 color:'var(--txt2)', fontFamily:'var(--font-head)', fontWeight:700,
                 fontSize:'12px', cursor:'pointer', letterSpacing:'.3px',
                 display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
-                boxShadow:'var(--shadow-xs)'
+                boxShadow:'var(--shadow-xs)', marginTop:'6px'
               }}>
                 <span>📅</span>
                 Voir tous les rendez-vous
-                {rdvsProchains.length > 3 && <span style={{fontSize:'10px',padding:'1px 7px',background:'var(--bg2)',borderRadius:'20px',color:'var(--txt3)'}}>{rdvsProchains.length}</span>}
+                {rdvsProchains.length > 0 && <span style={{fontSize:'10px',padding:'1px 7px',background:'var(--bg2)',borderRadius:'20px',color:'var(--txt3)'}}>{rdvsProchains.length}</span>}
               </button>
-            </>
-          )}
+              </>
+            ) : (
+              <>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
+                  <div className="section-title-gold" style={{margin:0}}>Prochains rendez-vous</div>
+                  <button onClick={()=>setTab('rdv')} style={{fontSize:'11px',padding:'5px 12px',borderRadius:'20px',background:'var(--txt)',color:'var(--bg)',border:'none',cursor:'pointer',fontFamily:'var(--font-head)',fontWeight:600}}>+ Nouveau</button>
+                </div>
+                {rdvsProchains.length === 0 ? (
+                  <div className="card" style={{padding:'20px',textAlign:'center',border:'1.5px dashed var(--border2)'}}>
+                    <div style={{fontSize:'24px',marginBottom:'6px'}}>📅</div>
+                    <div style={{fontSize:'12px',fontWeight:600,color:'var(--txt2)',marginBottom:'4px'}}>Aucun RDV planifié</div>
+                    <div style={{fontSize:'11px',color:'var(--txt3)',marginBottom:'14px'}}>Ajoute tes prochains clients</div>
+                    <button onClick={()=>setTab('rdv')} className="btn btn-primary" style={{padding:'9px 20px',fontSize:'13px'}}>+ Ajouter un RDV</button>
+                  </div>
+                ) : (
+                  <>
+                    {rdvsProchains.slice(0,3).map((s,idx) => {
+                      const client  = s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'Client'
+                      const style   = s.properties['Style / Type']?.rich_text?.[0]?.plain_text||''
+                      const prix    = s.properties.Prix?.number||0
+                      const acompte = s.properties['Acompte reçu']?.number||0
+                      const date    = s.properties.Date?.date?.start?.split('T')[0]||''
+                      const notes   = s.properties.Notes?.rich_text?.[0]?.plain_text||''
+                      const dateRaw = s.properties.Date?.date?.start||''
+                      const heure   = dateRaw.includes('T') ? dateRaw.substring(11,16) : (notes.match(/·\s*(\d{2}:\d{2})/)?.[1]||null)
+                      const isToday = date === td
+                      const isPast  = date < td
+                      const d       = new Date(date)
+                      const diff    = Math.round((d - new Date(td)) / 86400000)
+                      return (
+                        <div key={s.id} style={{display:'flex',alignItems:'stretch',marginBottom:'8px',borderRadius:'var(--r-lg)',overflow:'hidden',boxShadow:'var(--shadow-sm)',border:'1px solid var(--border)',background:'var(--surface)'}}>
+                          <div style={{width:56,flexShrink:0,background:isPast?'var(--red)':isToday?'var(--txt)':'var(--bg2)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'12px 4px',gap:'1px'}}>
+                            <span style={{fontSize:'9px',fontWeight:700,textTransform:'uppercase',letterSpacing:'.8px',color:isPast||isToday?'rgba(248,245,240,.65)':'var(--txt3)'}}>
+                              {isPast?'passé':isToday?'auj.':diff===1?'dem.':d.toLocaleDateString('fr-FR',{weekday:'short'})}
+                            </span>
+                            <span style={{fontSize:'22px',fontWeight:800,fontFamily:'var(--font-mono)',color:isPast||isToday?'var(--bg)':'var(--txt)',lineHeight:1}}>{d.getDate()}</span>
+                            <span style={{fontSize:'9px',fontWeight:600,color:isPast||isToday?'rgba(248,245,240,.65)':'var(--txt3)'}}>{d.toLocaleDateString('fr-FR',{month:'short'})}</span>
+                          </div>
+                          <div style={{flex:1,padding:'11px 12px',display:'flex',justifyContent:'space-between',alignItems:'center',minWidth:0}}>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{fontSize:'14px',fontWeight:700,color:'var(--txt)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{client}</div>
+                              {style && <div style={{fontSize:'11px',color:'var(--txt3)',marginTop:'1px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{style}</div>}
+                              <div style={{display:'flex',gap:'6px',marginTop:'4px',flexWrap:'wrap',alignItems:'center'}}>
+                                {heure && <span style={{fontSize:'10px',color:'var(--txt3)',fontFamily:'var(--font-mono)',background:'var(--bg)',padding:'1px 5px',borderRadius:'4px'}}>🕐 {heure}</span>}
+                                {acompte>0 && <span style={{fontSize:'10px',color:'var(--green)'}}>Acompte {acompte}€</span>}
+                                {isPast && <span style={{fontSize:'9px',padding:'1px 5px',background:'var(--red-bg)',color:'var(--red)',borderRadius:'10px',fontWeight:700}}>À VALIDER</span>}
+                              </div>
+                            </div>
+                            <div style={{flexShrink:0,marginLeft:'10px',textAlign:'right'}}>
+                              <div style={{fontFamily:'var(--font-mono)',fontSize:'18px',fontWeight:600,color:isPast?'var(--red)':'var(--txt)'}}>{prix}€</div>
+                              <div style={{display:'flex',gap:'5px',marginTop:'5px',justifyContent:'flex-end'}}>
+                                <button onClick={()=>{const dr=s.properties.Date?.date?.start||'';const h=dr.includes('T')?dr.substring(11,16):'';setEditRdv({id:s.id,client:s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'',style:s.properties['Style / Type']?.rich_text?.[0]?.plain_text||'',prixEstime:String(s.properties.Prix?.number||0),sessions:String(getNbSess(s)),acompte:String(s.properties['Acompte reçu']?.number||0),date:dr.split('T')[0]||date,heure:h,natio:s.properties.Nationalité?.select?.name||'🇫🇷 FR',source:s.properties.Source?.select?.name||'📸 Instagram'});setTab('editRdv')}} style={{padding:'5px 8px',borderRadius:'8px',fontSize:'13px',cursor:'pointer',background:'var(--bg2)',border:'1px solid var(--border2)',color:'var(--txt3)'}}>✏️</button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                    <button onClick={()=>setTab('planning')} style={{width:'100%',padding:'11px',borderRadius:'var(--r)',background:'var(--surface)',border:'1.5px solid var(--border2)',color:'var(--txt2)',fontFamily:'var(--font-head)',fontWeight:700,fontSize:'12px',cursor:'pointer',letterSpacing:'.3px',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px',boxShadow:'var(--shadow-xs)'}}>
+                      <span>📅</span>
+                      Voir tous les rendez-vous
+                      {rdvsProchains.length > 3 && <span style={{fontSize:'10px',padding:'1px 7px',background:'var(--bg2)',borderRadius:'20px',color:'var(--txt3)'}}>{rdvsProchains.length}</span>}
+                    </button>
+                  </>
+                )}
+              </>
+            )
+          })()}
         </div>
 
         {/* CARTE PRÉVISIONNEL MULTI-MOIS */}
