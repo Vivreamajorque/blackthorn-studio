@@ -1049,8 +1049,11 @@ export default function TonyDashboard({ onLogout }) {
 
           // Objectif semaine : jours restants jusqu'à dimanche inclus
           const todayDow       = now.getDay() // 0=dim,1=lun…6=sam
-          // Objectif semaine fixe = OBJ_CONF / 4.3 (indépendant de l'objectif jour ajusté)
-          const OBJ_SEM_ADJ    = Math.round(OBJ_CONF / 4.3)
+          // Objectif semaine adaptatif : reste mensuel ÷ semaines restantes dans le mois
+          const joursDimanche  = todayDow === 0 ? 0 : 7 - todayDow // jours jusqu'au prochain dimanche
+          const joursFinMois   = daysInM - dayOfM // jours restants après aujourd'hui
+          const semRestantes   = Math.max(1, Math.ceil((joursFinMois + joursDimanche + 1) / 7))
+          const OBJ_SEM_ADJ    = Math.round(resteAFaire / semRestantes)
 
           // Avance/retard vs rythme attendu
           const caAttendu = OBJ_JOUR_BASE * joursEcoules

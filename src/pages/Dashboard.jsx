@@ -318,7 +318,11 @@ export default function Dashboard() {
 
               const todayDow     = now.getDay()
               // Objectif semaine fixe = OBJ_CONF / 4.3 (indépendant de l'objectif jour ajusté)
-              const OBJ_SEM_ADJ  = Math.round(OBJ_CONF / 4.3)
+              // Objectif semaine adaptatif : reste mensuel ÷ semaines restantes dans le mois
+              const joursDimanche  = todayDow === 0 ? 0 : 7 - todayDow
+              const joursFinMois   = daysInM - dayOfM
+              const semRestantes   = Math.max(1, Math.ceil((joursFinMois + joursDimanche + 1) / 7))
+              const OBJ_SEM_ADJ  = Math.round(resteAFaire / semRestantes)
 
               const caAttendu = OBJ_JOUR_BASE * joursEcoules
               const deltaM    = caMois - caAttendu
