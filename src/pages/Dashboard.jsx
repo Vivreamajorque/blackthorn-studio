@@ -317,8 +317,8 @@ export default function Dashboard() {
               const OBJ_JOUR_ADJ  = joursRestants > 0 ? Math.round(resteAFaire / joursRestants) : 0
 
               const todayDow     = now.getDay()
-              const joursRestSem = todayDow === 0 ? 1 : 7 - todayDow + 1
-              const OBJ_SEM_ADJ  = OBJ_JOUR_ADJ * joursRestSem
+              // Objectif semaine fixe = OBJ_CONF / 4.3 (indépendant de l'objectif jour ajusté)
+              const OBJ_SEM_ADJ  = Math.round(OBJ_CONF / 4.3)
 
               const caAttendu = OBJ_JOUR_BASE * joursEcoules
               const deltaM    = caMois - caAttendu
