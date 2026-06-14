@@ -1049,8 +1049,8 @@ export default function TonyDashboard({ onLogout }) {
 
           // Objectif semaine : jours restants jusqu'à dimanche inclus
           const todayDow       = now.getDay() // 0=dim,1=lun…6=sam
-          const joursRestSem   = todayDow === 0 ? 1 : 7 - todayDow + 1 // aujourd'hui + jours jusqu'à dim
-          const OBJ_SEM_ADJ    = OBJ_JOUR_ADJ * joursRestSem
+          // Objectif semaine fixe = OBJ_CONF / 4.3 (indépendant de l'objectif jour ajusté)
+          const OBJ_SEM_ADJ    = Math.round(OBJ_CONF / 4.3)
 
           // Avance/retard vs rythme attendu
           const caAttendu = OBJ_JOUR_BASE * joursEcoules
