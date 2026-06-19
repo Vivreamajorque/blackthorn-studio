@@ -461,7 +461,7 @@ export default function Devis({ onBack }) {
             ))}
 
             {/* Réduction manuelle */}
-            {total >= 80 && (
+            {subtotal >= 80 && (
               <div style={{ marginTop:'12px', marginBottom:'12px' }}>
                 <div style={{ fontSize:'10px', color:'var(--txt3)', fontWeight:700, letterSpacing:'1px', textTransform:'uppercase', marginBottom:'6px' }}>Réduction manuelle</div>
                 <div style={{ display:'flex', gap:'6px' }}>
