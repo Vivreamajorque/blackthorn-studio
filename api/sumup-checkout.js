@@ -17,11 +17,12 @@ module.exports = async function handler(req, res) {
   // Payload propre — pas de champs undefined
   const payload = JSON.stringify({
     checkout_reference: reference || `BT-${Date.now()}`,
-    amount:             parseFloat(amount),
+    amount:             Math.round(parseFloat(amount) * 100) / 100,
     currency:           currency,
-    description:        description,
+    description:        String(description).substring(0, 100),
   })
 
+  console.log('[SumUp] Payload:', payload)
   return new Promise((resolve) => {
     const opts = {
       hostname: 'api.sumup.com',
@@ -41,6 +42,7 @@ module.exports = async function handler(req, res) {
       resp.on('end', () => {
         try {
           const parsed = JSON.parse(data)
+          console.log('[SumUp] Status:', resp.statusCode, '| Response:', JSON.stringify(parsed).substring(0, 300))
           if (resp.statusCode !== 200 && resp.statusCode !== 201) {
             res.status(resp.statusCode).json({
               error:   parsed.message || parsed.error_code || 'Erreur SumUp',
