@@ -325,6 +325,35 @@ export const notion = {
   }),
 
   deleteCreneau: (pageId) => call(`pages/${pageId}`, 'PATCH', { archived: true }),
+
+  deleteVersementsSessions: async (client) => {
+    // Cherche toutes les sessions versement pour ce client et les archive
+    const r = await call(`databases/${SESSIONS_DB}/query`, 'POST', {
+      filter: { and: [
+        { property: 'Type',           select:    { equals: '💰 Versement client' } },
+        { property: 'Client prénom',  rich_text: { equals: client } },
+      ]},
+      page_size: 50
+    })
+    const ids = (r.results || []).map(p => p.id)
+    await Promise.all(ids.map(id => call(`pages/${id}`, 'PATCH', { archived: true })))
+    return ids.length
+  },
+
+  deleteRdvPrevu: async (client) => {
+    // Archive le RDV prévu lié à ce client (source = Lien réservation)
+    const r = await call(`databases/${SESSIONS_DB}/query`, 'POST', {
+      filter: { and: [
+        { property: 'Statut',         select:    { equals: '🗓 Prévu' } },
+        { property: 'Client prénom',  rich_text: { equals: client } },
+        { property: 'Source',         select:    { equals: '🔗 Lien réservation' } },
+      ]},
+      page_size: 10
+    })
+    const ids = (r.results || []).map(p => p.id)
+    await Promise.all(ids.map(id => call(`pages/${id}`, 'PATCH', { archived: true })))
+    return ids.length
+  },
 }
 
 export const parsePaiement = (s) => {

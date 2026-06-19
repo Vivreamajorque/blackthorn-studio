@@ -111,6 +111,8 @@ export default function Devis({ onBack }) {
   const [saving,      setSaving]     = useState(false)
   const [acompteReq,  setAcompteReq] = useState(true)  // case à décocher
   const [versProgressif, setVersProgressif] = useState(false) // mode versements progressifs
+  const [modeDevis,      setModeDevis]      = useState('auto') // 'auto' ou 'manuel'
+  const [montantManuel,  setMontantManuel]  = useState('')
   const [rdvPanel,    setRdvPanel]   = useState(false)
   const [rdvDate,     setRdvDate]    = useState('')
   const [rdvHeure,    setRdvHeure]   = useState('10:00')
@@ -214,7 +216,7 @@ export default function Devis({ onBack }) {
 
   const resetCalc = () => {
     setTattoos([]); setTattooCount(1); setManualDisc(0)
-    setClientName(''); setClientNotes(''); setTattooNote(''); setDuree('120'); setAcompteReq(true); setVersProgressif(false)
+    setClientName(''); setClientNotes(''); setTattooNote(''); setDuree('120'); setAcompteReq(true); setVersProgressif(false); setModeDevis('auto'); setMontantManuel('')
     setStyle('blackwork'); setSize('m'); setComplexity(2); setInk('bw')
   }
 
@@ -230,6 +232,9 @@ export default function Devis({ onBack }) {
       // Notion rich_text limite à 2000 chars — on tronque le JSON des tatouages
       const tatouagesJson = JSON.stringify(tattoos.map(t=>({p:t.price,st:t.styleKey,sz:t.sizeKey,ci:t.complexityIdx,ik:t.inkKey,n:t.note||''})))
       const tatouagesTronc = tatouagesJson.length > 1900 ? tatouagesJson.substring(0, 1900) : tatouagesJson
+      const prixFinal = modeDevis === 'manuel' && montantManuel
+        ? parseFloat(montantManuel)
+        : total
       await notion.addDevis({
         client:      clientName.trim(),
         description: descArr.join(' | ').substring(0, 1900),
@@ -264,13 +269,17 @@ export default function Devis({ onBack }) {
   }
 
   // ── Copier lien ───────────────────────────────────────────
-  const deleteDevis = async (id) => {
-    if (!window.confirm('Supprimer ce devis ?')) return
+  const deleteDevis = async (id, clientNom) => {
+    if (!window.confirm('Supprimer ce devis et tous les versements associés ?')) return
     try {
-      await notion.deleteCreneau(id) // réutilise le même mécanisme d'archivage
-      showToast('Devis supprimé')
+      await notion.deleteCreneau(id)
+      if (clientNom) {
+        await notion.deleteVersementsSessions(clientNom)
+        await notion.deleteRdvPrevu(clientNom)
+      }
+      showToast('Devis et versements supprimés')
       load()
-    } catch(e) { showToast('Erreur') }
+    } catch(e) { showToast('Erreur: ' + e.message) }
   }
 
   const copyLink = async (token) => {
@@ -354,7 +363,7 @@ export default function Devis({ onBack }) {
                         📤 Lien
                       </button>
                     )}
-                    <button onClick={() => deleteDevis(d.id)} style={{ ...S.btnGhost, fontSize:'11px', padding:'5px 10px', color:'#C0392B', borderColor:'rgba(192,57,43,.3)' }}>
+                    <button onClick={() => deleteDevis(d.id, client)} style={{ ...S.btnGhost, fontSize:'11px', padding:'5px 10px', color:'#C0392B', borderColor:'rgba(192,57,43,.3)' }}>
                       🗑
                     </button>
                     <button onClick={() => { setSelected({ ...d, statut, token, prix, acomp, client, desc }); setView('detail') }} style={{ ...S.btnGhost, fontSize:'11px', padding:'5px 10px' }}>
@@ -599,14 +608,50 @@ export default function Devis({ onBack }) {
             value={clientName} onChange={e => setClientName(e.target.value)} />
         </div>
 
-        {/* Switch saison */}
+        {/* Mode saisie : calculateur auto ou montant manuel */}
         <div style={S.card}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <div style={S.sectionTitle}>Mode de calcul</div>
+            <div style={{ display:'flex', gap:'6px' }}>
+              {[['auto','🧮 Calculateur'],['manuel','✏️ Manuel']].map(([v,l]) => (
+                <button key={v} onClick={() => setModeDevis(v)} style={{
+                  padding:'6px 12px', borderRadius:'20px', fontSize:'12px', fontWeight:700, cursor:'pointer', border:'none',
+                  background: modeDevis===v ? 'var(--txt)' : 'var(--bg)',
+                  color:      modeDevis===v ? 'var(--bg)' : 'var(--txt2)'
+                }}>{l}</button>
+              ))}
+            </div>
+          </div>
+          {modeDevis === 'manuel' && (
+            <div style={{ marginTop:'14px' }}>
+              <label style={{ fontSize:'11px', fontWeight:700, color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', display:'block', marginBottom:'8px' }}>Montant total du devis €</label>
+              <input type="number" inputMode="decimal" value={montantManuel}
+                onChange={e => setMontantManuel(e.target.value)}
+                placeholder="ex: 350"
+                style={{ width:'100%', background:'var(--bg)', border:'1.5px solid var(--border2)', borderRadius:'var(--r)', padding:'14px', fontFamily:'var(--font-mono)', fontSize:'28px', color:'var(--txt)', textAlign:'center' }}/>
+              {montantManuel && (
+                <div style={{ marginTop:'10px', fontSize:'12px', color:'var(--txt3)' }}>
+                  Acompte calculé : <strong style={{ color:'#D4820A' }}>
+                    {acompteReq && !versProgressif
+                      ? (parseFloat(montantManuel) > 300
+                          ? Math.ceil(parseFloat(montantManuel) * 0.1 / 10) * 10
+                          : 30) + '€'
+                      : '0€ (désactivé)'}
+                  </strong>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Switch saison — uniquement en mode auto */}
+        {modeDevis === 'auto' && <div style={S.card}>
           <div style={S.sectionTitle}>Saison</div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
             <button style={S.pillLg(season==='low')} onClick={() => setSeason('low')}>🌿 Basse saison<br/><span style={{ fontSize:'10px', opacity:.7 }}>Oct – Avr</span></button>
             <button style={S.pillLg(season==='high')} onClick={() => setSeason('high')}>☀️ Haute saison<br/><span style={{ fontSize:'10px', opacity:.7 }}>Mai – Sep</span></button>
           </div>
-        </div>
+        </div>}
 
         {/* Configurateur */}
         <div style={S.card}>
@@ -673,7 +718,8 @@ export default function Devis({ onBack }) {
         </div>
 
         {/* Session en cours */}
-        {tattoos.length > 0 && (
+        </div>)}
+        {tattoos.length > 0 && modeDevis === 'auto' && (
           <div style={S.card}>
             <div style={S.sectionTitle}>Session ({tattoos.length} tatouage{tattoos.length>1?'s':''})</div>
             {tattoos.map((t, i) => (
@@ -802,7 +848,7 @@ export default function Devis({ onBack }) {
           <div style={S.sectionTitle}>Notes internes</div>
           <input style={{ ...S.input, marginBottom:'14px' }} placeholder="Notes, précisions…"
             value={clientNotes} onChange={e => setClientNotes(e.target.value)} />
-          <button style={S.btnPrimary} onClick={saveDevis} disabled={saving || !clientName || tattoos.length===0}>
+          <button style={S.btnPrimary} onClick={saveDevis} disabled={saving || !clientName || (modeDevis==='auto' && tattoos.length===0) || (modeDevis==='manuel' && !montantManuel)}>
             {saving ? 'Enregistrement…' : '💾 Sauvegarder le devis'}
           </button>
         </div>
