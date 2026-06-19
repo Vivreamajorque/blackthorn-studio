@@ -32,6 +32,8 @@ export default function Booking() {
   const [selectedHr,  setSelHr]     = useState('')
   const [sessions,    setSessions]  = useState([]) // RDV déjà pris
   const [saving,      setSaving]    = useState(false)
+  const [payUrl,      setPayUrl]    = useState('')
+  const [payLoading,  setPayLoading]= useState(false)
   const [lang,        setLang]      = useState('fr')
 
   const T = {
@@ -368,16 +370,49 @@ export default function Booking() {
               <div style={{ fontSize:'12px', color:muted, marginTop:'6px' }}>Solde restant : {prix - acompte}€ (réglé en studio)</div>
             </div>
 
-            {/* Bouton SumUp / WhatsApp fallback */}
-            <a href={waLink} target="_blank" rel="noopener" style={{
-              display:'block', width:'100%', padding:'16px', background:'#25D366', color:'white',
-              textDecoration:'none', borderRadius:'50px', fontSize:'15px', fontWeight:700,
-              textAlign:'center', marginBottom:'10px'
-            }}>
-              💬 Régler par WhatsApp → {acompte}€
-            </a>
+            {/* Bouton SumUp */}
+            {!payUrl ? (
+              <button onClick={async () => {
+                setPayLoading(true)
+                try {
+                  const r = await fetch('/api/sumup-checkout', {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({
+                      amount: acompte,
+                      description: `Acompte tatouage — ${client} — ${selectedDay} ${selectedHr}`,
+                      reference: `BT-${devis.id.substring(0,8)}-${Date.now()}`
+                    })
+                  })
+                  const d = await r.json()
+                  if (d.payUrl) setPayUrl(d.payUrl)
+                  else throw new Error(d.error)
+                } catch(e) {
+                  // fallback WhatsApp
+                  window.open(waLink, '_blank')
+                }
+                setPayLoading(false)
+              }} disabled={payLoading} style={{
+                width:'100%', padding:'16px',
+                background: payLoading ? '#555' : '#1B5E20',
+                color:'white', border:'none', borderRadius:'50px',
+                fontSize:'15px', fontWeight:700, cursor:'pointer',
+                marginBottom:'10px'
+              }}>
+                {payLoading ? 'Génération du lien…' : `💳 ${t.payBtn}`}
+              </button>
+            ) : (
+              <a href={payUrl} target="_blank" rel="noopener" style={{
+                display:'block', width:'100%', padding:'16px',
+                background:'#1B5E20', color:'white',
+                textDecoration:'none', borderRadius:'50px',
+                fontSize:'15px', fontWeight:700, textAlign:'center', marginBottom:'10px'
+              }}>
+                💳 Payer {acompte}€ maintenant →
+              </a>
+            )}
             <div style={{ fontSize:'11px', color:muted, textAlign:'center' }}>
-              Tony vous enverra un lien de paiement SumUp sécurisé dès réception.
+              Paiement sécurisé SumUp · Carte bancaire acceptée
             </div>
           </div>
         )}
