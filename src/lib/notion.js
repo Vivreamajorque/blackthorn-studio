@@ -1,5 +1,5 @@
 const SESSIONS_DB = 'd5c3846e-3d3c-4eae-ade8-2e7efa3c896f'
-const DEVIS_DB    = '2a5b0fb2-a735-4724-ad3c-df2a90130069'
+const DEVIS_DB    = 'b6d33466-c5db-4046-be2f-a242c8686a97'
 const DEPENSES_DB = '323d80c7-6418-4b25-a4c6-70cea0fd20a1'
 const CLIENTS_DB  = '53149c61-3639-45a2-ab49-c2ea77a7c088'
 const KPIS_DB     = '450c0c95-33e0-47c6-ae27-3c9540162cd2'
