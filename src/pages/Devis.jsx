@@ -159,15 +159,18 @@ export default function Devis({ onBack }) {
     try {
       const token   = genToken()
       const descArr = tattoos.map((t,i)=>`#${i+1} ${t.style} ${t.size.toUpperCase()} ${t.complexity}${t.note?' — '+t.note:''}`)
+      // Notion rich_text limite à 2000 chars — on tronque le JSON des tatouages
+      const tatouagesJson = JSON.stringify(tattoos.map(t=>({p:t.price,st:t.styleKey,sz:t.sizeKey,ci:t.complexityIdx,ik:t.inkKey,n:t.note||''})))
+      const tatouagesTronc = tatouagesJson.length > 1900 ? tatouagesJson.substring(0, 1900) : tatouagesJson
       await notion.addDevis({
         client:      clientName.trim(),
-        description: descArr.join(' | '),
+        description: descArr.join(' | ').substring(0, 1900),
         prix:        total,
         acompte:     acompte,
         token:       token,
-        tatouages:   JSON.stringify(tattoos),
+        tatouages:   tatouagesTronc,
         dateCreation:todayStr(),
-        notes:       clientNotes.trim()
+        notes:       clientNotes.trim().substring(0, 500)
       })
       showToast('Devis sauvegardé ✓')
       resetCalc()
@@ -499,7 +502,7 @@ export default function Devis({ onBack }) {
               <div>
                 <div style={{ fontSize:'11px', fontWeight:700, color:'#D4820A', textTransform:'uppercase', letterSpacing:'1px' }}>Acompte client</div>
                 <div style={{ fontSize:'11px', color:'var(--txt3)', marginTop:'2px' }}>
-                  {total > 300 ? `10% arrondi = ${calcAcompte(total)}€` : 'Minimum 30€'}
+                  {total > 300 ? `10% arrondi à la dizaine = ${calcAcompte(total)}€` : `Minimum garanti = 30€`}
                 </div>
               </div>
               <div style={{ fontFamily:'var(--font-mono)', fontSize:'22px', fontWeight:700, color:'#D4820A' }}>{acompte}€</div>
