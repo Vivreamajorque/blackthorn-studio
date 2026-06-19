@@ -1,5 +1,5 @@
 // api/sumup-checkout.js
-const SUMUP_KEY = process.env.SUMUP_KEY
+const SUMUP_KEY = process.env.CLESUMUP || process.env.SUMUP_KEY
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
