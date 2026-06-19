@@ -628,7 +628,7 @@ export default function Planning({ onBack, onEditRdv }) {
                       padding:'9px', borderRadius:'var(--r)', border:'none', cursor:'pointer', fontFamily:'var(--font-head)', fontWeight:700, fontSize:'11px',
                       background: isPast ? 'var(--green)' : 'var(--amber)', color:'#fff'
                     }}>✅ {isPast?'Valider':'Client venu'}</button>
-                    <button onClick={()=>setQrPanel(s.id)} style={{
+                    <button onClick={(e)=>{ e.stopPropagation(); setQrPanel(s.id) }} style={{
                       padding:'9px', borderRadius:'var(--r)', background: s.properties['Fiche signée']?.checkbox ? 'rgba(26,140,90,.1)' : 'var(--surface)',
                       border: s.properties['Fiche signée']?.checkbox ? '1.5px solid rgba(26,140,90,.4)' : '1.5px solid var(--border2)',
                       color: s.properties['Fiche signée']?.checkbox ? '#1A8C5A' : 'var(--txt2)',
@@ -643,7 +643,7 @@ export default function Planning({ onBack, onEditRdv }) {
                 )}
                 {isConf && (
                   <div style={{ display:'flex', gap:'6px', marginTop:'4px' }}>
-                    <button onClick={()=>setQrPanel(s.id)} style={{
+                    <button onClick={(e)=>{ e.stopPropagation(); setQrPanel(s.id) }} style={{
                       flex:1, padding:'8px', borderRadius:'var(--r)',
                       background: s.properties['Fiche signée']?.checkbox ? 'rgba(26,140,90,.08)' : 'var(--surface)',
                       border: s.properties['Fiche signée']?.checkbox ? '1px solid rgba(26,140,90,.3)' : '1px solid var(--border2)',
