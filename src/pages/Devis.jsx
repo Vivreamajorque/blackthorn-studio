@@ -225,8 +225,13 @@ export default function Devis({ onBack }) {
 
   // ── Sauvegarder devis ──────────────────────────────────────
   const saveDevis = async () => {
-    if (!clientName.trim() || (modeDevis === 'auto' && tattoos.length === 0) || (modeDevis === 'manuel' && !montantManuel)) {
-      showToast(modeDevis === 'manuel' ? 'Client et montant requis' : 'Client et au moins 1 tatouage requis'); return
+    const manque = []
+    if (!clientName.trim()) manque.push('nom du client')
+    if (modeDevis === 'auto' && tattoos.length === 0) manque.push('au moins 1 tatouage')
+    if (modeDevis === 'manuel' && !montantManuel) manque.push('montant')
+    if (manque.length > 0) {
+      showToast('⚠️ Manque : ' + manque.join(' + '))
+      return
     }
     setSaving(true)
     try {
@@ -916,7 +921,7 @@ export default function Devis({ onBack }) {
           <div style={S.sectionTitle}>Notes internes</div>
           <input style={{ ...S.input, marginBottom:'14px' }} placeholder="Notes, précisions…"
             value={clientNotes} onChange={e => setClientNotes(e.target.value)} />
-          <button style={S.btnPrimary} onClick={saveDevis} disabled={saving || !clientName || (modeDevis==='auto' && tattoos.length===0) || (modeDevis==='manuel' && !montantManuel)}>
+          <button style={{ ...S.btnPrimary, opacity: saving ? .6 : 1 }} onClick={saveDevis} disabled={saving}>
             {saving ? 'Enregistrement…' : '💾 Sauvegarder le devis'}
           </button>
         </div>
