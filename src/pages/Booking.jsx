@@ -275,9 +275,23 @@ export default function Booking() {
   while (days.length < 30) { days.push(cursor); cursor = addDays(cursor, 1) }
 
   // Confirmer le créneau → marquer dans Notion + redirect SumUp
-  // Confirmer le créneau -> aller au paiement (RDV créé APRÈS paiement)
-  const confirmSlot = () => {
-    if (!selectedDay || !selectedHr) return
+  // Confirmer le créneau -> stocker date/heure dans devis + aller au paiement
+  const confirmSlot = async () => {
+    if (!selectedDay || !selectedHr || !devis) return
+    try {
+      // Stocker RDV date/heure dans notes du devis pour le webhook SumUp
+      await notion.updateDevisStatut(devis.id, '🔗 Lien envoyé')
+      // On patch aussi les notes avec la date/heure
+      await fetch('/api/notion?path=' + encodeURIComponent('pages/' + devis.id), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          properties: {
+            Notes: { rich_text: [{ text: { content: 'RDV: ' + selectedDay + ' à ' + selectedHr } }] }
+          }
+        })
+      })
+    } catch(e) { console.warn('confirmSlot patch:', e) }
     setStep(3)
   }
 
@@ -566,13 +580,13 @@ export default function Booking() {
               </a>
             )}
             {payUrl && !payUrl.startsWith('ERROR:') && (
-              <button onClick={finalizeBooking} style={{
-                width:'100%', padding:'12px', marginTop:'8px',
-                background:'transparent', border:`1px solid ${accent}`, color:accent,
-                borderRadius:'50px', fontSize:'13px', fontWeight:700, cursor:'pointer'
-              }}>
-                ✅ J'ai payé — Confirmer ma réservation
-              </button>
+              <div style={{ marginTop:'12px', padding:'12px 16px', background:`rgba(126,200,192,.08)`, border:`1px solid rgba(126,200,192,.2)`, borderRadius:'12px', fontSize:'12px', color:muted, textAlign:'center' }}>
+                ✅ Après le paiement, ta réservation est confirmée automatiquement.
+                <br/>
+                <button onClick={finalizeBooking} style={{ marginTop:'10px', background:'transparent', border:`1px solid ${border}`, color:muted, borderRadius:'20px', padding:'6px 14px', fontSize:'11px', cursor:'pointer' }}>
+                  Confirmer manuellement si nécessaire
+                </button>
+              </div>
             )}
             <div style={{ fontSize:'11px', color:muted, textAlign:'center', marginTop:'8px' }}>
               Paiement sécurisé SumUp · Carte bancaire acceptée
