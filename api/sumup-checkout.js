@@ -1,5 +1,6 @@
 // api/sumup-checkout.js
-const SUMUP_KEY = process.env.CLESUMUP || process.env.SUMUP_KEY
+const SUMUP_KEY       = process.env.CLESUMUP || process.env.SUMUP_KEY
+const MERCHANT_CODE   = process.env.SUMUP_MERCHANT_CODE
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -14,32 +15,26 @@ module.exports = async function handler(req, res) {
 
   const https = require('https')
 
-  // Référence propre — max 90 chars, alphanumeric + tirets
   const cleanRef = (reference || `BT-${Date.now()}`)
-    .replace(/[^a-zA-Z0-9-]/g, '')
-    .substring(0, 90)
-
-  // SumUp exige pay_to_email OU merchant_code
-  const merchantCode = process.env.SUMUP_MERCHANT_CODE
-  const payToEmail   = process.env.SUMUP_EMAIL
+    .replace(/[^a-zA-Z0-9-]/g, '').substring(0, 90)
 
   const payload = JSON.stringify({
     checkout_reference: cleanRef,
     amount:             Math.round(parseFloat(amount) * 100) / 100,
-    currency:           currency,
+    currency,
     description:        String(description).substring(0, 100),
-    ...(merchantCode ? { merchant_code: merchantCode } : {}),
-    ...(payToEmail   ? { pay_to_email:  payToEmail   } : {}),
-    return_url:         'https://blackthorn-studio.vercel.app',
+    merchant_code:      MERCHANT_CODE,
+    // Hosted Checkout — SumUp retourne hosted_checkout_url directement utilisable
+    hosted_checkout: { enabled: true },
+    return_url: 'https://blackthorn-studio.vercel.app',
   })
 
   console.log('[SumUp] Payload:', payload)
+
   return new Promise((resolve) => {
     const opts = {
-      hostname: 'api.sumup.com',
-      port: 443,
-      path: '/v0.1/checkouts',
-      method: 'POST',
+      hostname: 'api.sumup.com', port: 443,
+      path: '/v0.1/checkouts', method: 'POST',
       headers: {
         'Authorization':  `Bearer ${SUMUP_KEY}`,
         'Content-Type':   'application/json',
@@ -53,18 +48,18 @@ module.exports = async function handler(req, res) {
       resp.on('end', () => {
         try {
           const parsed = JSON.parse(data)
-          console.log('[SumUp] Status:', resp.statusCode, '| Response:', JSON.stringify(parsed).substring(0, 300))
+          console.log('[SumUp] Status:', resp.statusCode, '| Response:', JSON.stringify(parsed).substring(0, 400))
           if (resp.statusCode !== 200 && resp.statusCode !== 201) {
             res.status(resp.statusCode).json({
               error:   parsed.message || parsed.error_code || 'Erreur SumUp',
-              status:  resp.statusCode,
               details: parsed
             })
           } else {
-            const checkoutId = parsed.id
-            // URL de paiement hébergée par SumUp — format officiel
-            const payUrl = `https://pay.sumup.com/b2c/checkouts/${checkoutId}`
-            res.status(200).json({ checkoutId, payUrl, amount: parsed.amount })
+            // Utiliser hosted_checkout_url si disponible, sinon fallback
+            const payUrl = parsed.hosted_checkout_url
+              || `https://pay.sumup.com/b2c/checkouts/${parsed.id}`
+            console.log('[SumUp] payUrl:', payUrl)
+            res.status(200).json({ checkoutId: parsed.id, payUrl, amount: parsed.amount })
           }
         } catch(e) {
           res.status(500).json({ error: 'Parse error', raw: data.substring(0, 200) })
