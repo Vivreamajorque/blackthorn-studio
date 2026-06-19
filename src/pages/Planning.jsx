@@ -628,12 +628,20 @@ export default function Planning({ onBack, onEditRdv }) {
                       padding:'9px', borderRadius:'var(--r)', border:'none', cursor:'pointer', fontFamily:'var(--font-head)', fontWeight:700, fontSize:'11px',
                       background: isPast ? 'var(--green)' : 'var(--amber)', color:'#fff'
                     }}>✅ {isPast?'Valider':'Client venu'}</button>
-                    <button onClick={(e)=>{ e.stopPropagation(); setQrPanel(s.id) }} style={{
+                    <button onClick={(e)=>{ e.stopPropagation()
+                      const notes = s.properties.Notes?.rich_text?.[0]?.plain_text || ''
+                      const pdfMatch = notes.match(/PDF Drive : (https:\/\/[^\n]+)/)
+                      if (s.properties['Fiche signée']?.checkbox && pdfMatch) {
+                        window.open(pdfMatch[1], '_blank')
+                      } else {
+                        setQrPanel(s.id)
+                      }
+                    }} style={{
                       padding:'9px', borderRadius:'var(--r)', background: s.properties['Fiche signée']?.checkbox ? 'rgba(26,140,90,.1)' : 'var(--surface)',
                       border: s.properties['Fiche signée']?.checkbox ? '1.5px solid rgba(26,140,90,.4)' : '1.5px solid var(--border2)',
                       color: s.properties['Fiche signée']?.checkbox ? '#1A8C5A' : 'var(--txt2)',
                       fontFamily:'var(--font-head)', fontWeight:700, fontSize:'11px', cursor:'pointer'
-                    }}>{s.properties['Fiche signée']?.checkbox ? '✅ Fiche' : '📋 Fiche'}</button>
+                    }}>{s.properties['Fiche signée']?.checkbox ? '📄 Fiche' : '📋 Fiche'}</button>
                     {onEditRdv && (
                       <button onClick={()=>{ const dr=s.properties.Date?.date?.start||''; onEditRdv({ id:s.id, client, style, prixEstime:String(prix), sessions:'1', acompte:String(acompte), date:dr.split('T')[0]||'', heure:dr.includes('T')?dr.substring(11,16):'', natio:s.properties.Nationalité?.select?.name||'🇫🇷 FR', source:s.properties.Source?.select?.name||'📸 Instagram' }) }} style={{
                         padding:'9px', borderRadius:'var(--r)', background:'var(--surface)', border:'1.5px solid var(--gold)', color:'var(--gold-dk)', fontFamily:'var(--font-head)', fontWeight:700, fontSize:'11px', cursor:'pointer'
@@ -643,13 +651,21 @@ export default function Planning({ onBack, onEditRdv }) {
                 )}
                 {isConf && (
                   <div style={{ display:'flex', gap:'6px', marginTop:'4px' }}>
-                    <button onClick={(e)=>{ e.stopPropagation(); setQrPanel(s.id) }} style={{
+                    <button onClick={(e)=>{ e.stopPropagation()
+                      const notes = s.properties.Notes?.rich_text?.[0]?.plain_text || ''
+                      const pdfMatch = notes.match(/PDF Drive : (https:\/\/[^\n]+)/)
+                      if (s.properties['Fiche signée']?.checkbox && pdfMatch) {
+                        window.open(pdfMatch[1], '_blank')
+                      } else {
+                        setQrPanel(s.id)
+                      }
+                    }} style={{
                       flex:1, padding:'8px', borderRadius:'var(--r)',
                       background: s.properties['Fiche signée']?.checkbox ? 'rgba(26,140,90,.08)' : 'var(--surface)',
                       border: s.properties['Fiche signée']?.checkbox ? '1px solid rgba(26,140,90,.3)' : '1px solid var(--border2)',
                       color: s.properties['Fiche signée']?.checkbox ? '#1A8C5A' : 'var(--txt3)',
                       fontFamily:'var(--font-head)', fontWeight:600, fontSize:'11px', cursor:'pointer'
-                    }}>{s.properties['Fiche signée']?.checkbox ? '✅ Fiche signée' : '📋 Fiche de consentement'}</button>
+                    }}>{s.properties['Fiche signée']?.checkbox ? '📄 Voir la fiche PDF' : '📋 Fiche de consentement'}</button>
                     {onEditRdv && (
                       <button onClick={()=>{ const dr=s.properties.Date?.date?.start||''; onEditRdv({ id:s.id, client, style, prixEstime:String(prix), sessions:'1', acompte:String(acompte), date:dr.split('T')[0]||'', heure:dr.includes('T')?dr.substring(11,16):'', natio:s.properties.Nationalité?.select?.name||'🇫🇷 FR', source:s.properties.Source?.select?.name||'📸 Instagram' }) }} style={{
                         padding:'8px 14px', borderRadius:'var(--r)', background:'var(--surface)', border:'1px solid var(--border2)', color:'var(--txt3)', fontFamily:'var(--font-head)', fontWeight:600, fontSize:'11px', cursor:'pointer'
