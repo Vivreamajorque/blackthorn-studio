@@ -158,8 +158,11 @@ export default function Booking() {
         if (statut === '✅ Réservé') { setStep(4); setDevis(d); setLoading(false); return }
         if (statut === '❌ Refusé')  { setError('Ce devis a été annulé.'); setLoading(false); return }
         setDevis(d)
-        // Charger sessions en arrière-plan (non bloquant)
-        notion.getSessions().then(s => { if (s.results) setSessions(s.results) }).catch(() => {})
+        // Charger sessions maintenant (bloquant — nécessaire pour le filtrage anti-chevauchement)
+        try {
+          const s = await notion.getSessions()
+          if (s.results) setSessions(s.results)
+        } catch(e) { console.warn('sessions non chargées:', e) }
       } catch(e) {
         setError('Erreur technique : ' + (e?.message || 'inconnue'))
       }
@@ -168,12 +171,13 @@ export default function Booking() {
   }, [token])
 
   // Créneaux Notion — chargés par tranches pour éviter la limite 200 de Notion
-  const [creneaux, setCreneaux] = useState([])
+  const [creneaux,   setCreneaux]   = useState([])
+  const [dataReady,  setDataReady]  = useState(false)
+
   useEffect(() => {
     if (!devis) return
     const fetchAll = async () => {
       const all = []
-      // Charger par tranches de 7 jours sur 28 jours
       for (let w = 0; w < 4; w++) {
         const dateMin = addDays(todayStr(), w * 7 + 1)
         const dateMax = addDays(todayStr(), w * 7 + 7)
@@ -183,6 +187,7 @@ export default function Booking() {
         } catch(e) {}
       }
       setCreneaux(all)
+      setDataReady(true)
     }
     fetchAll()
   }, [devis])
@@ -370,7 +375,11 @@ export default function Booking() {
             </div>
 
             {/* Jours avec créneaux disponibles */}
-            {daysWithSlots.length === 0 ? (
+            {!dataReady ? (
+              <div style={{ textAlign:'center', padding:'32px', color:muted, fontSize:'13px' }}>
+                Chargement des disponibilités…
+              </div>
+            ) : daysWithSlots.length === 0 ? (
               <div style={{ textAlign:'center', padding:'32px 20px', color:muted, fontSize:'13px' }}>
                 <div style={{ fontSize:'28px', marginBottom:'10px' }}>📅</div>
                 Aucun créneau disponible pour le moment.<br/>Contacte Tony sur WhatsApp pour fixer un RDV.
@@ -427,6 +436,7 @@ export default function Booking() {
                   }}>💳 Passer au paiement →</button>
                 )}
               </div>
+            )}
             )}
           </div>
         )}
