@@ -510,58 +510,22 @@ export default function Booking() {
               <div style={{ fontSize:'12px', color:muted, marginTop:'6px' }}>Solde restant : {prix - acompte}€ (réglé en studio)</div>
             </div>
 
-            {/* Bouton SumUp */}
+            {/* Bouton SumUp Pay by Link direct */}
             {!payUrl ? (
-              <button onClick={async () => {
-                setPayLoading(true)
-                try {
-                  const r = await fetch('/api/sumup-checkout', {
-                    method:'POST',
-                    headers:{'Content-Type':'application/json'},
-                    body: JSON.stringify({
-                      amount: acompte,
-                      description: `Acompte tatouage — ${client} — ${selectedDay} ${selectedHr}`,
-                      reference: `BT-${token}-${Date.now()}`
-                    })
-                  })
-                  const d = await r.json()
-                  if (d.payUrl) {
-                    setPayUrl(d.payUrl)
-                    window.open(d.payUrl, '_blank')
-                  } else throw new Error(d.error || 'Erreur SumUp')
-                } catch(e) {
-                  // Afficher l'erreur, ne pas rediriger vers WhatsApp
-                  setPayUrl('ERROR:' + e.message)
-                }
-                setPayLoading(false)
-              }} disabled={payLoading} style={{
+              <button onClick={() => {
+                // SumUp Pay by Link — lien direct sans serveur
+                const sumupPayLink = `https://pay.sumup.com/b2c/Q4VKJB3S?amount=${acompte}&currency=EUR&description=${encodeURIComponent('Acompte tatouage — ' + client + ' — ' + selectedDay + ' ' + selectedHr)}`
+                setPayUrl(sumupPayLink)
+                window.open(sumupPayLink, '_blank')
+              }} style={{
                 width:'100%', padding:'16px',
-                background: payLoading ? '#555' : '#1B5E20',
+                background:'#1B5E20',
                 color:'white', border:'none', borderRadius:'50px',
                 fontSize:'15px', fontWeight:700, cursor:'pointer',
                 marginBottom:'10px'
               }}>
-                {payLoading ? 'Génération du lien…' : `💳 ${t.payBtn}`}
+                💳 {t.payBtn}
               </button>
-            ) : payUrl.startsWith('ERROR:') ? (
-              <div>
-                <div style={{ background:'rgba(192,57,43,.1)', border:'1px solid rgba(192,57,43,.3)', borderRadius:'12px', padding:'14px', marginBottom:'12px', fontSize:'12px', color:'#C0392B' }}>
-                  ⚠️ Erreur paiement en ligne : {payUrl.replace('ERROR:','')}
-                </div>
-                <a href={waLink} target="_blank" rel="noopener" style={{
-                  display:'block', width:'100%', padding:'14px',
-                  background:'#25D366', color:'white',
-                  textDecoration:'none', borderRadius:'50px',
-                  fontSize:'14px', fontWeight:700, textAlign:'center', marginBottom:'10px'
-                }}>
-                  💬 Contacter Tony pour le paiement
-                </a>
-                <button onClick={() => setPayUrl('')} style={{
-                  width:'100%', padding:'10px', background:'transparent',
-                  border:`1px solid ${border}`, color:muted, borderRadius:'50px',
-                  fontSize:'12px', cursor:'pointer'
-                }}>↩ Réessayer</button>
-              </div>
             ) : (
               <a href={payUrl} target="_blank" rel="noopener" style={{
                 display:'block', width:'100%', padding:'16px',
@@ -572,7 +536,7 @@ export default function Booking() {
                 💳 Payer {acompte}€ sur SumUp →
               </a>
             )}
-            {payUrl && !payUrl.startsWith('ERROR:') && (
+            {payUrl && (
               <button onClick={finalizeBooking} style={{
                 width:'100%', padding:'12px', marginTop:'8px',
                 background:'transparent', border:`1px solid ${accent}`, color:accent,
