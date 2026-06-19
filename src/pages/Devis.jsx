@@ -109,8 +109,39 @@ export default function Devis({ onBack }) {
   const [duree,       setDuree]      = useState('120')
   const [tattooCount, setTattooCount]= useState(1)
   const [saving,      setSaving]     = useState(false)
+  const [acompteReq,  setAcompteReq] = useState(true)  // case à décocher
+  const [rdvPanel,    setRdvPanel]   = useState(false)  // panel RDV direct depuis détail
+  const [rdvDate,     setRdvDate]    = useState('')
+  const [rdvHeure,    setRdvHeure]   = useState('10:00')
+  const [rdvSaving,   setRdvSaving]  = useState(false)
 
   const showToast = (m) => { setToast(m); setTimeout(() => setToast(''), 2500) }
+
+  const submitRdvDirect = async () => {
+    if (!selected || !rdvDate || !rdvHeure) return
+    setRdvSaving(true)
+    try {
+      const dureeDevis = selected.properties['Durée']?.number || 120
+      await notion.addAppointment({
+        client:     getStr(selected, 'Client'),
+        style:      getStr(selected, 'Description').substring(0, 200),
+        prixEstime: getNum(selected, 'Prix'),
+        acompte:    getNum(selected, 'Acompte'),
+        date:       rdvDate,
+        heure:      rdvHeure,
+        duree:      String(dureeDevis),
+        natio:      'Autre',
+        source:     '📋 Devis',
+        sessions:   1,
+      })
+      await notion.updateDevisStatut(selected.id, '✅ Réservé')
+      showToast('📅 RDV calé dans le planning ✓')
+      setRdvPanel(false)
+      setSelected(prev => ({ ...prev, statut: '✅ Réservé' }))
+      load()
+    } catch(e) { showToast('Erreur: ' + e.message) }
+    setRdvSaving(false)
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -147,7 +178,7 @@ export default function Devis({ onBack }) {
 
   const resetCalc = () => {
     setTattoos([]); setTattooCount(1); setManualDisc(0)
-    setClientName(''); setClientNotes(''); setTattooNote(''); setDuree('120')
+    setClientName(''); setClientNotes(''); setTattooNote(''); setDuree('120'); setAcompteReq(true)
     setStyle('blackwork'); setSize('m'); setComplexity(2); setInk('bw')
   }
 
@@ -167,7 +198,7 @@ export default function Devis({ onBack }) {
         client:      clientName.trim(),
         description: descArr.join(' | ').substring(0, 1900),
         prix:        total,
-        acompte:     acompte,
+        acompte:     acompteReq ? acompte : 0,
         token:       token,
         tatouages:   tatouagesTronc,
         duree:       parseInt(duree) || 120,
@@ -333,6 +364,47 @@ export default function Devis({ onBack }) {
               </div>
             </div>
           )}
+
+          {/* Caler RDV direct */}
+          <div style={S.card}>
+            <div style={{ ...S.sectionTitle, marginBottom:'10px' }}>Caler le rendez-vous</div>
+            {!rdvPanel ? (
+              <button onClick={() => setRdvPanel(true)} style={{ ...S.btnPrimary, background:'#1A8C5A' }}>
+                📅 Caler le RDV dans le planning
+              </button>
+            ) : (
+              <div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px', marginBottom:'12px' }}>
+                  <div>
+                    <div style={{ fontSize:'10px', color:'var(--txt3)', fontWeight:700, textTransform:'uppercase', letterSpacing:'1px', marginBottom:'6px' }}>Date</div>
+                    <input type="date" value={rdvDate} onChange={e => setRdvDate(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                      style={{ width:'100%', background:'var(--bg)', border:'1.5px solid var(--border2)', borderRadius:'var(--r)', padding:'10px 12px', fontFamily:'var(--font-mono)', fontSize:'14px', color:'var(--txt)' }}/>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:'10px', color:'var(--txt3)', fontWeight:700, textTransform:'uppercase', letterSpacing:'1px', marginBottom:'6px' }}>Heure</div>
+                    <input type="time" value={rdvHeure} onChange={e => setRdvHeure(e.target.value)}
+                      style={{ width:'100%', background:'var(--bg)', border:'1.5px solid var(--border2)', borderRadius:'var(--r)', padding:'10px 12px', fontFamily:'var(--font-mono)', fontSize:'14px', color:'var(--txt)' }}/>
+                  </div>
+                </div>
+                {selected.properties['Durée']?.number && (
+                  <div style={{ fontSize:'11px', color:'var(--txt3)', marginBottom:'10px' }}>
+                    ⏱ Durée : {selected.properties['Durée'].number}min — créneau bloqué jusqu'à {(() => {
+                      const [h,m] = rdvHeure.split(':').map(Number)
+                      const fin = h*60+m+(selected.properties['Durée']?.number||120)
+                      return `${String(Math.floor(fin/60)).padStart(2,'0')}:${String(fin%60).padStart(2,'0')}`
+                    })()}
+                  </div>
+                )}
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
+                  <button onClick={() => setRdvPanel(false)} style={{ ...S.btnGhost, textAlign:'center' }}>Annuler</button>
+                  <button onClick={submitRdvDirect} disabled={rdvSaving || !rdvDate} style={{ ...S.btnPrimary, background: rdvSaving||!rdvDate ? '#555':'#1A8C5A', opacity: !rdvDate ? .6:1 }}>
+                    {rdvSaving ? '…' : '✓ Confirmer'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Actions statut */}
           <div style={S.card}>
@@ -503,16 +575,29 @@ export default function Devis({ onBack }) {
               </div>
             </div>
 
-            {/* Acompte calculé */}
-            <div style={S.acompteBox}>
-              <div>
-                <div style={{ fontSize:'11px', fontWeight:700, color:'#D4820A', textTransform:'uppercase', letterSpacing:'1px' }}>Acompte client</div>
-                <div style={{ fontSize:'11px', color:'var(--txt3)', marginTop:'2px' }}>
-                  {total > 300 ? `10% arrondi à la dizaine = ${calcAcompte(total)}€` : `Minimum garanti = 30€`}
-                </div>
-              </div>
-              <div style={{ fontFamily:'var(--font-mono)', fontSize:'22px', fontWeight:700, color:'#D4820A' }}>{acompte}€</div>
+            {/* Acompte — toggle + calcul */}
+            <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px', marginTop:'4px' }}>
+              <input type="checkbox" id="acompte-req" checked={acompteReq}
+                onChange={e => setAcompteReq(e.target.checked)}
+                style={{ width:18, height:18, accentColor:'#D4820A', cursor:'pointer', flexShrink:0 }}/>
+              <label htmlFor="acompte-req" style={{ fontSize:'13px', color:'var(--txt2)', cursor:'pointer', userSelect:'none' }}>
+                Acompte requis
+              </label>
             </div>
+            {acompteReq && (
+              <div style={S.acompteBox}>
+                <div>
+                  <div style={{ fontSize:'11px', fontWeight:700, color:'#D4820A', textTransform:'uppercase', letterSpacing:'1px' }}>Acompte client</div>
+                  <div style={{ fontSize:'11px', color:'var(--txt3)', marginTop:'2px' }}>
+                    {total > 300 ? `10% arrondi à la dizaine = ${calcAcompte(total)}€` : `Minimum garanti = 30€`}
+                  </div>
+                </div>
+                <div style={{ fontFamily:'var(--font-mono)', fontSize:'22px', fontWeight:700, color:'#D4820A' }}>{acompte}€</div>
+              </div>
+            )}
+            {!acompteReq && (
+              <div style={{ fontSize:'12px', color:'var(--txt3)', padding:'8px 0' }}>Aucun acompte — paiement intégral en studio</div>
+            )}
           </div>
         )}
 
