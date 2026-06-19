@@ -259,6 +259,8 @@ export const notion = {
     }
   }),
 
+  patchPage: (pageId, properties) => call(`pages/${pageId}`, 'PATCH', { properties }),
+
   updateDevisStatut: (pageId, statut) => call(`pages/${pageId}`, 'PATCH', {
     properties: { Statut: { select: { name: statut } } }
   }),

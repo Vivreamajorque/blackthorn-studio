@@ -110,12 +110,37 @@ export default function Devis({ onBack }) {
   const [tattooCount, setTattooCount]= useState(1)
   const [saving,      setSaving]     = useState(false)
   const [acompteReq,  setAcompteReq] = useState(true)  // case à décocher
-  const [rdvPanel,    setRdvPanel]   = useState(false)  // panel RDV direct depuis détail
+  const [rdvPanel,    setRdvPanel]   = useState(false)
   const [rdvDate,     setRdvDate]    = useState('')
   const [rdvHeure,    setRdvHeure]   = useState('10:00')
   const [rdvSaving,   setRdvSaving]  = useState(false)
+  const [vPanel,      setVPanel]     = useState(false)  // panel nouveau versement
+  const [vMontant,    setVMontant]   = useState('')
+  const [vMode,       setVMode]      = useState('cash')
 
   const showToast = (m) => { setToast(m); setTimeout(() => setToast(''), 2500) }
+
+  // Versements stockés dans Notes comme JSON: [{"date":"2026-06-20","montant":100,"mode":"cash"},...]
+  const parseVersements = (devisItem) => {
+    try {
+      const notes = devisItem?.properties?.Notes?.rich_text?.[0]?.plain_text || ''
+      const match = notes.match(/VERSEMENTS:(\[.*?\])/)
+      return match ? JSON.parse(match[1]) : []
+    } catch { return [] }
+  }
+
+  const totalVerse = (vers) => vers.reduce((s, v) => s + (v.montant || 0), 0)
+
+  const addVersement = async (devisItem, montant, mode) => {
+    const vers = parseVersements(devisItem)
+    vers.push({ date: new Date().toISOString().split('T')[0], montant: parseFloat(montant), mode })
+    const notes = devisItem?.properties?.Notes?.rich_text?.[0]?.plain_text || ''
+    const notesBase = notes.replace(/VERSEMENTS:\[.*?\]/, '').trim()
+    const newNotes = (notesBase + ' VERSEMENTS:' + JSON.stringify(vers)).trim().substring(0, 1900)
+    await notion.patchPage(devisItem.id, {
+      Notes: { rich_text: [{ text: { content: newNotes } }] }
+    })
+  }
 
   const submitRdvDirect = async () => {
     if (!selected || !rdvDate || !rdvHeure) return
@@ -376,6 +401,98 @@ export default function Devis({ onBack }) {
               </div>
             </div>
           )}
+
+          {/* Bloc versements progressifs */}
+          {(() => {
+            const vers   = parseVersements(selected)
+            const total  = getNum(selected, 'Prix')
+            const verse  = totalVerse(vers)
+            const reste  = Math.max(0, total - verse)
+            const pct    = total > 0 ? Math.min(100, Math.round(verse / total * 100)) : 0
+            const complet = verse >= total && total > 0
+
+            return (
+              <div style={S.card}>
+                <div style={{ ...S.sectionTitle, marginBottom:'12px' }}>💰 Versements</div>
+
+                {/* Barre de progression */}
+                <div style={{ marginBottom:'14px' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', fontSize:'12px', marginBottom:'6px' }}>
+                    <span style={{ color:'var(--txt3)' }}>Versé : <strong style={{ color:'#1A8C5A' }}>{verse}€</strong></span>
+                    <span style={{ color:'var(--txt3)' }}>Total : <strong style={{ color:'var(--txt)' }}>{total}€</strong></span>
+                  </div>
+                  <div style={{ background:'var(--bg)', borderRadius:'20px', height:'8px', overflow:'hidden' }}>
+                    <div style={{ width: pct+'%', height:'100%', background: complet ? '#1A8C5A' : '#D4820A', borderRadius:'20px', transition:'width .4s' }}/>
+                  </div>
+                  <div style={{ textAlign:'right', fontSize:'11px', marginTop:'4px', color: complet ? '#1A8C5A' : '#D4820A', fontWeight:700 }}>
+                    {complet ? '✅ Intégralement payé' : reste+'€ restants'}
+                  </div>
+                </div>
+
+                {/* Liste des versements */}
+                {vers.length > 0 && (
+                  <div style={{ marginBottom:'12px', display:'flex', flexDirection:'column', gap:'6px' }}>
+                    {vers.map((v, i) => (
+                      <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px', background:'var(--bg)', borderRadius:'var(--r)', fontSize:'12px' }}>
+                        <div style={{ color:'var(--txt3)' }}>{v.date} · {v.mode === 'cash' ? '💵' : '💳'} {v.mode}</div>
+                        <div style={{ fontFamily:'var(--font-mono)', fontWeight:700, color:'#1A8C5A' }}>+{v.montant}€</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Panel nouveau versement */}
+                {vPanel ? (
+                  <div style={{ background:'var(--bg)', borderRadius:'var(--r)', padding:'12px', marginBottom:'8px' }}>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px', marginBottom:'10px' }}>
+                      <div>
+                        <label style={{ fontSize:'10px', color:'var(--txt3)', fontWeight:700, textTransform:'uppercase', letterSpacing:'1px', display:'block', marginBottom:'4px' }}>Montant €</label>
+                        <input type="number" inputMode="decimal" value={vMontant} onChange={e => setVMontant(e.target.value)}
+                          placeholder="0" style={{ width:'100%', background:'var(--surface)', border:'1.5px solid var(--border2)', borderRadius:'var(--r)', padding:'10px', fontFamily:'var(--font-mono)', fontSize:'18px', color:'var(--txt)', textAlign:'center' }}/>
+                      </div>
+                      <div>
+                        <label style={{ fontSize:'10px', color:'var(--txt3)', fontWeight:700, textTransform:'uppercase', letterSpacing:'1px', display:'block', marginBottom:'4px' }}>Mode</label>
+                        <div style={{ display:'flex', gap:'6px' }}>
+                          {['cash','carte'].map(m => (
+                            <button key={m} onClick={() => setVMode(m)} style={{
+                              flex:1, padding:'10px', borderRadius:'var(--r)', border:'none', cursor:'pointer',
+                              fontFamily:'var(--font-head)', fontWeight:700, fontSize:'12px',
+                              background: vMode===m ? 'var(--txt)' : 'var(--bg2,var(--bg))',
+                              color: vMode===m ? 'var(--bg)' : 'var(--txt2)'
+                            }}>{m==='cash'?'💵 Cash':'💳 Carte'}</button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
+                      <button onClick={() => { setVPanel(false); setVMontant('') }} style={{ ...S.btnGhost, textAlign:'center' }}>Annuler</button>
+                      <button onClick={async () => {
+                        if (!vMontant || parseFloat(vMontant) <= 0) return
+                        setSaving(true)
+                        try {
+                          await addVersement(selected, vMontant, vMode)
+                          showToast('✅ Versement enregistré')
+                          setVPanel(false); setVMontant('')
+                          load()
+                          setSelected(prev => {
+                            // Recalc notes localement pour refresh immédiat
+                            return prev
+                          })
+                        } catch(e) { showToast('Erreur') }
+                        setSaving(false)
+                      }} disabled={saving || !vMontant} style={{ ...S.btnPrimary, background: saving||!vMontant ? '#555':'#1A8C5A', opacity:!vMontant?.0:1 }}>
+                        ✓ Enregistrer
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => setVPanel(true)} style={{ ...S.btnGhost, width:'100%', textAlign:'center', fontSize:'13px' }}>
+                    + Ajouter un versement
+                  </button>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Caler RDV direct */}
           <div style={S.card}>
