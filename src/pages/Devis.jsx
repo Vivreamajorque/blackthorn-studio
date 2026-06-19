@@ -222,8 +222,8 @@ export default function Devis({ onBack }) {
 
   // ── Sauvegarder devis ──────────────────────────────────────
   const saveDevis = async () => {
-    if (!clientName.trim() || tattoos.length === 0) {
-      showToast('Client et au moins 1 tatouage requis'); return
+    if (!clientName.trim() || (modeDevis === 'auto' && tattoos.length === 0) || (modeDevis === 'manuel' && !montantManuel)) {
+      showToast(modeDevis === 'manuel' ? 'Client et montant requis' : 'Client et au moins 1 tatouage requis'); return
     }
     setSaving(true)
     try {
