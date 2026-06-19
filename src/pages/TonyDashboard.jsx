@@ -3,9 +3,8 @@ import Planning from './Planning'
 import Devis    from './Devis'
 import { notion, parsePaiement, getNbSess } from '../lib/notion'
 
-const OBJ_EQ   = 3895   // équilibre
-const OBJ_CONF = 7500   // objectif confort = cible principale
-const OBJ_HIV  = 5850   // palier intermédiaire (réserve hiver)
+const OBJ_EQ   = 3895   // équilibre (charges fixes couvertes)
+const OBJ_CONF = 7500   // objectif confort — cible principale Tony
 const PERSO    = 1500
 const FIXES    = 956
 const IVA_FL   = 150.47
@@ -1253,9 +1252,7 @@ export default function TonyDashboard({ onLogout }) {
         })()}
 
         {/* ACTIONS */}
-        <button className="btn btn-gold" onClick={()=>setTab('ca')} style={{width:'100%',padding:'17px',fontSize:'15px',marginBottom:'10px',letterSpacing:'.5px',borderRadius:'var(--r-lg)'}}>
-          + Saisir mon CA du jour
-        </button>
+
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',marginBottom:'14px'}}>
           <button className="btn btn-ghost" onClick={()=>setTab('rdv')} style={{padding:'11px',fontSize:'12px',flexDirection:'column',gap:'2px'}}>
             <span>📅</span>RDV prévu
@@ -1301,7 +1298,6 @@ export default function TonyDashboard({ onLogout }) {
           {id:'home',    icon:'◈',  label:'Home'},
           {id:'planning',icon:'⊡',  label:'Planning'},
           {id:'devis',   icon:'📋', label:'Devis'},
-          {id:'ca',      icon:'＋', label:'Saisir'},
           {id:'histo',   icon:'≡',  label:'Historique'},
         ].map(item=>(
           <button key={item.id} onClick={()=>setTab(item.id)} style={{
