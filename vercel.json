@@ -39,10 +39,12 @@
     }
   ],
   "rewrites": [
-    { "source": "/fine-line-tattoo-mallorca", "destination": "/fine-line-tattoo-mallorca.html" },
+    { "source": "/fine-line-tattoo-mallorca",   "destination": "/fine-line-tattoo-mallorca.html" },
     { "source": "/tattoo-studio-south-mallorca", "destination": "/tattoo-studio-south-mallorca.html" },
-    { "source": "/tatouage-majorque", "destination": "/tatouage-majorque.html" },
-    { "source": "/tattoo-mallorca-urlaub", "destination": "/tattoo-mallorca-urlaub.html" },
-    { "source": "/realism-tattoo-mallorca", "destination": "/realism-tattoo-mallorca.html" }
+    { "source": "/tatouage-majorque",            "destination": "/tatouage-majorque.html" },
+    { "source": "/tattoo-mallorca-urlaub",       "destination": "/tattoo-mallorca-urlaub.html" },
+    { "source": "/realism-tattoo-mallorca",      "destination": "/realism-tattoo-mallorca.html" },
+    { "source": "/booking/:token",               "destination": "/index.html" },
+    { "source": "/((?!api|assets|sw\\.js|manifest\\.json|.*\\.html|.*\\.png|.*\\.jpg|.*\\.ico|.*\\.svg).*)", "destination": "/index.html" }
   ]
 }
