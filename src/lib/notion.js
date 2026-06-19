@@ -254,6 +254,7 @@ export const notion = {
       Statut:      { select: { name: '⏳ En attente' } },
       Token:       { rich_text: [{ text: { content: String(data.token || '') } }] },
       Tatouages:   { rich_text: [{ text: { content: String(data.tatouages || '').substring(0, 1900) } }] },
+      'Durée':     { number: parseInt(data.duree) || 120 },
       Notes:       { rich_text: [{ text: { content: String(data.notes || '').substring(0, 500) } }] },
     }
   }),

@@ -172,6 +172,7 @@ export default function Booking() {
   const finalizeBooking = async () => {
     if (!devis || !selectedDay || !selectedHr) return
     try {
+      const devisDuree = String(devis.properties['Durée']?.number || 120)
       await notion.addAppointment({
         client:     devis.properties['Client']?.rich_text?.[0]?.plain_text || 'Client',
         style:      devis.properties['Description']?.rich_text?.[0]?.plain_text || '',
@@ -179,7 +180,7 @@ export default function Booking() {
         acompte:    devis.properties['Acompte']?.number || 0,
         date:       selectedDay,
         heure:      selectedHr,
-        duree:      '120',
+        duree:      devisDuree,
         natio:      'Autre',
         source:     '🔗 Lien réservation',
         sessions:   1,
@@ -357,7 +358,10 @@ export default function Booking() {
               <div style={{ fontSize:'13px', color:accent, fontWeight:700, marginBottom:'4px' }}>
                 📅 {formatDate(selectedDay)} à {selectedHr}
               </div>
-              <div style={{ fontSize:'12px', color:muted }}>Blackthorn Tattoo · Campos, Mallorca</div>
+              <div style={{ fontSize:'12px', color:muted }}>
+                Blackthorn Tattoo · Campos, Mallorca
+                {devis?.properties['Durée']?.number && ` · ⏱ ${devis.properties['Durée'].number}min`}
+              </div>
             </div>
 
             <div style={{ background:bg2, border:`1px solid ${gold}44`, borderRadius:'16px', padding:'20px', marginBottom:'20px', textAlign:'center' }}>

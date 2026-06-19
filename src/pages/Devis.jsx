@@ -106,6 +106,7 @@ export default function Devis({ onBack }) {
   const [manualDisc,  setManualDisc] = useState(0)
   const [clientName,  setClientName] = useState('')
   const [clientNotes, setClientNotes]= useState('')
+  const [duree,       setDuree]      = useState('120')
   const [tattooCount, setTattooCount]= useState(1)
   const [saving,      setSaving]     = useState(false)
 
@@ -146,7 +147,7 @@ export default function Devis({ onBack }) {
 
   const resetCalc = () => {
     setTattoos([]); setTattooCount(1); setManualDisc(0)
-    setClientName(''); setClientNotes(''); setTattooNote('')
+    setClientName(''); setClientNotes(''); setTattooNote(''); setDuree('120')
     setStyle('blackwork'); setSize('m'); setComplexity(2); setInk('bw')
   }
 
@@ -169,6 +170,7 @@ export default function Devis({ onBack }) {
         acompte:     acompte,
         token:       token,
         tatouages:   tatouagesTronc,
+        duree:       parseInt(duree) || 120,
         dateCreation:todayStr(),
         notes:       clientNotes.trim().substring(0, 500)
       })
@@ -513,6 +515,21 @@ export default function Devis({ onBack }) {
             </div>
           </div>
         )}
+
+        {/* Durée de la séance */}
+        <div style={S.card}>
+          <div style={S.sectionTitle}>Durée estimée de la séance</div>
+          <div style={{ display:'flex', gap:'6px', flexWrap:'wrap' }}>
+            {[['60','1h'],['90','1h30'],['120','2h'],['150','2h30'],['180','3h'],['240','4h'],['360','6h'],['480','Journée']].map(([v,l]) => (
+              <button key={v} onClick={() => setDuree(v)} style={S.pill(duree===v)}>{l}</button>
+            ))}
+          </div>
+          {duree && (
+            <div style={{ marginTop:'10px', fontSize:'12px', color:'var(--txt3)' }}>
+              Le créneau client sera bloqué sur <strong style={{ color:'var(--txt)' }}>{parseInt(duree)/60 >= 1 ? Math.floor(parseInt(duree)/60)+'h'+(parseInt(duree)%60>0?parseInt(duree)%60:'') : parseInt(duree)+'min'}</strong> dans le planning
+            </div>
+          )}
+        </div>
 
         {/* Notes + Sauvegarder */}
         <div style={S.card}>
