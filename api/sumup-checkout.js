@@ -14,12 +14,18 @@ module.exports = async function handler(req, res) {
 
   const https = require('https')
 
-  // Payload propre — pas de champs undefined
+  // Référence propre — max 90 chars, alphanumeric + tirets
+  const cleanRef = (reference || `BT-${Date.now()}`)
+    .replace(/[^a-zA-Z0-9-]/g, '')
+    .substring(0, 90)
+
+  // Payload propre
   const payload = JSON.stringify({
-    checkout_reference: reference || `BT-${Date.now()}`,
+    checkout_reference: cleanRef,
     amount:             Math.round(parseFloat(amount) * 100) / 100,
     currency:           currency,
     description:        String(description).substring(0, 100),
+    return_url:         'https://blackthorn-studio.vercel.app',
   })
 
   console.log('[SumUp] Payload:', payload)
