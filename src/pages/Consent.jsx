@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { jsPDF } from 'jspdf'
 
 const LANGS = {
   fr: {
@@ -290,10 +291,88 @@ export default function Consent() {
     setError(''); return true
   }
 
+  const generatePDF = () => {
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+    const t2 = LANGS[lang] || LANGS.fr
+    const now = new Date().toLocaleString('fr-FR')
+    let y = 20
+
+    // En-tête
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(16)
+    doc.text('BLACKTHORN TATTOO', 105, y, { align: 'center' })
+    y += 7
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(120)
+    doc.text('Carrer de Santanyí 19 · 07630 Campos, Mallorca · España', 105, y, { align: 'center' })
+    y += 5
+    doc.text(t2.title + ' — ' + now, 105, y, { align: 'center' })
+    doc.setTextColor(0)
+    y += 10
+
+    // Données client
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11)
+    doc.text('1. ' + t2.step1, 15, y); y += 6
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10)
+    ;[
+      [t2.nom, form.nom],
+      [t2.dni, form.dni],
+      [t2.dateNaissance, form.dateNaissance],
+      [t2.nationalite, form.nationalite],
+      [t2.email, form.email],
+      ['Majeur(e) / Adult', form.majeur ? 'OUI / YES' : 'NON / NO'],
+    ].forEach(([label, val]) => {
+      doc.setFont('helvetica', 'bold'); doc.text(label + ' :', 15, y)
+      doc.setFont('helvetica', 'normal'); doc.text(val || '—', 80, y)
+      y += 5
+    })
+    y += 4
+
+    // Contre-indications
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11)
+    doc.text('2. ' + t2.step2, 15, y); y += 6
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9)
+    const checkedContras = Object.keys(t2.contras).filter(k => contras[k])
+    if (checkedContras.length === 0) {
+      doc.text('Aucune condition déclarée / No conditions declared', 15, y); y += 5
+    } else {
+      checkedContras.forEach(k => { doc.text('✓ ' + t2.contras[k], 15, y); y += 5 })
+    }
+    y += 4
+
+    // Consentements
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11)
+    doc.text('3. ' + t2.step3, 15, y); y += 6
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9)
+    t2.consents.forEach((c, i) => {
+      const lines = doc.splitTextToSize((consents[i] ? '✓ ' : '✗ ') + c, 180)
+      doc.text(lines, 15, y); y += lines.length * 5
+    })
+    doc.text((photo === true ? '✓ ' : '✗ ') + (photo ? t2.photoOk : t2.photoNo), 15, y); y += 8
+
+    // Signature
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11)
+    doc.text('4. ' + t2.step4, 15, y); y += 6
+    if (sig) {
+      doc.addImage(sig, 'PNG', 15, y, 80, 30)
+      y += 34
+    }
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9)
+    doc.setTextColor(120)
+    doc.text('Signé électroniquement le ' + now, 15, y); y += 5
+    doc.text('Blackthorn Tattoo · Campos, Mallorca · Decreto 28/2003 · RGPD (UE) 2016/679', 15, y)
+    doc.setTextColor(0)
+
+    return doc.output('datauristring')
+  }
+
   const submit = async () => {
     if (!validateStep()) return
     setSaving(true)
     try {
+      // Générer le PDF
+      const pdfData = generatePDF()
       await fetch('/api/consent-submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -301,10 +380,16 @@ export default function Consent() {
           sessionId,
           lang,
           signature: sig,
+          pdfData,
           data: { ...form, contras, photoOk: photo === true }
         })
       })
       setDone(true)
+      // Proposer téléchargement PDF au client
+      const link = document.createElement('a')
+      link.href = pdfData
+      link.download = 'consentement-blackthorn.pdf'
+      link.click()
     } catch(e) { setError('Erreur : ' + e.message) }
     setSaving(false)
   }

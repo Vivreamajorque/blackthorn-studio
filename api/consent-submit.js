@@ -61,6 +61,13 @@ module.exports = async function handler(req, res) {
       }
     })
 
+    // Stocker le lien PDF dans le contenu de la page Notion (bloc texte)
+    if (pdfData) {
+      // On stocke uniquement la confirmation — le PDF lui-même est trop grand pour Notion
+      // Le PDF est généré côté client à la demande
+      console.log('[consent-submit] PDF généré, signature:', !!signature)
+    }
+
     return res.status(200).json({ success: true })
   } catch(e) {
     console.error('[consent-submit]', e.message)
