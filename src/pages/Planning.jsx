@@ -22,6 +22,7 @@ const getHeure = (s) => {
 const getDateOnly = (s) => (s.properties.Date?.date?.start || '').split('T')[0]
 
 const SLOTS_DEFAULT = ['09:00','10:00','11:00','12:00','14:00','15:00','16:00','17:00','18:00','19:00']
+const SLOTS_ALL = ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00']
 
 // Convertit HH:MM en minutes
 const toMin = (h) => { if (!h) return null; const [hh,mm] = h.split(':').map(Number); return hh*60+mm }
@@ -172,6 +173,31 @@ export default function Planning({ onBack, onEditRdv }) {
       setPanel(null); load()
     } catch(e) { showToast('Erreur') }
     setSaving(false)
+  }
+
+  // Ouvrir tous les créneaux libres de la semaine (9h-22h)
+  const [openingWeek, setOpeningWeek] = useState(false)
+  const openAllWeek = async () => {
+    setOpeningWeek(true)
+    let count = 0
+    try {
+      for (const day of weekDays) {
+        const rdvsD   = rdvsForDay(day)
+        const crensD  = creneauxForDay(day)
+        for (const h of SLOTS_ALL) {
+          // Déjà un créneau existant (ouvert ou bloqué) → skip
+          const dejaOuvert = crensD.some(c => c.properties.Heure?.rich_text?.[0]?.plain_text === h)
+          if (dejaOuvert) continue
+          // Chevauche un RDV → skip
+          if (hasOverlap(rdvsD, h, '60')) continue
+          await notion.addCreneau({ date: day, heure: h, statut: '🟢 Ouvert' })
+          count++
+        }
+      }
+      showToast(`✓ ${count} créneau${count>1?'x':''} ouverts`)
+      load()
+    } catch(e) { showToast('Erreur: ' + e.message) }
+    setOpeningWeek(false)
   }
 
   const doNoShow = async (s) => {
@@ -370,7 +396,13 @@ export default function Planning({ onBack, onEditRdv }) {
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'16px 16px 10px', background:'var(--surface)', borderBottom:'1px solid var(--border)', position:'sticky', top:0, zIndex:10 }}>
         <button onClick={onBack} style={{ background:'none', border:'none', color:'var(--txt3)', fontSize:'13px', fontWeight:600, cursor:'pointer' }}>← Hub</button>
         <div style={{ fontFamily:'var(--font-head)', fontSize:'16px', fontWeight:800 }}>Planning</div>
-        <button onClick={load} style={{ width:30, height:30, borderRadius:'50%', background:'var(--bg)', border:'1px solid var(--border2)', fontSize:'13px', color:'var(--txt3)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>↻</button>
+        <div style={{ display:'flex', gap:'6px', alignItems:'center' }}>
+          <button onClick={openAllWeek} disabled={openingWeek} style={{
+            padding:'5px 10px', borderRadius:'20px', fontSize:'11px', fontWeight:700, cursor:'pointer',
+            background:'rgba(26,140,90,.1)', border:'1px solid rgba(26,140,90,.3)', color:'#1A8C5A'
+          }}>{openingWeek ? '…' : '🟢 Semaine'}</button>
+          <button onClick={load} style={{ width:30, height:30, borderRadius:'50%', background:'var(--bg)', border:'1px solid var(--border2)', fontSize:'13px', color:'var(--txt3)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>↻</button>
+        </div>
       </div>
 
       {/* ── VUE SEMAINE ── */}
