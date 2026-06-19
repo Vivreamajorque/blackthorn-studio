@@ -275,23 +275,9 @@ export default function Booking() {
   while (days.length < 30) { days.push(cursor); cursor = addDays(cursor, 1) }
 
   // Confirmer le créneau → marquer dans Notion + redirect SumUp
-  // Confirmer le créneau -> stocker date/heure dans devis + aller au paiement
-  const confirmSlot = async () => {
-    if (!selectedDay || !selectedHr || !devis) return
-    try {
-      // Stocker RDV date/heure dans notes du devis pour le webhook SumUp
-      await notion.updateDevisStatut(devis.id, '🔗 Lien envoyé')
-      // On patch aussi les notes avec la date/heure
-      await fetch('/api/notion?path=' + encodeURIComponent('pages/' + devis.id), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          properties: {
-            Notes: { rich_text: [{ text: { content: 'RDV: ' + selectedDay + ' à ' + selectedHr } }] }
-          }
-        })
-      })
-    } catch(e) { console.warn('confirmSlot patch:', e) }
+  // Confirmer le créneau -> aller au paiement (simple, sans await)
+  const confirmSlot = () => {
+    if (!selectedDay || !selectedHr) return
     setStep(3)
   }
 
