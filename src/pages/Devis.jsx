@@ -176,7 +176,11 @@ export default function Devis({ onBack }) {
       resetCalc()
       setView('list')
       load()
-    } catch (e) { showToast('Erreur Notion'); console.error(e) }
+    } catch (e) {
+      const msg = e?.message || 'Erreur inconnue'
+      showToast('Erreur: ' + msg.substring(0, 60))
+      console.error('saveDevis error:', e)
+    }
     setSaving(false)
   }
 

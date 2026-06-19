@@ -14,7 +14,7 @@ const call = async (path, method = 'POST', body = null) => {
   })
   if (!r.ok) {
     const err = await r.json().catch(() => ({}))
-    throw new Error(`Notion ${r.status}: ${err.message || ''}`)
+    throw new Error(`Notion ${r.status}: ${err.message || err.code || JSON.stringify(err).substring(0,120)}`)
   }
   return r.json()
 }
@@ -245,16 +245,15 @@ export const notion = {
   addDevis: (data) => call('pages', 'POST', {
     parent: { database_id: DEVIS_DB },
     properties: {
-      Devis:           { title: [{ text: { content: `Devis · ${data.client} · ${data.prix}€` } }] },
-      Client:          { rich_text: [{ text: { content: data.client || '' } }] },
-      Description:     { rich_text: [{ text: { content: data.description || '' } }] },
-      Prix:            { number: parseFloat(data.prix) || 0 },
-      Acompte:         { number: parseFloat(data.acompte) || 0 },
-      Statut:          { select: { name: '⏳ En attente' } },
-      Token:           { rich_text: [{ text: { content: data.token || '' } }] },
-      Tatouages:       { rich_text: [{ text: { content: data.tatouages || '' } }] },
-      'Date création': { date: { start: data.dateCreation || new Date().toISOString().split('T')[0] } },
-      Notes:           { rich_text: [{ text: { content: data.notes || '' } }] },
+      Devis:       { title: [{ text: { content: `Devis · ${data.client || '?'} · ${data.prix || 0}€` } }] },
+      Client:      { rich_text: [{ text: { content: String(data.client || '').substring(0, 200) } }] },
+      Description: { rich_text: [{ text: { content: String(data.description || '').substring(0, 1900) } }] },
+      Prix:        { number: parseFloat(data.prix) || 0 },
+      Acompte:     { number: parseFloat(data.acompte) || 0 },
+      Statut:      { select: { name: '⏳ En attente' } },
+      Token:       { rich_text: [{ text: { content: String(data.token || '') } }] },
+      Tatouages:   { rich_text: [{ text: { content: String(data.tatouages || '').substring(0, 1900) } }] },
+      Notes:       { rich_text: [{ text: { content: String(data.notes || '').substring(0, 500) } }] },
     }
   }),
 
