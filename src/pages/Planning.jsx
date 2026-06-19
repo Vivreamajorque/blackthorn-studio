@@ -382,37 +382,95 @@ export default function Planning({ onBack, onEditRdv }) {
             </>)}
 
             {/* Confirmer RDV */}
-            {panel === 'confirmRdv' && panelData && (<>
-              <div style={{ fontFamily:'var(--font-head)', fontSize:'16px', fontWeight:800, marginBottom:'4px' }}>✅ Confirmer le RDV</div>
-              <div style={{ fontSize:'12px', color:'var(--txt3)', marginBottom:'16px' }}>
-                {panelData.properties['Client prénom']?.rich_text?.[0]?.plain_text||'Client'} · {getHeure(panelData)||''}
-              </div>
-              <div className="form-group" style={{ marginBottom:'12px' }}>
-                <label>CA total (€)</label>
-                <input type="number" inputMode="decimal" value={confForm.prix} onChange={e=>setConfForm({...confForm,prix:e.target.value})}
-                  style={{fontSize:'32px',fontFamily:'var(--font-mono)',fontWeight:500,textAlign:'center',background:'transparent',border:'none',borderBottom:'2px solid var(--pierre)',borderRadius:0,color:'var(--txt)',width:'100%',padding:'6px 0'}}/>
-              </div>
-              {parseFloat(confForm.acompte)>0 && (
-                <div style={{fontSize:'12px',color:'var(--txt3)',textAlign:'center',marginBottom:'10px'}}>
-                  Acompte reçu : {confForm.acompte}€ → solde : {Math.max(0,parseFloat(confForm.prix||0)-parseFloat(confForm.acompte))}€
+            {panel === 'confirmRdv' && panelData && (()=>{
+              const acompteRecu   = parseFloat(confForm.acompte) || 0
+              const prixTotal     = parseFloat(confForm.prix) || 0
+              const solde         = Math.max(0, prixTotal - acompteRecu)
+              const hasAcompte    = acompteRecu > 0
+
+              return (<>
+                {/* En-tête client */}
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'16px' }}>
+                  <div>
+                    <div style={{ fontFamily:'var(--font-head)', fontSize:'17px', fontWeight:800 }}>
+                      {panelData.properties['Client prénom']?.rich_text?.[0]?.plain_text||'Client'}
+                    </div>
+                    <div style={{ fontSize:'12px', color:'var(--txt3)', marginTop:'2px' }}>
+                      {getHeure(panelData)||''} · {panelData.properties['Style / Type']?.rich_text?.[0]?.plain_text||''}
+                    </div>
+                  </div>
+                  <div style={{ fontSize:'11px', fontWeight:700, padding:'4px 10px', borderRadius:'20px', background:'var(--gold-lt)', color:'var(--gold-dk)' }}>
+                    Client venu ✓
+                  </div>
                 </div>
-              )}
-              <div style={{marginBottom:'16px',display:'flex',gap:'8px'}}>
-                {['cash','carte'].map(p=>(
-                  <button key={p} onClick={()=>setConfForm({...confForm,paiement:p})} style={{
-                    flex:1, padding:'10px', borderRadius:'var(--r)', border:'none', cursor:'pointer', fontFamily:'var(--font-head)', fontWeight:700, fontSize:'13px',
-                    background: confForm.paiement===p ? 'var(--txt)' : 'var(--bg)',
-                    color: confForm.paiement===p ? 'var(--bg)' : 'var(--txt2)'
-                  }}>{p==='cash'?'💵 Cash':'💳 Carte'}</button>
-                ))}
-              </div>
-              <button className="btn btn-primary" onClick={submitConfirm} disabled={saving||!confForm.prix} style={{width:'100%',padding:'14px',marginBottom:'8px'}}>
-                {saving?'…':'✓ Valider → CA du jour'}
-              </button>
-              <button onClick={()=>{ doNoShow(panelData); setPanel(null) }} style={{width:'100%',padding:'10px',background:'transparent',border:'none',color:'var(--txt3)',cursor:'pointer',fontSize:'13px'}}>
-                👻 No-show
-              </button>
-            </>)}
+
+                {/* Bloc acompte — mis en avant si acompte reçu */}
+                {hasAcompte && (
+                  <div style={{ background:'rgba(26,140,90,.06)', border:'1.5px solid rgba(26,140,90,.25)', borderRadius:'var(--r)', padding:'14px 16px', marginBottom:'14px' }}>
+                    <div style={{ fontSize:'10px', fontWeight:700, color:'#1A8C5A', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'10px' }}>
+                      💳 Acompte déjà encaissé
+                    </div>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', textAlign:'center' }}>
+                      <div style={{ background:'var(--bg)', borderRadius:'var(--r)', padding:'10px 6px' }}>
+                        <div style={{ fontSize:'10px', color:'var(--txt3)', marginBottom:'3px' }}>Acompte reçu</div>
+                        <div style={{ fontFamily:'var(--font-mono)', fontSize:'18px', fontWeight:700, color:'#1A8C5A' }}>{acompteRecu}€</div>
+                      </div>
+                      <div style={{ background:'var(--bg)', borderRadius:'var(--r)', padding:'10px 6px' }}>
+                        <div style={{ fontSize:'10px', color:'var(--txt3)', marginBottom:'3px' }}>Prix total</div>
+                        <div style={{ fontFamily:'var(--font-mono)', fontSize:'18px', fontWeight:700, color:'var(--txt)' }}>{prixTotal||'?'}€</div>
+                      </div>
+                      <div style={{ background: solde===0 ? 'rgba(26,140,90,.1)' : 'rgba(212,130,10,.08)', borderRadius:'var(--r)', padding:'10px 6px', border: solde===0 ? '1px solid rgba(26,140,90,.3)' : '1px solid rgba(212,130,10,.2)' }}>
+                        <div style={{ fontSize:'10px', color:'var(--txt3)', marginBottom:'3px' }}>Solde à encaisser</div>
+                        <div style={{ fontFamily:'var(--font-mono)', fontSize:'18px', fontWeight:700, color: solde===0 ? '#1A8C5A' : '#D4820A' }}>
+                          {prixTotal ? solde+'€' : '—'}
+                        </div>
+                      </div>
+                    </div>
+                    {solde === 0 && prixTotal > 0 && (
+                      <div style={{ fontSize:'11px', color:'#1A8C5A', fontWeight:600, textAlign:'center', marginTop:'10px' }}>
+                        ✅ Entièrement payé — rien à encaisser
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Prix total (éditable) */}
+                <div className="form-group" style={{ marginBottom:'12px' }}>
+                  <label>Prix total de la séance (€)</label>
+                  <input type="number" inputMode="decimal" value={confForm.prix}
+                    onChange={e=>setConfForm({...confForm,prix:e.target.value})}
+                    style={{fontSize:'32px',fontFamily:'var(--font-mono)',fontWeight:500,textAlign:'center',background:'transparent',border:'none',borderBottom:'2px solid var(--pierre)',borderRadius:0,color:'var(--txt)',width:'100%',padding:'6px 0'}}/>
+                </div>
+
+                {/* Mode paiement du solde */}
+                {(!hasAcompte || solde > 0) && (
+                  <div style={{ marginBottom:'16px' }}>
+                    <div style={{ fontSize:'11px', color:'var(--txt3)', fontWeight:700, textTransform:'uppercase', letterSpacing:'1px', marginBottom:'8px' }}>
+                      {hasAcompte ? `Mode paiement solde (${solde}€)` : 'Mode de paiement'}
+                    </div>
+                    <div style={{ display:'flex', gap:'8px' }}>
+                      {['cash','carte'].map(p=>(
+                        <button key={p} onClick={()=>setConfForm({...confForm,paiement:p})} style={{
+                          flex:1, padding:'10px', borderRadius:'var(--r)', border:'none', cursor:'pointer',
+                          fontFamily:'var(--font-head)', fontWeight:700, fontSize:'13px',
+                          background: confForm.paiement===p ? 'var(--txt)' : 'var(--bg)',
+                          color: confForm.paiement===p ? 'var(--bg)' : 'var(--txt2)'
+                        }}>{p==='cash'?'💵 Cash':'💳 Carte'}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <button className="btn btn-primary" onClick={submitConfirm} disabled={saving||!confForm.prix}
+                  style={{width:'100%',padding:'14px',marginBottom:'8px'}}>
+                  {saving ? '…' : hasAcompte && solde===0 ? '✓ Valider — tout encaissé' : '✓ Valider → CA du jour'}
+                </button>
+                <button onClick={()=>{ doNoShow(panelData); setPanel(null) }}
+                  style={{width:'100%',padding:'10px',background:'transparent',border:'none',color:'var(--txt3)',cursor:'pointer',fontSize:'13px'}}>
+                  👻 No-show
+                </button>
+              </>)
+            })()}
 
           </div>
         </div>
