@@ -6,6 +6,7 @@ import Metriques      from './pages/Metriques'
 import Comptabilite   from './pages/Comptabilite'
 import Communication  from './pages/Communication'
 import Booking        from './pages/Booking'
+import Consent        from './pages/Consent'
 
 const PIN_AMELY = import.meta.env.VITE_APP_PIN  || '2026'
 const PIN_TONY  = import.meta.env.VITE_TONY_PIN || '1111'
@@ -171,8 +172,9 @@ export default function App() {
   const unlock = (r) => { sessionStorage.setItem('bt_role', r); setRole(r) }
   const logout = () => { sessionStorage.removeItem('bt_role'); setRole(null) }
 
-  // Route publique — pas de PIN requis
+  // Routes publiques — pas de PIN requis
   if (window.location.pathname.startsWith('/booking/')) return <Booking />
+  if (window.location.pathname.startsWith('/consent/')) return <Consent />
 
   if (!role) return <PinScreen onUnlock={unlock} />
   if (role === 'tony') return <TonyDashboard onLogout={logout} />

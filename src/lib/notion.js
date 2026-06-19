@@ -261,6 +261,10 @@ export const notion = {
 
   patchPage: (pageId, properties) => call(`pages/${pageId}`, 'PATCH', { properties }),
 
+  markFicheSigned: (pageId) => call(`pages/${pageId}`, 'PATCH', {
+    properties: { 'Fiche signée': { checkbox: true } }
+  }),
+
   // Enregistre un versement client comme session CA dans la DB Sessions
   addVersementSession: (data) => call('pages', 'POST', {
     parent: { database_id: SESSIONS_DB },

@@ -212,6 +212,7 @@ export default function Planning({ onBack, onEditRdv }) {
 
   // Ouvrir tous les créneaux libres de la semaine (9h-22h)
   const [openingWeek, setOpeningWeek] = useState(false)
+  const [qrPanel,     setQrPanel]     = useState(null) // session id pour QR code
   const openAllWeek = async () => {
     setOpeningWeek(true)
     let count = 0
@@ -615,23 +616,46 @@ export default function Planning({ onBack, onEditRdv }) {
                     <div style={{ fontSize:'10px', fontWeight:700, marginTop:'4px', padding:'2px 7px', borderRadius:'20px', background:stColor+'22', color:stColor }}>{statut}</div>
                   </div>
                 </div>
+                {/* Fiche signée indicator */}
+                {s.properties['Fiche signée']?.checkbox && (
+                  <div style={{ display:'inline-flex', alignItems:'center', gap:'4px', fontSize:'11px', fontWeight:700, color:'#1A8C5A', marginBottom:'8px', padding:'3px 10px', background:'rgba(26,140,90,.08)', borderRadius:'20px' }}>
+                    ✅ Fiche signée
+                  </div>
+                )}
                 {!isNS && !isConf && (
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px' }}>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'6px' }}>
                     <button onClick={()=>{ setPanelData(s); setConfForm({ prix:String(prix), paiement:'cash', acompte:String(acompte) }); setPanel('confirmRdv') }} style={{
-                      padding:'9px', borderRadius:'var(--r)', border:'none', cursor:'pointer', fontFamily:'var(--font-head)', fontWeight:700, fontSize:'12px',
+                      padding:'9px', borderRadius:'var(--r)', border:'none', cursor:'pointer', fontFamily:'var(--font-head)', fontWeight:700, fontSize:'11px',
                       background: isPast ? 'var(--green)' : 'var(--amber)', color:'#fff'
                     }}>✅ {isPast?'Valider':'Client venu'}</button>
+                    <button onClick={()=>setQrPanel(s.id)} style={{
+                      padding:'9px', borderRadius:'var(--r)', background: s.properties['Fiche signée']?.checkbox ? 'rgba(26,140,90,.1)' : 'var(--surface)',
+                      border: s.properties['Fiche signée']?.checkbox ? '1.5px solid rgba(26,140,90,.4)' : '1.5px solid var(--border2)',
+                      color: s.properties['Fiche signée']?.checkbox ? '#1A8C5A' : 'var(--txt2)',
+                      fontFamily:'var(--font-head)', fontWeight:700, fontSize:'11px', cursor:'pointer'
+                    }}>{s.properties['Fiche signée']?.checkbox ? '✅ Fiche' : '📋 Fiche'}</button>
                     {onEditRdv && (
                       <button onClick={()=>{ const dr=s.properties.Date?.date?.start||''; onEditRdv({ id:s.id, client, style, prixEstime:String(prix), sessions:'1', acompte:String(acompte), date:dr.split('T')[0]||'', heure:dr.includes('T')?dr.substring(11,16):'', natio:s.properties.Nationalité?.select?.name||'🇫🇷 FR', source:s.properties.Source?.select?.name||'📸 Instagram' }) }} style={{
-                        padding:'9px', borderRadius:'var(--r)', background:'var(--surface)', border:'1.5px solid var(--gold)', color:'var(--gold-dk)', fontFamily:'var(--font-head)', fontWeight:700, fontSize:'12px', cursor:'pointer'
-                      }}>✏️ Modifier</button>
+                        padding:'9px', borderRadius:'var(--r)', background:'var(--surface)', border:'1.5px solid var(--gold)', color:'var(--gold-dk)', fontFamily:'var(--font-head)', fontWeight:700, fontSize:'11px', cursor:'pointer'
+                      }}>✏️</button>
                     )}
                   </div>
                 )}
-                {isConf && onEditRdv && (
-                  <button onClick={()=>{ const dr=s.properties.Date?.date?.start||''; onEditRdv({ id:s.id, client, style, prixEstime:String(prix), sessions:'1', acompte:String(acompte), date:dr.split('T')[0]||'', heure:dr.includes('T')?dr.substring(11,16):'', natio:s.properties.Nationalité?.select?.name||'🇫🇷 FR', source:s.properties.Source?.select?.name||'📸 Instagram' }) }} style={{
-                    width:'100%', padding:'8px', borderRadius:'var(--r)', background:'var(--surface)', border:'1px solid var(--border2)', color:'var(--txt3)', fontFamily:'var(--font-head)', fontWeight:600, fontSize:'11px', cursor:'pointer', marginTop:'4px'
-                  }}>✏️ Modifier</button>
+                {isConf && (
+                  <div style={{ display:'flex', gap:'6px', marginTop:'4px' }}>
+                    <button onClick={()=>setQrPanel(s.id)} style={{
+                      flex:1, padding:'8px', borderRadius:'var(--r)',
+                      background: s.properties['Fiche signée']?.checkbox ? 'rgba(26,140,90,.08)' : 'var(--surface)',
+                      border: s.properties['Fiche signée']?.checkbox ? '1px solid rgba(26,140,90,.3)' : '1px solid var(--border2)',
+                      color: s.properties['Fiche signée']?.checkbox ? '#1A8C5A' : 'var(--txt3)',
+                      fontFamily:'var(--font-head)', fontWeight:600, fontSize:'11px', cursor:'pointer'
+                    }}>{s.properties['Fiche signée']?.checkbox ? '✅ Fiche signée' : '📋 Fiche de consentement'}</button>
+                    {onEditRdv && (
+                      <button onClick={()=>{ const dr=s.properties.Date?.date?.start||''; onEditRdv({ id:s.id, client, style, prixEstime:String(prix), sessions:'1', acompte:String(acompte), date:dr.split('T')[0]||'', heure:dr.includes('T')?dr.substring(11,16):'', natio:s.properties.Nationalité?.select?.name||'🇫🇷 FR', source:s.properties.Source?.select?.name||'📸 Instagram' }) }} style={{
+                        padding:'8px 14px', borderRadius:'var(--r)', background:'var(--surface)', border:'1px solid var(--border2)', color:'var(--txt3)', fontFamily:'var(--font-head)', fontWeight:600, fontSize:'11px', cursor:'pointer'
+                      }}>✏️</button>
+                    )}
+                  </div>
                 )}
               </div>
             )
