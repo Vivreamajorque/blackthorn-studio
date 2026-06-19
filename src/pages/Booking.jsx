@@ -599,29 +599,139 @@ export default function Booking() {
         )}
 
         {/* ÉTAPE 4 — Confirmé */}
-        {step === 4 && (
-          <div style={{ textAlign:'center', paddingTop:'40px' }}>
-            <div style={{ width:'72px', height:'72px', borderRadius:'50%', background:`rgba(126,200,192,.12)`, border:`2px solid ${accent}`, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 20px', fontSize:'28px' }}>
-              🖤
-            </div>
-            <h1 style={{ fontFamily:'Georgia, serif', fontSize:'24px', fontWeight:700, marginBottom:'8px' }}>{t.confirmedTitle}</h1>
-            <p style={{ fontSize:'13px', color:muted, marginBottom:'28px' }}>{t.confirmedSub}</p>
+        {step === 4 && (() => {
+          // Liens agenda (Google, Apple, Outlook)
+          const calTitle = encodeURIComponent(`Tattoo — Blackthorn Tattoo Campos`)
+          const calAddr  = encodeURIComponent('Carrer de Santanyí 19, 07630 Campos, Mallorca')
+          const calDesc  = encodeURIComponent(`Tatouage avec Tony · Blackthorn Tattoo Campos\nAcompte réglé : ${acompte}€ · Solde : ${prix - acompte}€ à régler en studio`)
 
-            <div style={{ background:bg2, border:`1px solid ${border}`, borderRadius:'16px', padding:'20px', textAlign:'left', marginBottom:'16px' }}>
-              <div style={{ fontSize:'11px', fontWeight:700, letterSpacing:'2px', textTransform:'uppercase', color:muted, marginBottom:'12px' }}>Infos pratiques</div>
-              <div style={{ fontSize:'13px', color:text, lineHeight:1.8 }}>📍 {t.addr}</div>
-              <div style={{ fontSize:'12px', color:muted, marginTop:'10px', lineHeight:1.7 }}>{t.tips}</div>
-            </div>
+          // Construire dates pour l'agenda
+          const buildCalDates = () => {
+            if (!selectedDay || !selectedHr) return null
+            const dureeMin = devis?.properties['Durée']?.number || 120
+            const [hh, mm] = selectedHr.split(':').map(Number)
+            const start = new Date(`${selectedDay}T${selectedHr}:00`)
+            const end   = new Date(start.getTime() + dureeMin * 60000)
+            const fmt   = (d) => d.toISOString().replace(/[-:]/g,'').split('.')[0] + 'Z'
+            const fmtApple = (d) => d.toISOString().replace(/[-:]/g,'').split('.')[0] + 'Z'
+            return { start: fmt(start), end: fmt(end) }
+          }
+          const dates = buildCalDates()
 
-            <a href="https://wa.me/34601571142" target="_blank" rel="noopener" style={{
-              display:'flex', alignItems:'center', justifyContent:'center', gap:'8px',
-              padding:'14px 24px', background:'#25D366', color:'white', textDecoration:'none',
-              borderRadius:'50px', fontSize:'14px', fontWeight:700
-            }}>
-              💬 {t.wa}
-            </a>
-          </div>
-        )}
+          const googleUrl = dates
+            ? `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${calTitle}&dates=${dates.start}/${dates.end}&details=${calDesc}&location=${calAddr}`
+            : null
+
+          // Fichier ICS pour Apple/Outlook
+          const icsContent = dates ? [
+            'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Blackthorn Tattoo//FR',
+            'BEGIN:VEVENT',
+            `DTSTART:${dates.start}`,
+            `DTEND:${dates.end}`,
+            `SUMMARY:Tattoo — Blackthorn Tattoo Campos`,
+            `LOCATION:Carrer de Santanyí 19, 07630 Campos, Mallorca`,
+            `DESCRIPTION:Acompte réglé : ${acompte}€ · Solde : ${prix - acompte}€ à régler en studio`,
+            'END:VEVENT', 'END:VCALENDAR'
+          ].join('\r\n') : null
+
+          const downloadIcs = () => {
+            if (!icsContent) return
+            const blob = new Blob([icsContent], { type: 'text/calendar' })
+            const url  = URL.createObjectURL(blob)
+            const a    = document.createElement('a')
+            a.href = url; a.download = 'rdv-blackthorn.ics'; a.click()
+            URL.revokeObjectURL(url)
+          }
+
+          return (
+            <div style={{ paddingTop:'32px' }}>
+              {/* Header confirmation paiement */}
+              <div style={{ textAlign:'center', marginBottom:'28px' }}>
+                <div style={{ width:'72px', height:'72px', borderRadius:'50%', background:'rgba(26,140,90,.12)', border:`2px solid #1A8C5A`, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px', fontSize:'28px' }}>
+                  ✅
+                </div>
+                <h1 style={{ fontFamily:'Georgia, serif', fontSize:'22px', fontWeight:700, marginBottom:'6px', color:text }}>{t.confirmedTitle}</h1>
+                <p style={{ fontSize:'13px', color:muted }}>{t.confirmedSub}</p>
+              </div>
+
+              {/* Bloc paiement confirmé */}
+              <div style={{ background:'rgba(26,140,90,.06)', border:'1.5px solid rgba(26,140,90,.25)', borderRadius:'16px', padding:'18px', marginBottom:'14px' }}>
+                <div style={{ fontSize:'11px', fontWeight:700, color:'#1A8C5A', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'12px' }}>💳 Paiement reçu</div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
+                  <div style={{ background:'rgba(0,0,0,.15)', borderRadius:'10px', padding:'10px', textAlign:'center' }}>
+                    <div style={{ fontSize:'10px', color:muted, marginBottom:'3px' }}>Acompte payé</div>
+                    <div style={{ fontFamily:'monospace', fontSize:'20px', fontWeight:700, color:'#1A8C5A' }}>{acompte}€</div>
+                  </div>
+                  <div style={{ background:'rgba(0,0,0,.15)', borderRadius:'10px', padding:'10px', textAlign:'center' }}>
+                    <div style={{ fontSize:'10px', color:muted, marginBottom:'3px' }}>Solde en studio</div>
+                    <div style={{ fontFamily:'monospace', fontSize:'20px', fontWeight:700, color:text }}>{prix - acompte}€</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bloc RDV confirmé */}
+              {selectedDay && selectedHr && (
+                <div style={{ background:bg2, border:`1px solid ${border}`, borderRadius:'16px', padding:'18px', marginBottom:'14px' }}>
+                  <div style={{ fontSize:'11px', fontWeight:700, color:accent, textTransform:'uppercase', letterSpacing:'1px', marginBottom:'12px' }}>📅 Ton rendez-vous</div>
+                  <div style={{ fontSize:'16px', fontWeight:700, color:text, marginBottom:'4px', textTransform:'capitalize' }}>
+                    {new Date(selectedDay).toLocaleDateString(lang==='fr'?'fr-FR':lang==='es'?'es-ES':lang==='de'?'de-DE':'en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}
+                  </div>
+                  <div style={{ fontSize:'14px', color:muted, marginBottom:'4px' }}>🕐 {selectedHr}{devis?.properties['Durée']?.number ? ` — durée estimée : ${Math.floor(devis.properties['Durée'].number/60)}h${devis.properties['Durée'].number%60>0?devis.properties['Durée'].number%60:''}` : ''}</div>
+                  <div style={{ fontSize:'13px', color:muted }}>📍 Carrer de Santanyí 19 · Campos, Mallorca</div>
+                </div>
+              )}
+
+              {/* Ajouter à l'agenda */}
+              {dates && (
+                <div style={{ background:bg2, border:`1px solid ${border}`, borderRadius:'16px', padding:'18px', marginBottom:'14px' }}>
+                  <div style={{ fontSize:'11px', fontWeight:700, color:muted, textTransform:'uppercase', letterSpacing:'1px', marginBottom:'12px' }}>🗓 Ajouter à ton agenda</div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+                    {googleUrl && (
+                      <a href={googleUrl} target="_blank" rel="noopener" style={{
+                        display:'flex', alignItems:'center', gap:'10px', padding:'12px 16px',
+                        background:'rgba(66,133,244,.1)', border:'1px solid rgba(66,133,244,.25)',
+                        borderRadius:'12px', textDecoration:'none', color:text
+                      }}>
+                        <span style={{ fontSize:'18px' }}>📅</span>
+                        <div>
+                          <div style={{ fontSize:'13px', fontWeight:700 }}>Google Agenda</div>
+                          <div style={{ fontSize:'11px', color:muted }}>Gmail · Android</div>
+                        </div>
+                        <span style={{ marginLeft:'auto', fontSize:'12px', color:muted }}>→</span>
+                      </a>
+                    )}
+                    <button onClick={downloadIcs} style={{
+                      display:'flex', alignItems:'center', gap:'10px', padding:'12px 16px',
+                      background:'rgba(255,255,255,.05)', border:`1px solid ${border}`,
+                      borderRadius:'12px', cursor:'pointer', width:'100%', textAlign:'left', color:text
+                    }}>
+                      <span style={{ fontSize:'18px' }}>🍎</span>
+                      <div>
+                        <div style={{ fontSize:'13px', fontWeight:700 }}>Apple Calendar / Outlook</div>
+                        <div style={{ fontSize:'11px', color:muted }}>iPhone · Mac · Windows</div>
+                      </div>
+                      <span style={{ marginLeft:'auto', fontSize:'12px', color:muted }}>↓</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Infos pratiques */}
+              <div style={{ background:bg2, border:`1px solid ${border}`, borderRadius:'16px', padding:'18px', marginBottom:'16px' }}>
+                <div style={{ fontSize:'11px', fontWeight:700, letterSpacing:'2px', textTransform:'uppercase', color:muted, marginBottom:'10px' }}>Infos pratiques</div>
+                <div style={{ fontSize:'12px', color:muted, lineHeight:1.8 }}>{t.tips}</div>
+              </div>
+
+              <a href="https://wa.me/34601571142" target="_blank" rel="noopener" style={{
+                display:'flex', alignItems:'center', justifyContent:'center', gap:'8px',
+                padding:'14px 24px', background:'#25D366', color:'white', textDecoration:'none',
+                borderRadius:'50px', fontSize:'14px', fontWeight:700
+              }}>
+                💬 {t.wa}
+              </a>
+            </div>
+          )
+        })()}
       </div>
     </div>
   )
