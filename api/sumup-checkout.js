@@ -1,7 +1,4 @@
 // api/sumup-checkout.js
-// Crée un checkout SumUp et retourne l'URL de paiement
-// La clé reste côté serveur — jamais exposée au client
-
 const SUMUP_KEY = process.env.SUMUP_KEY
 
 module.exports = async function handler(req, res) {
@@ -17,14 +14,12 @@ module.exports = async function handler(req, res) {
 
   const https = require('https')
 
+  // Payload propre — pas de champs undefined
   const payload = JSON.stringify({
     checkout_reference: reference || `BT-${Date.now()}`,
     amount:             parseFloat(amount),
-    currency,
-    description,
-    merchant_code:      undefined, // SumUp le déduit de la clé
-    pay_to_email:       undefined,
-    redirect_url:       `${req.headers.origin || 'https://blackthorn-studio.vercel.app'}/booking-paid`
+    currency:           currency,
+    description:        description,
   })
 
   return new Promise((resolve) => {
@@ -34,8 +29,8 @@ module.exports = async function handler(req, res) {
       path: '/v0.1/checkouts',
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${SUMUP_KEY}`,
-        'Content-Type': 'application/json',
+        'Authorization':  `Bearer ${SUMUP_KEY}`,
+        'Content-Type':   'application/json',
         'Content-Length': Buffer.byteLength(payload)
       }
     }
@@ -47,15 +42,18 @@ module.exports = async function handler(req, res) {
         try {
           const parsed = JSON.parse(data)
           if (resp.statusCode !== 200 && resp.statusCode !== 201) {
-            res.status(resp.statusCode).json({ error: parsed.message || 'Erreur SumUp', details: parsed })
+            res.status(resp.statusCode).json({
+              error:   parsed.message || parsed.error_code || 'Erreur SumUp',
+              status:  resp.statusCode,
+              details: parsed
+            })
           } else {
-            // Retourner l'ID du checkout + URL de paiement
-            const checkoutId  = parsed.id
+            const checkoutId = parsed.id
             const payUrl = `https://pay.sumup.com/b2c/checkouts/${checkoutId}`
-            res.status(200).json({ checkoutId, payUrl, amount: parsed.amount, status: parsed.status })
+            res.status(200).json({ checkoutId, payUrl, amount: parsed.amount })
           }
         } catch(e) {
-          res.status(500).json({ error: 'Parse error', raw: data })
+          res.status(500).json({ error: 'Parse error', raw: data.substring(0, 200) })
         }
         resolve()
       })
