@@ -663,6 +663,30 @@ export default function Planning({ onBack, onEditRdv }) {
         )}
 
       </div>
+
+      {/* ── PANEL QR CODE FICHE ── */}
+      {qrPanel && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.7)', zIndex:400, display:'flex', alignItems:'center', justifyContent:'center' }}
+          onClick={() => setQrPanel(null)}>
+          <div style={{ background:'var(--surface)', borderRadius:'20px', padding:'28px 24px', maxWidth:340, width:'90%', textAlign:'center' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontFamily:'var(--font-head)', fontSize:'16px', fontWeight:800, marginBottom:'6px' }}>📋 Fiche de consentement</div>
+            <div style={{ fontSize:'12px', color:'var(--txt3)', marginBottom:'20px' }}>Le client scanne ce QR code avec son téléphone</div>
+            <img
+              src={'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(window.location.origin + '/consent/' + qrPanel) + '&bgcolor=ffffff&color=1a1a1a&margin=2'}
+              alt="QR Code"
+              style={{ width:220, height:220, borderRadius:'12px', border:'2px solid var(--border)' }}
+            />
+            <div style={{ marginTop:'14px', fontSize:'11px', color:'var(--txt3)', fontFamily:'var(--font-mono)', wordBreak:'break-all', padding:'6px 10px', background:'var(--bg)', borderRadius:'8px' }}>
+              {window.location.origin}/consent/{qrPanel}
+            </div>
+            <button onClick={() => setQrPanel(null)} style={{ marginTop:'16px', width:'100%', padding:'12px', background:'var(--txt)', color:'var(--bg)', border:'none', borderRadius:'50px', fontFamily:'var(--font-head)', fontWeight:700, fontSize:'13px', cursor:'pointer' }}>
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
+
       {toast && <div className="toast">{toast}</div>}
     </div>
   )
