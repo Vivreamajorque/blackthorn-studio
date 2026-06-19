@@ -422,56 +422,67 @@ export default function Booking() {
                 <a href="https://wa.me/34601571142" style={{ color:accent, fontWeight:700, textDecoration:'none' }}>💬 WhatsApp Tony →</a>
               </div>
             ) : (
-              <div style={{ display:'flex', flexDirection:'column', gap:'8px', marginBottom:'20px' }}>
-                {daysWithSlots.map(d => {
-                  const sel   = selectedDay === d
-                  const dd    = new Date(d)
-                  const slots = slotsForDay(d)
-                  const dow   = dd.toLocaleDateString(lang==='fr'?'fr-FR':lang==='es'?'es-ES':lang==='de'?'de-DE':'en-GB',{weekday:'long'})
-                  const date  = dd.toLocaleDateString(lang==='fr'?'fr-FR':lang==='es'?'es-ES':lang==='de'?'de-DE':'en-GB',{day:'numeric',month:'long'})
-                  return (
-                    <button key={d} onClick={() => { setSelDay(d); setSelHr('') }} style={{
-                      padding:'12px 16px', borderRadius:'12px', textAlign:'left', cursor:'pointer', border:'none',
-                      background: sel ? accent : bg2,
-                      outline: sel ? `2px solid ${accent}` : 'none'
-                    }}>
-                      <div style={{ fontSize:'13px', fontWeight:700, color: sel?'#0C0C0C':text, textTransform:'capitalize' }}>{dow} {date}</div>
-                      <div style={{ fontSize:'11px', color: sel?'rgba(0,0,0,.6)':muted, marginTop:'2px' }}>{slots.length} créneau{slots.length>1?'x':''} disponible{slots.length>1?'s':''}</div>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-
-            {/* Créneaux horaires */}
-            {selectedDay && (
-              <div>
-                <div style={{ fontSize:'13px', fontWeight:600, color:accent, marginBottom:'12px' }}>
-                  {formatDate(selectedDay)}
+              <>
+                {/* Liste des jours */}
+                <div style={{ display:'flex', flexDirection:'column', gap:'8px', marginBottom:'24px' }}>
+                  {daysWithSlots.map(d => {
+                    const sel   = selectedDay === d
+                    const dd    = new Date(d)
+                    const slots = slotsForDay(d)
+                    const dow   = dd.toLocaleDateString(lang==='fr'?'fr-FR':lang==='es'?'es-ES':lang==='de'?'de-DE':'en-GB',{weekday:'long'})
+                    const date  = dd.toLocaleDateString(lang==='fr'?'fr-FR':lang==='es'?'es-ES':lang==='de'?'de-DE':'en-GB',{day:'numeric',month:'long'})
+                    return (
+                      <button key={d} onClick={() => {
+                        setSelDay(d); setSelHr('')
+                        // Scroll vers les horaires après sélection
+                        setTimeout(() => {
+                          document.getElementById('horaires-section')?.scrollIntoView({ behavior:'smooth', block:'start' })
+                        }, 50)
+                      }} style={{
+                        padding:'12px 16px', borderRadius:'12px', textAlign:'left', cursor:'pointer',
+                        border: sel ? `2px solid ${accent}` : `1px solid ${border}`,
+                        background: sel ? `rgba(126,200,192,.08)` : bg2,
+                      }}>
+                        <div style={{ fontSize:'13px', fontWeight:700, color: sel?accent:text, textTransform:'capitalize' }}>{dow} {date}</div>
+                        <div style={{ fontSize:'11px', color:muted, marginTop:'2px' }}>{slots.length} créneau{slots.length>1?'x':''} disponible{slots.length>1?'s':''}</div>
+                      </button>
+                    )
+                  })}
                 </div>
-                {slotsForDay(selectedDay).length === 0 ? (
-                  <div style={{ textAlign:'center', color:muted, padding:'20px', fontSize:'13px' }}>{t.noSlot}</div>
-                ) : (
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'8px', marginBottom:'20px' }}>
-                    {slotsForDay(selectedDay).map(h => (
-                      <button key={h} onClick={() => setSelHr(h)} style={{
-                        padding:'12px 6px', borderRadius:'10px', textAlign:'center', fontWeight:700, fontSize:'14px', cursor:'pointer',
-                        background: selectedHr===h ? accent : bg2,
-                        color:      selectedHr===h ? '#0C0C0C' : text,
-                        border:     `1px solid ${selectedHr===h ? accent : border}`
-                      }}>{h}</button>
-                    ))}
-                  </div>
-                )}
 
-                {selectedHr && (
-                  <button onClick={confirmSlot} style={{
-                    width:'100%', padding:'16px', background:accent, color:'#0C0C0C',
-                    border:'none', borderRadius:'50px', fontSize:'15px', fontWeight:700, cursor:'pointer'
-                  }}>💳 Passer au paiement →</button>
-                )}
-              </div>
-            )}
+                {/* Créneaux horaires — section séparée en bas */}
+                <div id="horaires-section" style={{
+                  borderTop: selectedDay ? `1px solid ${border}` : 'none',
+                  paddingTop: selectedDay ? '20px' : '0'
+                }}>
+                  {selectedDay && (<>
+                    <div style={{ fontSize:'13px', fontWeight:700, color:accent, marginBottom:'14px', textTransform:'capitalize' }}>
+                      🕐 {formatDate(selectedDay)}
+                    </div>
+                    {slotsForDay(selectedDay).length === 0 ? (
+                      <div style={{ textAlign:'center', color:muted, padding:'20px', fontSize:'13px' }}>{t.noSlot}</div>
+                    ) : (
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'8px', marginBottom:'20px' }}>
+                        {slotsForDay(selectedDay).map(h => (
+                          <button key={h} onClick={() => setSelHr(h)} style={{
+                            padding:'14px 6px', borderRadius:'10px', textAlign:'center',
+                            fontWeight:700, fontSize:'15px', cursor:'pointer',
+                            background: selectedHr===h ? accent : bg2,
+                            color:      selectedHr===h ? '#0C0C0C' : text,
+                            border:     `1px solid ${selectedHr===h ? accent : border}`
+                          }}>{h}</button>
+                        ))}
+                      </div>
+                    )}
+                    {selectedHr && (
+                      <button onClick={confirmSlot} style={{
+                        width:'100%', padding:'16px', background:accent, color:'#0C0C0C',
+                        border:'none', borderRadius:'50px', fontSize:'15px', fontWeight:700, cursor:'pointer'
+                      }}>💳 Passer au paiement →</button>
+                    )}
+                  </>)}
+                </div>
+              </>
             )}
           </div>
         )}
