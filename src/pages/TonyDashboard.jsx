@@ -142,7 +142,12 @@ export default function TonyDashboard({ onLogout }) {
   const td = todayStr()
   const ws = weekStart()
 
-  const sessAll    = sessions.filter(s=>!(s.properties.Type?.select?.name||'').includes('Amely'))
+  const sessAll    = sessions.filter(s=>{
+    const t = s.properties.Type?.select?.name||''
+    return !t.includes('Amely') && t !== '💰 Versement client'
+  })
+  // Versements confirmés — CA encaissé en avance
+  const versements = sessions.filter(s=>(s.properties.Type?.select?.name||'')==='💰 Versement client' && (s.properties.Statut?.select?.name||'')==='✅ Confirmé')
   const sessConf   = sessAll.filter(isConfirme)
   const sessPrevu  = sessAll.filter(isPrevu).filter(s=>(s.properties.Date?.date?.start||'')>=td)
 
@@ -150,9 +155,12 @@ export default function TonyDashboard({ onLogout }) {
   const sessW = sessConf.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
   const sessJ = sessConf.filter(s=>s.properties.Date?.date?.start===td)
 
-  const caMois   = sessM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const caSem    = sessW.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const caJour   = sessJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const versM = versements.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
+  const versW = versements.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
+  const versJ = versements.filter(s=>(s.properties.Date?.date?.start||'').startsWith(todayStr()))
+  const caMois   = sessM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const caSem    = sessW.reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versW.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const caJour   = sessJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
   const totalSessM = sessM.reduce((a,s)=>a+getNbSess(s),0)
   const panier   = totalSessM>0 ? Math.round(caMois/totalSessM) : 0
 

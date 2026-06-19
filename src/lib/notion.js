@@ -261,6 +261,24 @@ export const notion = {
 
   patchPage: (pageId, properties) => call(`pages/${pageId}`, 'PATCH', { properties }),
 
+  // Enregistre un versement client comme session CA dans la DB Sessions
+  addVersementSession: (data) => call('pages', 'POST', {
+    parent: { database_id: SESSIONS_DB },
+    properties: {
+      Session:        { title: [{ text: { content: `[VERSEMENT] ${data.client} · ${data.montant}€` } }] },
+      Type:           { select: { name: '💰 Versement client' } },
+      Prix:           { number: parseFloat(data.montant) || 0 },
+      'Acompte reçu': { number: 0 },
+      'Solde reçu':   { number: parseFloat(data.montant) || 0 },
+      Nationalité:    { select: { name: 'Autre' } },
+      Date:           { date: { start: data.date || new Date().toISOString().split('T')[0] } },
+      Notes:          { rich_text: [{ text: { content: `Versement progressif · ${data.mode} · Devis: ${data.devisDesc || ''}`.substring(0, 500) } }] },
+      Statut:         { select: { name: '✅ Confirmé' } },
+      'Client prénom':{ rich_text: [{ text: { content: String(data.client || '').substring(0, 200) } }] },
+      'Style / Type': { rich_text: [{ text: { content: String(data.devisDesc || '').substring(0, 200) } }] },
+    }
+  }),
+
   updateDevisStatut: (pageId, statut) => call(`pages/${pageId}`, 'PATCH', {
     properties: { Statut: { select: { name: statut } } }
   }),

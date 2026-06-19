@@ -110,6 +110,7 @@ export default function Devis({ onBack }) {
   const [tattooCount, setTattooCount]= useState(1)
   const [saving,      setSaving]     = useState(false)
   const [acompteReq,  setAcompteReq] = useState(true)  // case à décocher
+  const [versProgressif, setVersProgressif] = useState(false) // mode versements progressifs
   const [rdvPanel,    setRdvPanel]   = useState(false)
   const [rdvDate,     setRdvDate]    = useState('')
   const [rdvHeure,    setRdvHeure]   = useState('10:00')
@@ -133,12 +134,22 @@ export default function Devis({ onBack }) {
 
   const addVersement = async (devisItem, montant, mode) => {
     const vers = parseVersements(devisItem)
-    vers.push({ date: new Date().toISOString().split('T')[0], montant: parseFloat(montant), mode })
+    const today = new Date().toISOString().split('T')[0]
+    vers.push({ date: today, montant: parseFloat(montant), mode })
     const notes = devisItem?.properties?.Notes?.rich_text?.[0]?.plain_text || ''
     const notesBase = notes.replace(/VERSEMENTS:\[.*?\]/, '').trim()
     const newNotes = (notesBase + ' VERSEMENTS:' + JSON.stringify(vers)).trim().substring(0, 1900)
+    // Sauvegarder dans les notes du devis
     await notion.patchPage(devisItem.id, {
       Notes: { rich_text: [{ text: { content: newNotes } }] }
+    })
+    // Créer une session CA pour que ça apparaisse dans le Dashboard
+    await notion.addVersementSession({
+      client:     devisItem?.properties?.Client?.rich_text?.[0]?.plain_text || 'Client',
+      montant:    parseFloat(montant),
+      mode,
+      date:       today,
+      devisDesc:  devisItem?.properties?.Description?.rich_text?.[0]?.plain_text || '',
     })
   }
 
@@ -203,7 +214,7 @@ export default function Devis({ onBack }) {
 
   const resetCalc = () => {
     setTattoos([]); setTattooCount(1); setManualDisc(0)
-    setClientName(''); setClientNotes(''); setTattooNote(''); setDuree('120'); setAcompteReq(true)
+    setClientName(''); setClientNotes(''); setTattooNote(''); setDuree('120'); setAcompteReq(true); setVersProgressif(false)
     setStyle('blackwork'); setSize('m'); setComplexity(2); setInk('bw')
   }
 
@@ -223,7 +234,7 @@ export default function Devis({ onBack }) {
         client:      clientName.trim(),
         description: descArr.join(' | ').substring(0, 1900),
         prix:        total,
-        acompte:     acompteReq ? acompte : 0,
+        acompte:     (acompteReq && !versProgressif) ? acompte : 0,
         token:       token,
         tatouages:   tatouagesTronc,
         duree:       parseInt(duree) || 120,
@@ -750,6 +761,23 @@ export default function Devis({ onBack }) {
             )}
             {!acompteReq && (
               <div style={{ fontSize:'12px', color:'var(--txt3)', padding:'8px 0' }}>Aucun acompte — paiement intégral en studio</div>
+            )}
+            {/* Toggle paiement progressif */}
+            <button
+              onClick={() => { setVersProgressif(v => !v); if (!versProgressif) setAcompteReq(false) }}
+              style={{ display:'flex', alignItems:'center', gap:'10px', marginTop:'8px',
+                background:'none', border:'none', cursor:'pointer', padding:'4px 0', width:'100%', textAlign:'left' }}>
+              <div style={{ width:36, height:20, borderRadius:10, flexShrink:0,
+                background: versProgressif ? '#2980B9' : 'var(--border2)', position:'relative', transition:'background .2s' }}>
+                <div style={{ position:'absolute', top:2, left: versProgressif ? 18 : 2, width:16, height:16,
+                  borderRadius:'50%', background:'white', transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,.3)' }}/>
+              </div>
+              <span style={{ fontSize:'13px', color:'var(--txt2)', userSelect:'none' }}>Paiement progressif (versements multiples)</span>
+            </button>
+            {versProgressif && (
+              <div style={{ fontSize:'12px', color:'#2980B9', padding:'6px 0' }}>
+                💡 Le client versera en plusieurs fois — suivi dans le Gérer du devis
+              </div>
             )}
           </div>
         )}
