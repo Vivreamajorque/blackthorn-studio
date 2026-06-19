@@ -566,12 +566,8 @@ export default function Booking() {
               </a>
             )}
             {payUrl && !payUrl.startsWith('ERROR:') && (
-              <div style={{ marginTop:'12px', padding:'12px 16px', background:`rgba(126,200,192,.08)`, border:`1px solid rgba(126,200,192,.2)`, borderRadius:'12px', fontSize:'12px', color:muted, textAlign:'center' }}>
-                ✅ Après le paiement, ta réservation est confirmée automatiquement.
-                <br/>
-                <button onClick={finalizeBooking} style={{ marginTop:'10px', background:'transparent', border:`1px solid ${border}`, color:muted, borderRadius:'20px', padding:'6px 14px', fontSize:'11px', cursor:'pointer' }}>
-                  Confirmer manuellement si nécessaire
-                </button>
+              <div style={{ marginTop:'12px', padding:'12px 16px', background:`rgba(126,200,192,.06)`, border:`1px solid rgba(126,200,192,.15)`, borderRadius:'12px', fontSize:'12px', color:muted, textAlign:'center' }}>
+                🔒 Paiement sécurisé SumUp — ta réservation sera confirmée automatiquement après paiement
               </div>
             )}
             <div style={{ fontSize:'11px', color:muted, textAlign:'center', marginTop:'8px' }}>
