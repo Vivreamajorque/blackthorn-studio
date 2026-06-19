@@ -71,6 +71,7 @@ export default function Booking() {
   const [saving,      setSaving]    = useState(false)
   const [payUrl,      setPayUrl]    = useState('')
   const [payLoading,  setPayLoading]= useState(false)
+  const [checkoutId,  setCheckoutId]= useState('')
   const [lang,        setLang]      = useState('fr')
 
   const T = {
@@ -226,6 +227,24 @@ export default function Booking() {
     }
     fetchAll()
   }, [devis, sessions])
+
+  // Vérifier le paiement quand le client revient sur la page (après SumUp)
+  useEffect(() => {
+    if (!checkoutId || !token || step !== 3) return
+    const check = async () => {
+      try {
+        const r = await fetch(`/api/sumup-check?checkoutId=${checkoutId}&token=${token}`)
+        const d = await r.json()
+        if (d.paid) {
+          await finalizeBooking()
+          setStep(4)
+        }
+      } catch(e) {}
+    }
+    const onVisible = () => { if (document.visibilityState === 'visible') check() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [checkoutId, token, step])
 
   // Durée du devis en minutes
   const devisDureeMin = devis?.properties['Durée']?.number || 120
@@ -527,6 +546,7 @@ export default function Booking() {
                   const d = await r.json()
                   if (d.payUrl) {
                     setPayUrl(d.payUrl)
+                    setCheckoutId(d.checkoutId || '')
                     window.open(d.payUrl, '_blank')
                   } else {
                     throw new Error(d.error || JSON.stringify(d.details) || 'Erreur SumUp')
@@ -566,8 +586,10 @@ export default function Booking() {
               </a>
             )}
             {payUrl && !payUrl.startsWith('ERROR:') && (
-              <div style={{ marginTop:'12px', padding:'12px 16px', background:`rgba(126,200,192,.06)`, border:`1px solid rgba(126,200,192,.15)`, borderRadius:'12px', fontSize:'12px', color:muted, textAlign:'center' }}>
-                🔒 Paiement sécurisé SumUp — ta réservation sera confirmée automatiquement après paiement
+              <div style={{ marginTop:'12px', padding:'14px 16px', background:`rgba(126,200,192,.06)`, border:`1px solid rgba(126,200,192,.15)`, borderRadius:'12px', fontSize:'12px', color:muted, textAlign:'center', lineHeight:1.6 }}>
+                🔒 Paiement sécurisé SumUp
+                <br/>
+                <span style={{ fontSize:'11px', opacity:.8 }}>Après ton paiement, reviens sur cette page — ta réservation sera confirmée automatiquement</span>
               </div>
             )}
             <div style={{ fontSize:'11px', color:muted, textAlign:'center', marginTop:'8px' }}>

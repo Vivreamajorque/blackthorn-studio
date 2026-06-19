@@ -26,7 +26,7 @@ module.exports = async function handler(req, res) {
     merchant_code:      MERCHANT_CODE,
     // Hosted Checkout — SumUp retourne hosted_checkout_url directement utilisable
     hosted_checkout: { enabled: true },
-    return_url: 'https://blackthorn-studio.vercel.app',
+    return_url: 'https://blackthorn-studio.vercel.app/booking-confirm',
   })
 
   console.log('[SumUp] Payload:', payload)
