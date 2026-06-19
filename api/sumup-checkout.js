@@ -61,9 +61,9 @@ module.exports = async function handler(req, res) {
               details: parsed
             })
           } else {
-            const checkoutId  = parsed.id
-            // Format correct pour SumUp Checkout page publique
-            const payUrl = `https://pay.sumup.com/b2c/${process.env.SUMUP_MERCHANT_CODE || 'MMARD3DJ'}?checkout_id=${checkoutId}`
+            const checkoutId = parsed.id
+            // URL de paiement hébergée par SumUp — format officiel
+            const payUrl = `https://pay.sumup.com/b2c/checkouts/${checkoutId}`
             res.status(200).json({ checkoutId, payUrl, amount: parsed.amount })
           }
         } catch(e) {
