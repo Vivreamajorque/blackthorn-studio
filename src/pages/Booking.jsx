@@ -149,16 +149,18 @@ export default function Booking() {
       .filter(Boolean)
   )].sort()
 
-  // Créneaux ouverts pour un jour donné
-  const slotsForDay = (day) =>
-    creneaux
+  // Créneaux ouverts pour un jour donné — dédupliqués par heure
+  const slotsForDay = (day) => {
+    const seen = new Set()
+    return creneaux
       .filter(c => {
         const d = (c.properties.Date?.date?.start || '').split('T')[0]
         return d === day && c.properties.Statut?.select?.name === '🟢 Ouvert'
       })
       .map(c => c.properties.Heure?.rich_text?.[0]?.plain_text || '')
-      .filter(Boolean)
+      .filter(h => { if (!h || seen.has(h)) return false; seen.add(h); return true })
       .sort()
+  }
 
   // On génère les 30 prochains jours pour la nav calendrier
   const days = []
@@ -262,16 +264,27 @@ export default function Booking() {
             <div style={{ background:bg2, border:`1px solid ${border}`, borderRadius:'16px', padding:'20px', marginBottom:'16px' }}>
               <div style={{ fontSize:'12px', fontWeight:600, letterSpacing:'2px', textTransform:'uppercase', color:muted, marginBottom:'14px' }}>Résumé</div>
               <div style={{ fontSize:'14px', color:text, lineHeight:1.6, marginBottom:'16px' }}>{desc}</div>
-              <div style={{ borderTop:`1px solid ${border}`, paddingTop:'14px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px' }}>
+              <div style={{ borderTop:`1px solid ${border}`, paddingTop:'14px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom: devis?.properties['Durée']?.number ? '12px' : '0' }}>
                 <div>
                   <div style={{ fontSize:'11px', color:muted, marginBottom:'3px' }}>{t.price}</div>
                   <div style={{ fontFamily:'monospace', fontSize:'24px', fontWeight:700, color:text }}>{prix}€</div>
                 </div>
                 <div>
                   <div style={{ fontSize:'11px', color:muted, marginBottom:'3px' }}>{t.acompte}</div>
-                  <div style={{ fontFamily:'monospace', fontSize:'24px', fontWeight:700, color:gold }}>{acompte}€</div>
+                  <div style={{ fontFamily:'monospace', fontSize:'24px', fontWeight:700, color:gold }}>{acompte > 0 ? acompte+'€' : 'Aucun'}</div>
                 </div>
               </div>
+              {devis?.properties['Durée']?.number && (
+                <div style={{ display:'flex', alignItems:'center', gap:'8px', padding:'10px 14px', background:`rgba(126,200,192,.08)`, border:`1px solid rgba(126,200,192,.2)`, borderRadius:'10px' }}>
+                  <span style={{ fontSize:'16px' }}>⏱</span>
+                  <div>
+                    <div style={{ fontSize:'11px', color:muted }}>Durée estimée de la séance</div>
+                    <div style={{ fontSize:'14px', fontWeight:700, color:text }}>
+                      {(() => { const m = devis.properties['Durée'].number; const h = Math.floor(m/60); const min = m%60; return h > 0 ? h+'h'+(min>0?min:'') : min+'min' })()}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <button onClick={() => setStep(2)} style={{

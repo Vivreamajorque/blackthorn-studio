@@ -119,10 +119,19 @@ export default function Planning({ onBack, onEditRdv }) {
     return getDateOnly(s) === day && [STATUT_PREVU, STATUT_CONFIRM, STATUT_NOSHOW].includes(st)
   }).sort((a,b) => (getHeure(a)||'23:59').localeCompare(getHeure(b)||'23:59'))
 
-  const creneauxForDay = (day) => creneaux.filter(c => {
-    const d = c.properties.Date?.date?.start || ''
-    return d.split('T')[0] === day
-  }).sort((a,b) => (a.properties.Heure?.rich_text?.[0]?.plain_text||'').localeCompare(b.properties.Heure?.rich_text?.[0]?.plain_text||''))
+  const creneauxForDay = (day) => {
+    const seen = new Set()
+    return creneaux.filter(c => {
+      const d = c.properties.Date?.date?.start || ''
+      if (d.split('T')[0] !== day) return false
+      const h = c.properties.Heure?.rich_text?.[0]?.plain_text || '__jour__'
+      const st = c.properties.Statut?.select?.name || ''
+      const key = h + '|' + st
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    }).sort((a,b) => (a.properties.Heure?.rich_text?.[0]?.plain_text||'').localeCompare(b.properties.Heure?.rich_text?.[0]?.plain_text||''))
+  }
 
   const hasActivity = (day) => rdvsForDay(day).length > 0 || creneauxForDay(day).length > 0
   const isBloqueDay = (day) => creneauxForDay(day).some(c => c.properties.Statut?.select?.name === '🔒 Bloqué' && !c.properties.Heure?.rich_text?.[0]?.plain_text)
