@@ -26,6 +26,8 @@ module.exports = async function handler(req, res) {
     merchant_code:      MERCHANT_CODE,
     // Hosted Checkout — SumUp retourne hosted_checkout_url directement utilisable
     hosted_checkout: { enabled: true },
+    // notification_url = webhook automatique SumUp dès que paiement traité
+    notification_url: 'https://blackthorn-studio.vercel.app/api/sumup-webhook',
     return_url: 'https://blackthorn-studio.vercel.app/booking-confirm',
   })
 
