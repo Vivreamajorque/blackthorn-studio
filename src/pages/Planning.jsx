@@ -73,14 +73,40 @@ export default function Planning({ onBack, onEditRdv }) {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const wEnd2 = addDays(weekStart, 13) // 2 semaines
+      const wEnd2   = addDays(weekStart, 13)
       const wStart2 = addDays(weekStart, -7)
       const [s, c] = await Promise.all([
         notion.getSessions(),
         notion.getCreneauxRange(wStart2, wEnd2)
       ])
-      if (s.results) setSessions(s.results)
-      if (c.results) setCreneaux(c.results)
+      const sess = s.results || []
+      const cren = c.results || []
+      setSessions(sess)
+      setCreneaux(cren)
+
+      // Auto-ouvrir tous les créneaux libres 9h-22h pour les 7 jours de la semaine
+      const monday = mondayOf(todayStr())
+      const days7  = Array.from({ length: 7 }, (_, i) => addDays(monday, i))
+      const toCreate = []
+      for (const day of days7) {
+        const rdvsD  = sess.filter(s => getDateOnly(s) === day && ['🗓 Prévu','✅ Confirmé'].includes(s.properties.Statut?.select?.name||''))
+        const crensD = cren.filter(cr => (cr.properties.Date?.date?.start||'').split('T')[0] === day)
+        for (const h of SLOTS_ALL) {
+          const dejaOuvert = crensD.some(cr => cr.properties.Heure?.rich_text?.[0]?.plain_text === h)
+          if (dejaOuvert) continue
+          if (hasOverlap(rdvsD, h, '60')) continue
+          toCreate.push({ date: day, heure: h, statut: '🟢 Ouvert' })
+        }
+      }
+      // Créer les créneaux manquants (en parallèle par batch de 5)
+      for (let i = 0; i < toCreate.length; i += 5) {
+        await Promise.all(toCreate.slice(i, i+5).map(d => notion.addCreneau(d)))
+      }
+      if (toCreate.length > 0) {
+        // Recharger les créneaux après création
+        const c2 = await notion.getCreneauxRange(wStart2, wEnd2)
+        if (c2.results) setCreneaux(c2.results)
+      }
     } catch(e) { console.error(e) }
     setLoading(false)
   }, [weekStart])
