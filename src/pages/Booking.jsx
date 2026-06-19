@@ -21,6 +21,31 @@ function formatDate(str) {
 // Pour l'instant : créneaux par défaut du studio
 const DEFAULT_SLOTS = ['10:00','11:00','14:00','15:00','16:00','17:00','18:00','19:00']
 
+// Convertit HH:MM en minutes
+const toMin = (h) => { if (!h) return null; const [hh,mm] = h.split(':').map(Number); return hh*60+mm }
+
+// Vérifie si [heure, heure+dureeMin] chevauche les RDVs existants du jour
+const hasOverlapBooking = (rdvs, heure, dureeMin) => {
+  const start = toMin(heure)
+  if (start === null) return false
+  const end = start + parseInt(dureeMin || 120)
+  return rdvs.some(s => {
+    const st = s.properties.Statut?.select?.name || ''
+    if (st === '👻 No-show' || st === '❌ Annulé') return false
+    const dateRaw = s.properties.Date?.date?.start || ''
+    if (!dateRaw.includes('T')) return false
+    const h = dateRaw.substring(11, 16)
+    if (!h) return false
+    const sStart = toMin(h)
+    const notes  = s.properties.Notes?.rich_text?.[0]?.plain_text || ''
+    const durMatch = notes.match(/(\d+)\s*min/)
+    // Durée du RDV existant depuis la propriété ou les notes, sinon 120min par défaut
+    const existingDur = s.properties['Durée']?.number || (durMatch ? parseInt(durMatch[1]) : 120)
+    const sEnd = sStart + existingDur
+    return start < sEnd && end > sStart
+  })
+}
+
 export default function Booking() {
   const token = window.location.pathname.split('/booking/')[1]?.split('/')[0] || ''
 
@@ -141,24 +166,45 @@ export default function Booking() {
     }).catch(() => {})
   }, [devis])
 
-  // Jours qui ont au moins 1 créneau ouvert
-  const daysWithSlots = [...new Set(
+  // Jours candidats (ont des créneaux ouverts dans Notion)
+  const candidateDays = [...new Set(
     creneaux
       .filter(c => c.properties.Statut?.select?.name === '🟢 Ouvert')
       .map(c => (c.properties.Date?.date?.start || '').split('T')[0])
       .filter(Boolean)
   )].sort()
 
-  // Créneaux ouverts pour un jour donné — dédupliqués par heure
+  // Jours réellement disponibles après filtrage durée + chevauchements
+  const daysWithSlots = candidateDays.filter(day => slotsForDay(day).length > 0)
+
+  // Durée du devis en minutes
+  const devisDureeMin = devis?.properties['Durée']?.number || 120
+
+  // RDVs du jour (prévus ou confirmés) pour vérifier chevauchement
+  const rdvsForDay = (day) => sessions.filter(s => {
+    const dateRaw = s.properties.Date?.date?.start || ''
+    const dateDay = dateRaw.split('T')[0]
+    const st = s.properties.Statut?.select?.name || ''
+    return dateDay === day && ['🗓 Prévu','✅ Confirmé'].includes(st)
+  })
+
+  // Créneaux ouverts pour un jour — dédupliqués + filtrés selon durée devis et RDVs existants
   const slotsForDay = (day) => {
     const seen = new Set()
+    const rdvs = rdvsForDay(day)
     return creneaux
       .filter(c => {
         const d = (c.properties.Date?.date?.start || '').split('T')[0]
         return d === day && c.properties.Statut?.select?.name === '🟢 Ouvert'
       })
       .map(c => c.properties.Heure?.rich_text?.[0]?.plain_text || '')
-      .filter(h => { if (!h || seen.has(h)) return false; seen.add(h); return true })
+      .filter(h => {
+        if (!h || seen.has(h)) return false
+        seen.add(h)
+        // Vérifier que ce créneau + durée du devis ne chevauche pas un RDV existant
+        if (hasOverlapBooking(rdvs, h, devisDureeMin)) return false
+        return true
+      })
       .sort()
   }
 
