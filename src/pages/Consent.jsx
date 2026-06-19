@@ -252,7 +252,7 @@ export default function Consent() {
   const sessionId = window.location.pathname.split('/consent/')[1]?.split('/')[0] || ''
   const [lang, setLang] = useState('fr')
   const [step, setStep] = useState(1)
-  const [form, setForm] = useState({ nom: '', dni: '', dateNaissance: '', nationalite: '', email: '', majeur: true })
+  const [form, setForm] = useState({ nom: '', dni: '', dateNaissance: '', nationalite: '', email: '', telephone: '', majeur: true })
   const [contras, setContras] = useState({})
   const [consents, setConsents] = useState({})
   const [photo, setPhoto] = useState(null)
@@ -461,7 +461,7 @@ export default function Consent() {
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 20 }}>{t.step1}</h2>
 
             {[['nom', t.nom], ['dni', t.dni], ['dateNaissance', t.dateNaissance, 'date'],
-              ['nationalite', t.nationalite], ['email', t.email, 'email']
+              ['nationalite', t.nationalite], ['email', t.email, 'email'], ['telephone', t.telephone, 'tel']
             ].map(([key, label, type]) => (
               <div key={key} style={{ marginBottom: 14 }}>
                 <label style={s.label}>{label}</label>

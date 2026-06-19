@@ -69,7 +69,7 @@ module.exports = async function handler(req, res) {
       `📋 CONSENTEMENT SIGNÉ — ${now}`,
       `Nom : ${data.nom || '—'} | DNI/Passeport : ${data.dni || '—'}`,
       `Né(e) le : ${data.dateNaissance || '—'} | Nationalité : ${data.nationalite || '—'}`,
-      `Email : ${data.email || '—'}`,
+      `Email : ${data.email || '—'} | Tél : ${data.telephone || '—'}`,
       `Majeur(e) : ${data.majeur ? 'OUI' : 'NON'}`,
       `Contre-indications : ${contraStr}`,
       `Photo réseaux : ${data.photoOk ? 'OUI' : 'NON'}`,
