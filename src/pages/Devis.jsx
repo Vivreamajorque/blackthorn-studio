@@ -426,7 +426,7 @@ export default function Devis({ onBack }) {
               {!editPrix ? (
                 <div style={{ textAlign:'right' }}>
                   <div style={{ fontFamily:'var(--font-mono)', fontSize:'20px', fontWeight:600 }}>{getNum(selected,'Prix')}€</div>
-                  <div style={{ fontSize:'11px', color:'#D4820A' }}>acompte {getNum(selected,'Acompte')}€</div>
+                  {getNum(selected,'Acompte') > 0 && <div style={{ fontSize:'11px', color:'#D4820A' }}>acompte {getNum(selected,'Acompte')}€</div>}
                   <button onClick={() => { setEditPrixVal(String(getNum(selected,'Prix'))); setEditAcompteVal(String(getNum(selected,'Acompte'))); setEditPrix(true) }}
                     style={{ fontSize:'10px', color:'var(--txt3)', background:'none', border:'none', cursor:'pointer', marginTop:'4px', textDecoration:'underline' }}>
                     ✏️ Modifier
