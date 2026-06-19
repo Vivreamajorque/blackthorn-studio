@@ -78,58 +78,102 @@ export default function Booking() {
     fr: {
       loading:'Chargement…', error:'Lien invalide ou expiré.',
       step1title:'Ton projet', step1sub:'Vérifie les détails avant de choisir ton créneau.',
-      price:'Prix convenu', acompte:'Acompte à régler',
+      price:'Prix convenu', acompte:'Acompte à régler', noAcompte:'Aucun',
       next:'Choisir mon créneau →', chooseSlot:'Choisis ton créneau',
       noSlot:'Aucune disponibilité ce jour', confirm:'Confirmer ce créneau →',
       payTitle:'Régler l\'acompte', payDesc:'Paiement sécurisé SumUp',
       payBtn:'Payer l\'acompte maintenant →',
       confirmedTitle:'C\'est réservé ! 🖤', confirmedSub:'Tony a reçu ta réservation.',
+      payReceived:'Paiement reçu', depositPaid:'Acompte payé', balanceStudio:'Solde en studio',
+      yourAppt:'Ton rendez-vous', addToCalendar:'Ajouter à ton agenda',
+      calGoogle:'Google Agenda', calGoogleSub:'Gmail · Android',
+      calApple:'Apple Calendar / Outlook', calAppleSub:'iPhone · Mac · Windows',
+      practical:'Infos pratiques',
       addr:'Carrer de Santanyí 19 · 07630 Campos, Mallorca',
-      tips:'Mange bien avant de venir · Hydrate-toi · Vêtements confortables · Sans alcool 24h avant',
-      wa:'Une question ? WhatsApp Tony →',
-      cancel:'Annuler',
+      tips:'Mange bien avant · Hydrate-toi · Vêtements confortables · Sans alcool 24h avant',
+      wa:'Une question ? WhatsApp Tony →', cancel:'Annuler',
+      paySecure:'Paiement sécurisé SumUp', payReturn:'Après ton paiement, reviens sur cette page — ta réservation sera confirmée automatiquement',
+      duration:'Durée estimée',
     },
     en: {
       loading:'Loading…', error:'Invalid or expired link.',
       step1title:'Your project', step1sub:'Check the details before choosing your slot.',
-      price:'Agreed price', acompte:'Deposit to pay',
+      price:'Agreed price', acompte:'Deposit to pay', noAcompte:'None',
       next:'Choose my slot →', chooseSlot:'Choose your slot',
       noSlot:'No availability today', confirm:'Confirm this slot →',
       payTitle:'Pay the deposit', payDesc:'Secure payment via SumUp',
       payBtn:'Pay deposit now →',
       confirmedTitle:'You\'re booked! 🖤', confirmedSub:'Tony received your booking.',
+      payReceived:'Payment received', depositPaid:'Deposit paid', balanceStudio:'Balance at studio',
+      yourAppt:'Your appointment', addToCalendar:'Add to your calendar',
+      calGoogle:'Google Calendar', calGoogleSub:'Gmail · Android',
+      calApple:'Apple Calendar / Outlook', calAppleSub:'iPhone · Mac · Windows',
+      practical:'Practical info',
       addr:'Carrer de Santanyí 19 · 07630 Campos, Mallorca',
       tips:'Eat before · Stay hydrated · Comfortable clothes · No alcohol 24h before',
-      wa:'Any question? WhatsApp Tony →',
-      cancel:'Cancel',
+      wa:'Any question? WhatsApp Tony →', cancel:'Cancel',
+      paySecure:'Secure payment via SumUp', payReturn:'After payment, come back to this page — your booking will be confirmed automatically',
+      duration:'Estimated duration',
     },
     es: {
       loading:'Cargando…', error:'Enlace inválido o caducado.',
       step1title:'Tu proyecto', step1sub:'Revisa los detalles antes de elegir tu cita.',
-      price:'Precio acordado', acompte:'Señal a pagar',
+      price:'Precio acordado', acompte:'Señal a pagar', noAcompte:'Ninguna',
       next:'Elegir mi cita →', chooseSlot:'Elige tu cita',
       noSlot:'Sin disponibilidad hoy', confirm:'Confirmar esta cita →',
       payTitle:'Pagar la señal', payDesc:'Pago seguro con SumUp',
       payBtn:'Pagar la señal ahora →',
       confirmedTitle:'¡Reservado! 🖤', confirmedSub:'Tony ha recibido tu reserva.',
+      payReceived:'Pago recibido', depositPaid:'Señal pagada', balanceStudio:'Resto en el estudio',
+      yourAppt:'Tu cita', addToCalendar:'Añadir a tu calendario',
+      calGoogle:'Google Calendar', calGoogleSub:'Gmail · Android',
+      calApple:'Apple Calendar / Outlook', calAppleSub:'iPhone · Mac · Windows',
+      practical:'Información práctica',
       addr:'Carrer de Santanyí 19 · 07630 Campos, Mallorca',
       tips:'Come antes · Hidrátate · Ropa cómoda · Sin alcohol 24h antes',
-      wa:'¿Alguna pregunta? WhatsApp Tony →',
-      cancel:'Cancelar',
+      wa:'¿Alguna pregunta? WhatsApp Tony →', cancel:'Cancelar',
+      paySecure:'Pago seguro con SumUp', payReturn:'Tras el pago, vuelve a esta página — tu reserva se confirmará automáticamente',
+      duration:'Duración estimada',
     },
     de: {
       loading:'Laden…', error:'Ungültiger oder abgelaufener Link.',
       step1title:'Dein Projekt', step1sub:'Überprüfe die Details, bevor du deinen Termin wählst.',
-      price:'Vereinbarter Preis', acompte:'Anzahlung',
+      price:'Vereinbarter Preis', acompte:'Anzahlung', noAcompte:'Keine',
       next:'Termin wählen →', chooseSlot:'Wähle deinen Termin',
       noSlot:'Keine Verfügbarkeit heute', confirm:'Diesen Termin bestätigen →',
       payTitle:'Anzahlung bezahlen', payDesc:'Sichere Zahlung via SumUp',
       payBtn:'Jetzt Anzahlung bezahlen →',
       confirmedTitle:'Gebucht! 🖤', confirmedSub:'Tony hat deine Buchung erhalten.',
+      payReceived:'Zahlung erhalten', depositPaid:'Anzahlung bezahlt', balanceStudio:'Restbetrag im Studio',
+      yourAppt:'Dein Termin', addToCalendar:'Zum Kalender hinzufügen',
+      calGoogle:'Google Kalender', calGoogleSub:'Gmail · Android',
+      calApple:'Apple Kalender / Outlook', calAppleSub:'iPhone · Mac · Windows',
+      practical:'Praktische Infos',
       addr:'Carrer de Santanyí 19 · 07630 Campos, Mallorca',
-      tips:'Gut essen · Gut trinken · Bequeme Kleidung · Kein Alkohol 24h vorher',
-      wa:'Fragen? WhatsApp Tony →',
-      cancel:'Abbrechen',
+      tips:'Vorher essen · Viel trinken · Bequeme Kleidung · Kein Alkohol 24h vorher',
+      wa:'Fragen? WhatsApp Tony →', cancel:'Abbrechen',
+      paySecure:'Sichere Zahlung via SumUp', payReturn:'Nach der Zahlung komm auf diese Seite zurück — deine Buchung wird automatisch bestätigt',
+      duration:'Geschätzte Dauer',
+    },
+    ca: {
+      loading:'Carregant…', error:'Enllaç invàlid o caducat.',
+      step1title:'El teu projecte', step1sub:'Revisa els detalls abans de triar el teu horari.',
+      price:'Preu acordat', acompte:'Bestreta a pagar', noAcompte:'Cap',
+      next:'Triar el meu horari →', chooseSlot:'Tria el teu horari',
+      noSlot:'Sense disponibilitat avui', confirm:'Confirmar aquest horari →',
+      payTitle:'Pagar la bestreta', payDesc:'Pagament segur amb SumUp',
+      payBtn:'Pagar la bestreta ara →',
+      confirmedTitle:'Reservat! 🖤', confirmedSub:'En Tony ha rebut la teva reserva.',
+      payReceived:'Pagament rebut', depositPaid:'Bestreta pagada', balanceStudio:'Resta a l\'estudi',
+      yourAppt:'La teva cita', addToCalendar:'Afegir al calendari',
+      calGoogle:'Google Calendar', calGoogleSub:'Gmail · Android',
+      calApple:'Apple Calendar / Outlook', calAppleSub:'iPhone · Mac · Windows',
+      practical:'Informació pràctica',
+      addr:'Carrer de Santanyí 19 · 07630 Campos, Mallorca',
+      tips:'Menja bé abans · Hidrata\'t · Roba còmoda · Sense alcohol 24h abans',
+      wa:'Alguna pregunta? WhatsApp Tony →', cancel:'Cancel·lar',
+      paySecure:'Pagament segur amb SumUp', payReturn:'Després del pagament, torna a aquesta pàgina — la teva reserva es confirmarà automàticament',
+      duration:'Durada estimada',
     },
   }
   const t = T[lang] || T.fr
@@ -137,7 +181,8 @@ export default function Booking() {
   // Détection langue navigateur
   useEffect(() => {
     const nav = (navigator.language || '').toLowerCase()
-    if (nav.startsWith('es')) setLang('es')
+    if (nav.startsWith('ca')) setLang('ca')
+    else if (nav.startsWith('es')) setLang('es')
     else if (nav.startsWith('de')) setLang('de')
     else if (nav.startsWith('en')) setLang('en')
     else setLang('fr')
@@ -370,7 +415,7 @@ export default function Booking() {
       <nav style={{ background:'rgba(12,12,12,.96)', backdropFilter:'blur(14px)', borderBottom:`1px solid ${border}`, padding:'12px 20px', display:'flex', justifyContent:'space-between', alignItems:'center', position:'sticky', top:0, zIndex:50 }}>
         <img src="/blackthorn-logo.png" alt="Blackthorn" style={{ height:'36px', filter:'invert(1)', opacity:.9 }} />
         <div style={{ display:'flex', gap:'4px' }}>
-          {['fr','en','es','de'].map(l => (
+          {['fr','en','es','de','ca'].map(l => (
             <button key={l} onClick={() => setLang(l)} style={{
               padding:'4px 8px', borderRadius:'20px', fontSize:'11px', fontWeight:700, cursor:'pointer', border:'none', textTransform:'uppercase',
               background: lang===l ? accent : 'transparent', color: lang===l ? '#0C0C0C' : muted
@@ -397,7 +442,7 @@ export default function Booking() {
                 </div>
                 <div>
                   <div style={{ fontSize:'11px', color:muted, marginBottom:'3px' }}>{t.acompte}</div>
-                  <div style={{ fontFamily:'monospace', fontSize:'24px', fontWeight:700, color:gold }}>{acompte > 0 ? acompte+'€' : 'Aucun'}</div>
+                  <div style={{ fontFamily:'monospace', fontSize:'24px', fontWeight:700, color:gold }}>{acompte > 0 ? acompte+'€' : t.noAcompte}</div>
                 </div>
               </div>
               {devis?.properties['Durée']?.number && (
@@ -587,9 +632,9 @@ export default function Booking() {
             )}
             {payUrl && !payUrl.startsWith('ERROR:') && (
               <div style={{ marginTop:'12px', padding:'14px 16px', background:`rgba(126,200,192,.06)`, border:`1px solid rgba(126,200,192,.15)`, borderRadius:'12px', fontSize:'12px', color:muted, textAlign:'center', lineHeight:1.6 }}>
-                🔒 Paiement sécurisé SumUp
+                🔒 {t.paySecure}
                 <br/>
-                <span style={{ fontSize:'11px', opacity:.8 }}>Après ton paiement, reviens sur cette page — ta réservation sera confirmée automatiquement</span>
+                <span style={{ fontSize:'11px', opacity:.8 }}>{t.payReturn}</span>
               </div>
             )}
             <div style={{ fontSize:'11px', color:muted, textAlign:'center', marginTop:'8px' }}>
@@ -656,14 +701,14 @@ export default function Booking() {
 
               {/* Bloc paiement confirmé */}
               <div style={{ background:'rgba(26,140,90,.06)', border:'1.5px solid rgba(26,140,90,.25)', borderRadius:'16px', padding:'18px', marginBottom:'14px' }}>
-                <div style={{ fontSize:'11px', fontWeight:700, color:'#1A8C5A', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'12px' }}>💳 Paiement reçu</div>
+                <div style={{ fontSize:'11px', fontWeight:700, color:'#1A8C5A', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'12px' }}>💳 {t.payReceived}</div>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
                   <div style={{ background:'rgba(0,0,0,.15)', borderRadius:'10px', padding:'10px', textAlign:'center' }}>
-                    <div style={{ fontSize:'10px', color:muted, marginBottom:'3px' }}>Acompte payé</div>
+                    <div style={{ fontSize:'10px', color:muted, marginBottom:'3px' }}>{t.depositPaid}</div>
                     <div style={{ fontFamily:'monospace', fontSize:'20px', fontWeight:700, color:'#1A8C5A' }}>{acompte}€</div>
                   </div>
                   <div style={{ background:'rgba(0,0,0,.15)', borderRadius:'10px', padding:'10px', textAlign:'center' }}>
-                    <div style={{ fontSize:'10px', color:muted, marginBottom:'3px' }}>Solde en studio</div>
+                    <div style={{ fontSize:'10px', color:muted, marginBottom:'3px' }}>{t.balanceStudio}</div>
                     <div style={{ fontFamily:'monospace', fontSize:'20px', fontWeight:700, color:text }}>{prix - acompte}€</div>
                   </div>
                 </div>
@@ -672,11 +717,11 @@ export default function Booking() {
               {/* Bloc RDV confirmé */}
               {selectedDay && selectedHr && (
                 <div style={{ background:bg2, border:`1px solid ${border}`, borderRadius:'16px', padding:'18px', marginBottom:'14px' }}>
-                  <div style={{ fontSize:'11px', fontWeight:700, color:accent, textTransform:'uppercase', letterSpacing:'1px', marginBottom:'12px' }}>📅 Ton rendez-vous</div>
+                  <div style={{ fontSize:'11px', fontWeight:700, color:accent, textTransform:'uppercase', letterSpacing:'1px', marginBottom:'12px' }}>📅 {t.yourAppt}</div>
                   <div style={{ fontSize:'16px', fontWeight:700, color:text, marginBottom:'4px', textTransform:'capitalize' }}>
                     {new Date(selectedDay).toLocaleDateString(lang==='fr'?'fr-FR':lang==='es'?'es-ES':lang==='de'?'de-DE':'en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}
                   </div>
-                  <div style={{ fontSize:'14px', color:muted, marginBottom:'4px' }}>🕐 {selectedHr}{devis?.properties['Durée']?.number ? ` — durée estimée : ${Math.floor(devis.properties['Durée'].number/60)}h${devis.properties['Durée'].number%60>0?devis.properties['Durée'].number%60:''}` : ''}</div>
+                  <div style={{ fontSize:'14px', color:muted, marginBottom:'4px' }}>🕐 {selectedHr}{devis?.properties['Durée']?.number ? ` — ${t.duration} : ${Math.floor(devis.properties['Durée'].number/60)}h${devis.properties['Durée'].number%60>0?devis.properties['Durée'].number%60:''}` : ''}</div>
                   <div style={{ fontSize:'13px', color:muted }}>📍 Carrer de Santanyí 19 · Campos, Mallorca</div>
                 </div>
               )}
@@ -684,7 +729,7 @@ export default function Booking() {
               {/* Ajouter à l'agenda */}
               {dates && (
                 <div style={{ background:bg2, border:`1px solid ${border}`, borderRadius:'16px', padding:'18px', marginBottom:'14px' }}>
-                  <div style={{ fontSize:'11px', fontWeight:700, color:muted, textTransform:'uppercase', letterSpacing:'1px', marginBottom:'12px' }}>🗓 Ajouter à ton agenda</div>
+                  <div style={{ fontSize:'11px', fontWeight:700, color:muted, textTransform:'uppercase', letterSpacing:'1px', marginBottom:'12px' }}>🗓 {t.addToCalendar}</div>
                   <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
                     {googleUrl && (
                       <a href={googleUrl} target="_blank" rel="noopener" style={{
@@ -694,8 +739,8 @@ export default function Booking() {
                       }}>
                         <span style={{ fontSize:'18px' }}>📅</span>
                         <div>
-                          <div style={{ fontSize:'13px', fontWeight:700 }}>Google Agenda</div>
-                          <div style={{ fontSize:'11px', color:muted }}>Gmail · Android</div>
+                          <div style={{ fontSize:'13px', fontWeight:700 }}>{t.calGoogle}</div>
+                          <div style={{ fontSize:'11px', color:muted }}>{t.calGoogleSub}</div>
                         </div>
                         <span style={{ marginLeft:'auto', fontSize:'12px', color:muted }}>→</span>
                       </a>
@@ -707,8 +752,8 @@ export default function Booking() {
                     }}>
                       <span style={{ fontSize:'18px' }}>🍎</span>
                       <div>
-                        <div style={{ fontSize:'13px', fontWeight:700 }}>Apple Calendar / Outlook</div>
-                        <div style={{ fontSize:'11px', color:muted }}>iPhone · Mac · Windows</div>
+                        <div style={{ fontSize:'13px', fontWeight:700 }}>{t.calApple}</div>
+                        <div style={{ fontSize:'11px', color:muted }}>{t.calAppleSub}</div>
                       </div>
                       <span style={{ marginLeft:'auto', fontSize:'12px', color:muted }}>↓</span>
                     </button>
@@ -718,7 +763,7 @@ export default function Booking() {
 
               {/* Infos pratiques */}
               <div style={{ background:bg2, border:`1px solid ${border}`, borderRadius:'16px', padding:'18px', marginBottom:'16px' }}>
-                <div style={{ fontSize:'11px', fontWeight:700, letterSpacing:'2px', textTransform:'uppercase', color:muted, marginBottom:'10px' }}>Infos pratiques</div>
+                <div style={{ fontSize:'11px', fontWeight:700, letterSpacing:'2px', textTransform:'uppercase', color:muted, marginBottom:'10px' }}>{t.practical}</div>
                 <div style={{ fontSize:'12px', color:muted, lineHeight:1.8 }}>{t.tips}</div>
               </div>
 
