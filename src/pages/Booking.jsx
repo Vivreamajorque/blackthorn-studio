@@ -448,10 +448,13 @@ export default function Booking() {
                     })
                   })
                   const d = await r.json()
-                  if (d.payUrl) setPayUrl(d.payUrl)
-                  else throw new Error(d.error)
+                  if (d.payUrl) {
+                    setPayUrl(d.payUrl)
+                    window.open(d.payUrl, '_blank')
+                  } else throw new Error(d.error || 'Erreur SumUp')
                 } catch(e) {
-                  window.open(waLink, '_blank')
+                  // Afficher l'erreur, ne pas rediriger vers WhatsApp
+                  setPayUrl('ERROR:' + e.message)
                 }
                 setPayLoading(false)
               }} disabled={payLoading} style={{
@@ -463,17 +466,36 @@ export default function Booking() {
               }}>
                 {payLoading ? 'Génération du lien…' : `💳 ${t.payBtn}`}
               </button>
+            ) : payUrl.startsWith('ERROR:') ? (
+              <div>
+                <div style={{ background:'rgba(192,57,43,.1)', border:'1px solid rgba(192,57,43,.3)', borderRadius:'12px', padding:'14px', marginBottom:'12px', fontSize:'12px', color:'#C0392B' }}>
+                  ⚠️ Erreur paiement en ligne : {payUrl.replace('ERROR:','')}
+                </div>
+                <a href={waLink} target="_blank" rel="noopener" style={{
+                  display:'block', width:'100%', padding:'14px',
+                  background:'#25D366', color:'white',
+                  textDecoration:'none', borderRadius:'50px',
+                  fontSize:'14px', fontWeight:700, textAlign:'center', marginBottom:'10px'
+                }}>
+                  💬 Contacter Tony pour le paiement
+                </a>
+                <button onClick={() => setPayUrl('')} style={{
+                  width:'100%', padding:'10px', background:'transparent',
+                  border:`1px solid ${border}`, color:muted, borderRadius:'50px',
+                  fontSize:'12px', cursor:'pointer'
+                }}>↩ Réessayer</button>
+              </div>
             ) : (
-              <a href={payUrl} target="_blank" rel="noopener" onClick={() => setTimeout(finalizeBooking, 3000)} style={{
+              <a href={payUrl} target="_blank" rel="noopener" style={{
                 display:'block', width:'100%', padding:'16px',
                 background:'#1B5E20', color:'white',
                 textDecoration:'none', borderRadius:'50px',
                 fontSize:'15px', fontWeight:700, textAlign:'center', marginBottom:'10px'
               }}>
-                💳 Payer {acompte}€ maintenant →
+                💳 Payer {acompte}€ sur SumUp →
               </a>
             )}
-            {payUrl && (
+            {payUrl && !payUrl.startsWith('ERROR:') && (
               <button onClick={finalizeBooking} style={{
                 width:'100%', padding:'12px', marginTop:'8px',
                 background:'transparent', border:`1px solid ${accent}`, color:accent,
