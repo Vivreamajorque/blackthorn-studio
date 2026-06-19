@@ -174,23 +174,58 @@ export default function Booking() {
   const [creneaux,   setCreneaux]   = useState([])
   const [dataReady,  setDataReady]  = useState(false)
 
+  // Heures disponibles par défaut 9h-22h
+  const ALL_HOURS = ['09:00','10:00','11:00','12:00','13:00','14:00','15:00',
+                     '16:00','17:00','18:00','19:00','20:00','21:00','22:00']
+
   useEffect(() => {
-    if (!devis) return
+    if (!devis || sessions === null) return
     const fetchAll = async () => {
       const all = []
-      for (let w = 0; w < 4; w++) {
-        const dateMin = addDays(todayStr(), w * 7 + 1)
-        const dateMax = addDays(todayStr(), w * 7 + 7)
+      for (let w = 0; w < 5; w++) {
+        const dateMin = addDays(todayStr(), w * 6 + 1)
+        const dateMax = addDays(todayStr(), w * 6 + 6)
         try {
           const r = await notion.getCreneauxRange(dateMin, dateMax)
           if (r.results) all.push(...r.results)
         } catch(e) {}
       }
-      setCreneaux(all)
+      // Pour les 30 prochains jours — si un jour n'a PAS de créneaux Notion
+      // on génère des créneaux virtuels 9h-22h (non bloqués)
+      const notionDays = new Set(
+        all
+          .filter(c => c.properties.Statut?.select?.name !== '🔒 Bloqué')
+          .map(c => (c.properties.Date?.date?.start || '').split('T')[0])
+          .filter(Boolean)
+      )
+      const virtualCreneaux = []
+      for (let i = 1; i <= 30; i++) {
+        const day = addDays(todayStr(), i)
+        if (notionDays.has(day)) continue // déjà dans Notion
+        // Vérifier si le jour n'est pas bloqué entièrement
+        const bloqueJour = all.some(c =>
+          (c.properties.Date?.date?.start || '').split('T')[0] === day &&
+          c.properties.Statut?.select?.name === '🔒 Bloqué' &&
+          !c.properties.Heure?.rich_text?.[0]?.plain_text
+        )
+        if (bloqueJour) continue
+        // Générer créneaux virtuels pour ce jour
+        for (const h of ALL_HOURS) {
+          virtualCreneaux.push({
+            id: 'virtual-' + day + '-' + h,
+            properties: {
+              Date:   { date: { start: day } },
+              Heure:  { rich_text: [{ plain_text: h }] },
+              Statut: { select: { name: '🟢 Ouvert' } }
+            }
+          })
+        }
+      }
+      setCreneaux([...all, ...virtualCreneaux])
       setDataReady(true)
     }
     fetchAll()
-  }, [devis])
+  }, [devis, sessions])
 
   // Durée du devis en minutes
   const devisDureeMin = devis?.properties['Durée']?.number || 120
