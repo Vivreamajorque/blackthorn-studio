@@ -19,12 +19,17 @@ module.exports = async function handler(req, res) {
     .replace(/[^a-zA-Z0-9-]/g, '')
     .substring(0, 90)
 
-  // Payload propre
+  // SumUp exige pay_to_email OU merchant_code
+  const merchantCode = process.env.SUMUP_MERCHANT_CODE
+  const payToEmail   = process.env.SUMUP_EMAIL
+
   const payload = JSON.stringify({
     checkout_reference: cleanRef,
     amount:             Math.round(parseFloat(amount) * 100) / 100,
     currency:           currency,
     description:        String(description).substring(0, 100),
+    ...(merchantCode ? { merchant_code: merchantCode } : {}),
+    ...(payToEmail   ? { pay_to_email:  payToEmail   } : {}),
     return_url:         'https://blackthorn-studio.vercel.app',
   })
 
