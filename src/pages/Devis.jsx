@@ -473,14 +473,24 @@ export default function Devis({ onBack }) {
                           await addVersement(selected, vMontant, vMode)
                           showToast('✅ Versement enregistré')
                           setVPanel(false); setVMontant('')
-                          load()
-                          setSelected(prev => {
-                            // Recalc notes localement pour refresh immédiat
-                            return prev
-                          })
-                        } catch(e) { showToast('Erreur') }
+                          // Mettre à jour selected localement IMMÉDIATEMENT
+                          // sans attendre le rechargement réseau
+                          const vers = parseVersements(selected)
+                          vers.push({ date: new Date().toISOString().split('T')[0], montant: parseFloat(vMontant), mode: vMode })
+                          const notes = selected?.properties?.Notes?.rich_text?.[0]?.plain_text || ''
+                          const notesBase = notes.replace(/VERSEMENTS:\[.*?\]/, '').trim()
+                          const newNotes = (notesBase + ' VERSEMENTS:' + JSON.stringify(vers)).trim()
+                          setSelected(prev => ({
+                            ...prev,
+                            properties: {
+                              ...prev.properties,
+                              Notes: { rich_text: [{ plain_text: newNotes, text: { content: newNotes } }] }
+                            }
+                          }))
+                          load() // refresh en arrière-plan
+                        } catch(e) { showToast('Erreur: ' + e.message) }
                         setSaving(false)
-                      }} disabled={saving || !vMontant} style={{ ...S.btnPrimary, background: saving||!vMontant ? '#555':'#1A8C5A', opacity:!vMontant?.0:1 }}>
+                      }} disabled={saving || !vMontant} style={{ ...S.btnPrimary, background: saving||!vMontant ? '#555':'#1A8C5A' }}>
                         ✓ Enregistrer
                       </button>
                     </div>
