@@ -117,9 +117,12 @@ export default function Devis({ onBack }) {
   const [rdvDate,     setRdvDate]    = useState('')
   const [rdvHeure,    setRdvHeure]   = useState('10:00')
   const [rdvSaving,   setRdvSaving]  = useState(false)
-  const [vPanel,      setVPanel]     = useState(false)  // panel nouveau versement
+  const [vPanel,      setVPanel]     = useState(false)
   const [vMontant,    setVMontant]   = useState('')
   const [vMode,       setVMode]      = useState('cash')
+  const [editPrix,    setEditPrix]   = useState(false) // édition prix/acompte
+  const [editPrixVal, setEditPrixVal]= useState('')
+  const [editAcompteVal, setEditAcompteVal] = useState('')
 
   const showToast = (m) => { setToast(m); setTimeout(() => setToast(''), 2500) }
 
@@ -420,10 +423,56 @@ export default function Devis({ onBack }) {
             <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'12px' }}>
               <span style={{ fontSize:'11px', fontWeight:700, padding:'3px 10px', borderRadius:'20px',
                 background:(STATUT_COLOR[statut]||'#888')+'22', color:STATUT_COLOR[statut]||'#888' }}>{statut}</span>
-              <div style={{ textAlign:'right' }}>
-                <div style={{ fontFamily:'var(--font-mono)', fontSize:'20px', fontWeight:600 }}>{getNum(selected,'Prix')}€</div>
-                <div style={{ fontSize:'11px', color:'#D4820A' }}>acompte {getNum(selected,'Acompte')}€</div>
-              </div>
+              {!editPrix ? (
+                <div style={{ textAlign:'right' }}>
+                  <div style={{ fontFamily:'var(--font-mono)', fontSize:'20px', fontWeight:600 }}>{getNum(selected,'Prix')}€</div>
+                  <div style={{ fontSize:'11px', color:'#D4820A' }}>acompte {getNum(selected,'Acompte')}€</div>
+                  <button onClick={() => { setEditPrixVal(String(getNum(selected,'Prix'))); setEditAcompteVal(String(getNum(selected,'Acompte'))); setEditPrix(true) }}
+                    style={{ fontSize:'10px', color:'var(--txt3)', background:'none', border:'none', cursor:'pointer', marginTop:'4px', textDecoration:'underline' }}>
+                    ✏️ Modifier
+                  </button>
+                </div>
+              ) : (
+                <div style={{ textAlign:'right', minWidth:160 }}>
+                  <div style={{ display:'flex', gap:'6px', marginBottom:'6px', alignItems:'center', justifyContent:'flex-end' }}>
+                    <input type="number" value={editPrixVal} onChange={e => setEditPrixVal(e.target.value)}
+                      placeholder="Prix €"
+                      style={{ width:90, padding:'6px 8px', border:'1.5px solid var(--border2)', borderRadius:'var(--r)', fontFamily:'var(--font-mono)', fontSize:'16px', textAlign:'center', background:'var(--bg)', color:'var(--txt)' }}/>
+                    <span style={{ fontSize:'13px', color:'var(--txt3)' }}>€</span>
+                  </div>
+                  <div style={{ display:'flex', gap:'6px', marginBottom:'8px', alignItems:'center', justifyContent:'flex-end' }}>
+                    <input type="number" value={editAcompteVal} onChange={e => setEditAcompteVal(e.target.value)}
+                      placeholder="Acompte €"
+                      style={{ width:90, padding:'5px 8px', border:'1.5px solid var(--border2)', borderRadius:'var(--r)', fontFamily:'var(--font-mono)', fontSize:'13px', textAlign:'center', background:'var(--bg)', color:'#D4820A' }}/>
+                    <span style={{ fontSize:'11px', color:'#D4820A' }}>€ acpte</span>
+                  </div>
+                  <div style={{ display:'flex', gap:'6px', justifyContent:'flex-end' }}>
+                    <button onClick={() => setEditPrix(false)} style={{ fontSize:'11px', padding:'5px 10px', background:'var(--bg)', border:'1px solid var(--border2)', borderRadius:'20px', cursor:'pointer', color:'var(--txt3)' }}>✕</button>
+                    <button onClick={async () => {
+                      if (!editPrixVal) return
+                      setSaving(true)
+                      try {
+                        await notion.patchPage(selected.id, {
+                          Prix:    { number: parseFloat(editPrixVal) || 0 },
+                          Acompte: { number: parseFloat(editAcompteVal) || 0 },
+                        })
+                        setSelected(prev => ({
+                          ...prev,
+                          properties: {
+                            ...prev.properties,
+                            Prix:    { number: parseFloat(editPrixVal) },
+                            Acompte: { number: parseFloat(editAcompteVal) },
+                          }
+                        }))
+                        showToast('Prix mis à jour ✓')
+                        setEditPrix(false)
+                        load()
+                      } catch(e) { showToast('Erreur') }
+                      setSaving(false)
+                    }} disabled={saving} style={{ fontSize:'11px', padding:'5px 12px', background:'var(--txt)', color:'var(--bg)', border:'none', borderRadius:'20px', cursor:'pointer', fontWeight:700 }}>✓</button>
+                  </div>
+                </div>
+              )}
             </div>
             <div style={{ fontSize:'13px', color:'var(--txt2)', lineHeight:1.6 }}>{getStr(selected,'Description')}</div>
           </div>
