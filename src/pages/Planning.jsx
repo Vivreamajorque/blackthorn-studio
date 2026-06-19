@@ -629,10 +629,12 @@ export default function Planning({ onBack, onEditRdv }) {
                       background: isPast ? 'var(--green)' : 'var(--amber)', color:'#fff'
                     }}>✅ {isPast?'Valider':'Client venu'}</button>
                     <button onClick={(e)=>{ e.stopPropagation()
-                      const notes = s.properties.Notes?.rich_text?.[0]?.plain_text || ''
-                      const pdfMatch = notes.match(/PDF Drive : (https:\/\/[^\n]+)/)
-                      if (s.properties['Fiche signée']?.checkbox && pdfMatch) {
-                        window.open(pdfMatch[1], '_blank')
+                      const notesArr = s.properties.Notes?.rich_text || []
+                      const notes = notesArr.map(r => r.plain_text || '').join('')
+                      const pdfMatch = notes.match(/PDF Drive : (https:\/\/[^ \n\r]+)/)
+                      console.log('[fiche] notes:', notes.substring(0,100), 'match:', pdfMatch)
+                      if (s.properties['Fiche signée']?.checkbox && pdfMatch?.[1]) {
+                        window.open(pdfMatch[1].trim(), '_blank')
                       } else {
                         setQrPanel(s.id)
                       }
@@ -652,10 +654,11 @@ export default function Planning({ onBack, onEditRdv }) {
                 {isConf && (
                   <div style={{ display:'flex', gap:'6px', marginTop:'4px' }}>
                     <button onClick={(e)=>{ e.stopPropagation()
-                      const notes = s.properties.Notes?.rich_text?.[0]?.plain_text || ''
-                      const pdfMatch = notes.match(/PDF Drive : (https:\/\/[^\n]+)/)
-                      if (s.properties['Fiche signée']?.checkbox && pdfMatch) {
-                        window.open(pdfMatch[1], '_blank')
+                      const notesArr = s.properties.Notes?.rich_text || []
+                      const notes = notesArr.map(r => r.plain_text || '').join('')
+                      const pdfMatch = notes.match(/PDF Drive : (https:\/\/[^ \n\r]+)/)
+                      if (s.properties['Fiche signée']?.checkbox && pdfMatch?.[1]) {
+                        window.open(pdfMatch[1].trim(), '_blank')
                       } else {
                         setQrPanel(s.id)
                       }
