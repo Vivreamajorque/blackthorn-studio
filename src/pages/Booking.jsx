@@ -110,18 +110,22 @@ export default function Booking() {
     if (!token) { setError('Token manquant'); setLoading(false); return }
     ;(async () => {
       try {
-        const [r, s] = await Promise.all([
-          notion.getDevisByToken(token),
-          notion.getSessions()
-        ])
-        if (!r.results?.length) { setError(t.error); setLoading(false); return }
+        const r = await notion.getDevisByToken(token)
+        if (!r.results?.length) {
+          setError('Lien invalide ou expiré — token : ' + token)
+          setLoading(false)
+          return
+        }
         const d = r.results[0]
         const statut = d.properties.Statut?.select?.name || ''
         if (statut === '✅ Réservé') { setStep(4); setDevis(d); setLoading(false); return }
         if (statut === '❌ Refusé')  { setError('Ce devis a été annulé.'); setLoading(false); return }
         setDevis(d)
-        if (s.results) setSessions(s.results)
-      } catch(e) { setError(t.error) }
+        // Charger sessions en arrière-plan (non bloquant)
+        notion.getSessions().then(s => { if (s.results) setSessions(s.results) }).catch(() => {})
+      } catch(e) {
+        setError('Erreur technique : ' + (e?.message || 'inconnue'))
+      }
       setLoading(false)
     })()
   }, [token])
