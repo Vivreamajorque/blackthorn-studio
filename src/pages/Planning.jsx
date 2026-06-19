@@ -83,29 +83,30 @@ export default function Planning({ onBack, onEditRdv }) {
       const cren = c.results || []
       setSessions(sess)
       setCreneaux(cren)
-
-      // Auto-ouvrir tous les créneaux libres 9h-22h pour les 28 prochains jours
-      const today0 = todayStr()
-      const days28 = Array.from({ length: 28 }, (_, i) => addDays(today0, i + 1))
-      const toCreate = []
-      for (const day of days28) {
-        const rdvsD  = sess.filter(s => getDateOnly(s) === day && ['🗓 Prévu','✅ Confirmé'].includes(s.properties.Statut?.select?.name||''))
-        const crensD = cren.filter(cr => (cr.properties.Date?.date?.start||'').split('T')[0] === day)
-        for (const h of SLOTS_ALL) {
-          const dejaOuvert = crensD.some(cr => cr.properties.Heure?.rich_text?.[0]?.plain_text === h)
-          if (dejaOuvert) continue
-          if (hasOverlap(rdvsD, h, '60')) continue
-          toCreate.push({ date: day, heure: h, statut: '🟢 Ouvert' })
-        }
-      }
-      // Créer par batch de 10 en parallèle
-      for (let i = 0; i < toCreate.length; i += 10) {
-        await Promise.all(toCreate.slice(i, i+10).map(d => notion.addCreneau(d)))
-      }
-      if (toCreate.length > 0) {
-        const c2 = await notion.getCreneauxRange(addDays(today0, -7), addDays(today0, 35))
-        if (c2.results) setCreneaux(c2.results)
-      }
+      // Créer les créneaux manquants EN ARRIÈRE-PLAN (sans bloquer l'affichage)
+      setTimeout(async () => {
+        try {
+          const today0 = todayStr()
+          // Ne créer que si la dernière création date de plus d'1 jour
+          const lastKey = 'bt_slots_last_' + today0
+          if (localStorage.getItem(lastKey)) return // déjà créé aujourd'hui
+          const days28 = Array.from({ length: 28 }, (_, i) => addDays(today0, i + 1))
+          const toCreate = []
+          for (const day of days28) {
+            const rdvsD  = sess.filter(s => getDateOnly(s) === day && ['🗓 Prévu','✅ Confirmé'].includes(s.properties.Statut?.select?.name||''))
+            const crensD = cren.filter(cr => (cr.properties.Date?.date?.start||'').split('T')[0] === day)
+            for (const h of SLOTS_ALL) {
+              if (crensD.some(cr => cr.properties.Heure?.rich_text?.[0]?.plain_text === h)) continue
+              if (hasOverlap(rdvsD, h, '60')) continue
+              toCreate.push({ date: day, heure: h, statut: '🟢 Ouvert' })
+            }
+          }
+          for (let i = 0; i < toCreate.length; i += 10) {
+            await Promise.all(toCreate.slice(i, i+10).map(d => notion.addCreneau(d)))
+          }
+          if (toCreate.length > 0) localStorage.setItem(lastKey, '1')
+        } catch(e) { console.warn('slots bg:', e) }
+      }, 100)
     } catch(e) { console.error(e) }
     setLoading(false)
   }, [weekStart])

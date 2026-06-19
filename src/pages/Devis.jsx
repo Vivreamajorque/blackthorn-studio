@@ -343,7 +343,13 @@ export default function Devis({ onBack }) {
             const color  = STATUT_COLOR[statut] || '#888'
 
             return (
-              <div key={d.id} style={S.devisItem}>
+              <div key={d.id} style={{
+                ...S.devisItem,
+                ...(statut === '✅ Réservé' ? {
+                  background: 'rgba(26,140,90,.04)',
+                  border: '1.5px solid rgba(26,140,90,.25)',
+                } : {})
+              }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'8px' }}>
                   <div>
                     <div style={{ fontFamily:'var(--font-head)', fontSize:'15px', fontWeight:700 }}>{client}</div>
@@ -352,6 +358,14 @@ export default function Devis({ onBack }) {
                   <div style={{ textAlign:'right' }}>
                     <div style={{ fontFamily:'var(--font-mono)', fontSize:'18px', fontWeight:600 }}>{prix}€</div>
                     <div style={{ fontSize:'11px', color:'#D4820A' }}>acompte {acomp}€</div>
+                    {statut === '✅ Réservé' && (() => {
+                      const notes = d.properties.Notes?.rich_text?.[0]?.plain_text || ''
+                      const m = notes.match(/RDV:\s*(\d{4}-\d{2}-\d{2})\s*à\s*(\d{2}:\d{2})/)
+                      if (!m) return null
+                      const dd = new Date(m[1])
+                      const lbl = dd.toLocaleDateString('fr-FR', { weekday:'short', day:'numeric', month:'short' })
+                      return <div style={{ fontSize:'11px', color:'#1A8C5A', fontWeight:700, marginTop:'3px' }}>📅 {lbl} {m[2]}</div>
+                    })()}
                   </div>
                 </div>
                 {desc && <div style={{ fontSize:'12px', color:'var(--txt2)', marginBottom:'10px', lineHeight:1.5 }}>{desc}</div>}
@@ -653,8 +667,8 @@ export default function Devis({ onBack }) {
           </div>
         </div>}
 
-        {/* Configurateur */}
-        <div style={S.card}>
+        {/* Configurateur — uniquement en mode auto */}
+        {modeDevis === 'auto' && <div style={S.card}>
           <div style={S.sectionTitle}>Tatouage #{tattooCount}</div>
 
           {/* Style */}
@@ -715,10 +729,9 @@ export default function Devis({ onBack }) {
             onClick={addTattoo}>
             + Ajouter à la session
           </button>
-        </div>
+        </div>}
 
         {/* Session en cours */}
-        </div>)}
         {tattoos.length > 0 && modeDevis === 'auto' && (
           <div style={S.card}>
             <div style={S.sectionTitle}>Session ({tattoos.length} tatouage{tattoos.length>1?'s':''})</div>
