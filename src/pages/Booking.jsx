@@ -187,17 +187,6 @@ export default function Booking() {
     fetchAll()
   }, [devis])
 
-  // Jours candidats (ont des créneaux ouverts dans Notion)
-  const candidateDays = [...new Set(
-    creneaux
-      .filter(c => c.properties.Statut?.select?.name === '🟢 Ouvert')
-      .map(c => (c.properties.Date?.date?.start || '').split('T')[0])
-      .filter(Boolean)
-  )].sort()
-
-  // Jours réellement disponibles après filtrage durée + chevauchements
-  const daysWithSlots = candidateDays.filter(day => slotsForDay(day).length > 0)
-
   // Durée du devis en minutes
   const devisDureeMin = devis?.properties['Durée']?.number || 120
 
@@ -228,6 +217,17 @@ export default function Booking() {
       })
       .sort()
   }
+
+  // Jours candidats (ont des créneaux ouverts dans Notion)
+  const candidateDays = [...new Set(
+    creneaux
+      .filter(c => c.properties.Statut?.select?.name === '🟢 Ouvert')
+      .map(c => (c.properties.Date?.date?.start || '').split('T')[0])
+      .filter(Boolean)
+  )].sort()
+
+  // Jours réellement disponibles après filtrage durée + chevauchements
+  const daysWithSlots = candidateDays.filter(day => slotsForDay(day).length > 0)
 
   // On génère les 30 prochains jours pour la nav calendrier
   const days = []
