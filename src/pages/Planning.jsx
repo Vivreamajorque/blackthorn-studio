@@ -22,6 +22,28 @@ const getHeure = (s) => {
 const getDateOnly = (s) => (s.properties.Date?.date?.start || '').split('T')[0]
 
 const SLOTS_DEFAULT = ['09:00','10:00','11:00','12:00','14:00','15:00','16:00','17:00','18:00','19:00']
+
+// Convertit HH:MM en minutes
+const toMin = (h) => { if (!h) return null; const [hh,mm] = h.split(':').map(Number); return hh*60+mm }
+
+// Vérifie si une plage [heure, heure+duree] chevauche les RDVs existants du jour
+const hasOverlap = (rdvs, heure, dureeMin) => {
+  const start = toMin(heure)
+  if (start === null) return false
+  const end = start + parseInt(dureeMin || 120)
+  return rdvs.some(s => {
+    const st = s.properties.Statut?.select?.name || ''
+    if (st === '👻 No-show' || st === '❌ Annulé') return false
+    const h = getHeure(s)
+    if (!h) return false
+    const sStart = toMin(h)
+    const notes  = s.properties.Notes?.rich_text?.[0]?.plain_text || ''
+    const durMatch = notes.match(/(\d+)\s*min/)
+    const sDur = durMatch ? parseInt(durMatch[1]) : 120
+    const sEnd = sStart + sDur
+    return start < sEnd && end > sStart
+  })
+}
 const STATUT_PREVU   = '🗓 Prévu'
 const STATUT_CONFIRM = '✅ Confirmé'
 const STATUT_NOSHOW  = '👻 No-show'
@@ -106,6 +128,11 @@ export default function Planning({ onBack, onEditRdv }) {
   // Ajouter RDV direct
   const submitRdv = async () => {
     if (!rdvForm.client || !rdvForm.heure) return
+    // Vérifier chevauchement avec RDVs existants
+    if (hasOverlap(selRdvs, rdvForm.heure, rdvForm.duree)) {
+      showToast('⚠️ Créneau déjà occupé — choisis une autre heure')
+      return
+    }
     setSaving(true)
     try {
       const heureFin = (() => {
@@ -181,10 +208,36 @@ export default function Planning({ onBack, onEditRdv }) {
                 <label>Style / Projet</label>
                 <input value={rdvForm.style} onChange={e=>setRdvForm({...rdvForm,style:e.target.value})} placeholder="Botanical, portrait..."/>
               </div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'10px' }}>
+              {/* Sélecteur horaire avec détection chevauchement */}
+              <div style={{ marginBottom:'12px' }}>
+                <label style={{ fontSize:'11px', fontWeight:700, color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', display:'block', marginBottom:'8px' }}>Heure</label>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:'5px', marginBottom:'8px' }}>
+                  {SLOTS_DEFAULT.map(h => {
+                    const busy = hasOverlap(selRdvs, h, rdvForm.duree)
+                    const sel  = rdvForm.heure === h
+                    return (
+                      <button key={h} type="button" disabled={busy} onClick={()=>!busy&&setRdvForm({...rdvForm,heure:h})} style={{
+                        padding:'8px 2px', borderRadius:'8px', textAlign:'center',
+                        fontFamily:'var(--font-mono)', fontSize:'11px', fontWeight:700, cursor:busy?'not-allowed':'pointer',
+                        background: sel ? 'var(--txt)' : busy ? 'rgba(192,57,43,.08)' : 'var(--bg)',
+                        color:      sel ? 'var(--bg)' : busy ? '#C0392B' : 'var(--txt2)',
+                        border:     `1px solid ${sel ? 'var(--txt)' : busy ? 'rgba(192,57,43,.2)' : 'var(--border2)'}`,
+                        opacity:    busy ? .6 : 1,
+                        textDecoration: busy ? 'line-through' : 'none'
+                      }}>{h}</button>
+                    )
+                  })}
+                </div>
+                <input type="time" value={rdvForm.heure} onChange={e=>setRdvForm({...rdvForm,heure:e.target.value})}
+                  style={{ width:'100%', background:'var(--bg)', border:'1.5px solid var(--border2)', borderRadius:'var(--r)', padding:'8px 12px', fontFamily:'var(--font-mono)', fontSize:'14px', color:'var(--txt)' }}/>
+                {hasOverlap(selRdvs, rdvForm.heure, rdvForm.duree) && (
+                  <div style={{ marginTop:'6px', fontSize:'12px', color:'#C0392B', fontWeight:600 }}>⚠️ Ce créneau chevauche un RDV existant</div>
+                )}
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px', marginBottom:'10px' }}>
                 <div className="form-group" style={{ margin:0 }}>
-                  <label>Heure</label>
-                  <input type="time" value={rdvForm.heure} onChange={e=>setRdvForm({...rdvForm,heure:e.target.value})}/>
+                  <label>Prix €</label>
+                  <input type="number" inputMode="decimal" value={rdvForm.prixEstime} onChange={e=>setRdvForm({...rdvForm,prixEstime:e.target.value})} style={{textAlign:'center',fontFamily:'var(--font-mono)'}}/>
                 </div>
                 <div className="form-group" style={{ margin:0 }}>
                   <label>Prix €</label>
@@ -204,8 +257,10 @@ export default function Planning({ onBack, onEditRdv }) {
                   }}>{l}</button>
                 ))}
               </div>
-              <button className="btn btn-primary" onClick={submitRdv} disabled={saving||!rdvForm.client} style={{width:'100%',padding:'14px'}}>
-                {saving ? '…' : '✓ Ajouter le RDV'}
+              <button className="btn btn-primary" onClick={submitRdv}
+                disabled={saving||!rdvForm.client||hasOverlap(selRdvs,rdvForm.heure,rdvForm.duree)}
+                style={{width:'100%',padding:'14px'}}>
+                {saving ? '…' : hasOverlap(selRdvs,rdvForm.heure,rdvForm.duree) ? '⚠️ Heure occupée' : '✓ Ajouter le RDV'}
               </button>
             </>)}
 
