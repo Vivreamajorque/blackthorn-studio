@@ -5,508 +5,460 @@ const todayStr = () => new Date().toISOString().split('T')[0]
 const DAY_FULL  = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
 const DAY_SHORT = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam']
 const MONTH_NAMES = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre']
-const MONTH_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
 
 const addDays = (dateStr, n) => {
-  const d = new Date(dateStr); d.setDate(d.getDate() + n)
+  const d = new Date(dateStr); d.setDate(d.getDate() + n); return d.toISOString().split('T')[0]
+}
+const mondayOf = (dateStr) => {
+  const d = new Date(dateStr), day = d.getDay()
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day))
   return d.toISOString().split('T')[0]
 }
-
 const getHeure = (s) => {
-  const dateRaw = s.properties.Date?.date?.start || ''
-  if (dateRaw.includes('T')) return dateRaw.substring(11, 16)
-  const notes = s.properties.Notes?.rich_text?.[0]?.plain_text || ''
-  return notes.match(/·\s*(\d{2}:\d{2})/)?.[1] || null
+  const raw = s.properties.Date?.date?.start || ''
+  if (raw.includes('T')) return raw.substring(11, 16)
+  return s.properties.Notes?.rich_text?.[0]?.plain_text?.match(/·\s*(\d{2}:\d{2})/)?.[1] || null
 }
+const getDateOnly = (s) => (s.properties.Date?.date?.start || '').split('T')[0]
 
-const getDateOnly = (s) => {
-  const dateRaw = s.properties.Date?.date?.start || ''
-  return dateRaw.split('T')[0]
-}
-
-const STATUT_PREVU    = '🗓 Prévu'
-const STATUT_CONFIRM  = '✅ Confirmé'
-const STATUT_NOSHOW   = '👻 No-show'
+const SLOTS_DEFAULT = ['09:00','10:00','11:00','12:00','14:00','15:00','16:00','17:00','18:00','19:00']
+const STATUT_PREVU   = '🗓 Prévu'
+const STATUT_CONFIRM = '✅ Confirmé'
+const STATUT_NOSHOW  = '👻 No-show'
 
 export default function Planning({ onBack, onEditRdv }) {
-  const [sessions, setSessions] = useState([])
-  const [loading, setLoading]   = useState(true)
-  const [toast, setToast]       = useState('')
-  const [selectedDay, setSelectedDay] = useState(todayStr())
-  const [confirming, setConfirming]   = useState(null)
-  const [confForm, setConfForm]       = useState({ prix:'', paiement:'cash', sessions:'1', acompte:'0' })
+  const [sessions,   setSessions]  = useState([])
+  const [creneaux,   setCreneaux]  = useState([])
+  const [loading,    setLoading]   = useState(true)
+  const [toast,      setToast]     = useState('')
+  const [weekStart,  setWeekStart] = useState(mondayOf(todayStr()))
+  const [selectedDay,setSelDay]    = useState(todayStr())
+  const [panel,      setPanel]     = useState(null) // null | 'addRdv' | 'addCreneau' | 'confirmRdv' | 'editCreneau'
+  const [panelData,  setPanelData] = useState(null)
   const today = todayStr()
 
+  // Formulaires
+  const [rdvForm,  setRdvForm]  = useState({ client:'', style:'', prixEstime:'', heure:'10:00', duree:'120', natio:'🇫🇷 FR', source:'📸 Instagram', acompte:'0' })
+  const [confForm, setConfForm] = useState({ prix:'', paiement:'cash', acompte:'0' })
+  const [saving,   setSaving]   = useState(false)
+
   const showToast = (m) => { setToast(m); setTimeout(() => setToast(''), 2500) }
+
+  const weekEnd = addDays(weekStart, 6)
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const r = await notion.getSessions()
-      if (r.results) setSessions(r.results)
-    } catch(e) {}
+      const wEnd2 = addDays(weekStart, 13) // 2 semaines
+      const wStart2 = addDays(weekStart, -7)
+      const [s, c] = await Promise.all([
+        notion.getSessions(),
+        notion.getCreneauxRange(wStart2, wEnd2)
+      ])
+      if (s.results) setSessions(s.results)
+      if (c.results) setCreneaux(c.results)
+    } catch(e) { console.error(e) }
     setLoading(false)
-  }, [])
+  }, [weekStart])
+
   useEffect(() => { load() }, [load])
 
-  // Tous les RDVs (prévus + confirmés + no-show) triés par date desc
-  const allRdvs = sessions.filter(s => {
-    const statut = s.properties.Statut?.select?.name || ''
-    return [STATUT_PREVU, STATUT_CONFIRM, STATUT_NOSHOW].includes(statut)
-  })
+  // Helpers
+  const rdvsForDay = (day) => sessions.filter(s => {
+    const st = s.properties.Statut?.select?.name || ''
+    return getDateOnly(s) === day && [STATUT_PREVU, STATUT_CONFIRM, STATUT_NOSHOW].includes(st)
+  }).sort((a,b) => (getHeure(a)||'23:59').localeCompare(getHeure(b)||'23:59'))
 
-  // RDVs pour le jour sélectionné
-  const rdvsDay = allRdvs
-    .filter(s => getDateOnly(s) === selectedDay)
-    .sort((a, b) => {
-      const ha = getHeure(a) || '23:59'
-      const hb = getHeure(b) || '23:59'
-      return ha.localeCompare(hb)
-    })
+  const creneauxForDay = (day) => creneaux.filter(c => {
+    const d = c.properties.Date?.date?.start || ''
+    return d.split('T')[0] === day
+  }).sort((a,b) => (a.properties.Heure?.rich_text?.[0]?.plain_text||'').localeCompare(b.properties.Heure?.rich_text?.[0]?.plain_text||''))
 
-  // Prochains jours avec RDVs (à venir uniquement)
-  const upcomingDays = [...new Set(
-    allRdvs
-      .filter(s => getDateOnly(s) >= today && s.properties.Statut?.select?.name === STATUT_PREVU)
-      .map(s => getDateOnly(s))
-  )].sort()
+  const hasActivity = (day) => rdvsForDay(day).length > 0 || creneauxForDay(day).length > 0
+  const isBloqueDay = (day) => creneauxForDay(day).some(c => c.properties.Statut?.select?.name === '🔒 Bloqué' && !c.properties.Heure?.rich_text?.[0]?.plain_text)
 
-  // Jours passés avec RDVs
-  const pastDays = [...new Set(
-    allRdvs
-      .filter(s => getDateOnly(s) < today)
-      .map(s => getDateOnly(s))
-  )].sort().reverse()
-
-  // Navigation jour par jour (uniquement jours avec RDV ou aujourd'hui)
-  const allDaysWithRdv = [...new Set([
-    ...upcomingDays,
-    today,
-    ...pastDays
-  ])].sort()
-
-  const currentIdx = allDaysWithRdv.indexOf(selectedDay)
-  const canPrev = currentIdx > 0
-  const canNext = currentIdx < allDaysWithRdv.length - 1
-
-  const prevDay = () => { if (canPrev) setSelectedDay(allDaysWithRdv[currentIdx - 1]) }
-  const nextDay = () => { if (canNext) setSelectedDay(allDaysWithRdv[currentIdx + 1]) }
-
-  const isToday   = selectedDay === today
-  const isPast    = selectedDay < today
-  const isFuture  = selectedDay > today
-
-  const d = new Date(selectedDay)
-  const dayOfWeek = DAY_FULL[d.getDay()]
-  const dayLabel  = `${d.getDate()} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`
-
-  // --- Confirm modal ---
-  const openConfirm = (s) => {
-    setConfirming(s)
-    setConfForm({
-      prix: String(s.properties.Prix?.number || 0),
-      paiement: 'cash',
-      sessions: '1',
-      acompte: String(s.properties['Acompte reçu']?.number || 0)
-    })
-  }
-  const submitConfirm = async () => {
-    if (!confirming) return
+  // Ajouter créneau
+  const addCreneau = async (heure, statut = '🟢 Ouvert', notes = '') => {
+    setSaving(true)
     try {
-      await notion.confirmAppointment(confirming.id, {
-        prix: parseFloat(confForm.prix),
-        paiement: confForm.paiement,
-        acompte: parseFloat(confForm.acompte) || 0,
-        date: confirming.properties.Date?.date?.start?.split('T')[0] || today,
-        sessions: confForm.sessions
+      await notion.addCreneau({ date: selectedDay, heure, statut, notes })
+      showToast(statut === '🔒 Bloqué' ? '🔒 Bloqué' : '✓ Créneau ouvert')
+      load()
+    } catch(e) { showToast('Erreur') }
+    setSaving(false)
+  }
+
+  const bloquerJour = async () => {
+    setSaving(true)
+    try {
+      await notion.addCreneau({ date: selectedDay, heure: '', statut: '🔒 Bloqué', notes: panelData?.notes || 'Journée bloquée' })
+      showToast('🔒 Journée bloquée')
+      setPanel(null); load()
+    } catch(e) { showToast('Erreur') }
+    setSaving(false)
+  }
+
+  const deleteCreneau = async (id) => {
+    try { await notion.deleteCreneau(id); showToast('Supprimé'); load() } catch(e) { showToast('Erreur') }
+  }
+
+  // Ajouter RDV direct
+  const submitRdv = async () => {
+    if (!rdvForm.client || !rdvForm.heure) return
+    setSaving(true)
+    try {
+      const heureFin = (() => {
+        const [h,m] = rdvForm.heure.split(':').map(Number)
+        const total = h*60+m+parseInt(rdvForm.duree||120)
+        return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`
+      })()
+      await notion.addAppointment({
+        client: rdvForm.client, style: rdvForm.style,
+        prixEstime: rdvForm.prixEstime, acompte: rdvForm.acompte,
+        date: selectedDay, heure: rdvForm.heure, duree: rdvForm.duree,
+        natio: rdvForm.natio, source: rdvForm.source, sessions: 1,
+        heureFin
+      })
+      // Si le créneau était ouvert, le passer en Réservé
+      const cr = creneauxForDay(selectedDay).find(c => c.properties.Heure?.rich_text?.[0]?.plain_text === rdvForm.heure && c.properties.Statut?.select?.name === '🟢 Ouvert')
+      if (cr) await notion.updateCreneauStatut(cr.id, '📅 Réservé')
+      showToast('📅 RDV ajouté')
+      setPanel(null)
+      setRdvForm({ client:'', style:'', prixEstime:'', heure:'10:00', duree:'120', natio:'🇫🇷 FR', source:'📸 Instagram', acompte:'0' })
+      load()
+    } catch(e) { showToast('Erreur: ' + e.message) }
+    setSaving(false)
+  }
+
+  // Confirmer RDV prévu
+  const submitConfirm = async () => {
+    if (!panelData) return
+    setSaving(true)
+    try {
+      await notion.confirmAppointment(panelData.id, {
+        prix: parseFloat(confForm.prix), paiement: confForm.paiement,
+        acompte: parseFloat(confForm.acompte)||0,
+        date: getDateOnly(panelData), sessions: 1
       })
       showToast('✅ RDV confirmé')
-      setConfirming(null); load()
+      setPanel(null); load()
     } catch(e) { showToast('Erreur') }
+    setSaving(false)
   }
+
   const doNoShow = async (s) => {
-    try { await notion.noShowAppointment(s.id); showToast('👻 No-show enregistré'); load() } catch(e) {}
+    try { await notion.noShowAppointment(s.id); showToast('👻 No-show'); load() } catch(e) {}
   }
 
-  const gcalUrl = (s) => {
-    const date  = getDateOnly(s)
-    const heure = getHeure(s)
-    const client = s.properties['Client prénom']?.rich_text?.[0]?.plain_text || 'Client'
-    const style  = s.properties['Style / Type']?.rich_text?.[0]?.plain_text || ''
-    const prix   = s.properties.Prix?.number || 0
-    if (!date) return null
-    const h  = heure || '10:00'
-    const [hh, mm] = h.split(':').map(Number)
-    const e  = hh * 60 + mm + 120
-    const hF = `${String(Math.floor(e / 60)).padStart(2, '0')}:${String(e % 60).padStart(2, '0')}`
-    const fmt = (d, t) => `${d.replace(/-/g, '')}T${t.replace(/:/g, '')}00`
-    const p = new URLSearchParams({
-      action: 'TEMPLATE',
-      text: `${client} — Blackthorn Tattoo`,
-      dates: `${fmt(date, h)}/${fmt(date, hF)}`,
-      details: `Style: ${style || '—'} | Prix: ${prix}€`,
-      location: 'Blackthorn Tattoo, Campos, Mallorca'
-    })
-    return `https://calendar.google.com/calendar/render?${p}`
-  }
-
-  // Miniature semaine pour la navigation rapide (7 jours à partir de lundi)
-  const mondayOfSelected = (() => {
-    const dd = new Date(selectedDay)
-    const day = dd.getDay()
-    const diff = day === 0 ? -6 : 1 - day
-    dd.setDate(dd.getDate() + diff)
-    return dd.toISOString().split('T')[0]
-  })()
-  const weekDots = Array.from({ length: 7 }, (_, i) => addDays(mondayOfSelected, i))
+  // ── RENDER ────────────────────────────────────────────────
+  const selRdvs = rdvsForDay(selectedDay)
+  const selCreneaux = creneauxForDay(selectedDay)
+  const isBloque = isBloqueDay(selectedDay)
+  const d = new Date(selectedDay)
+  const dayLabel = `${DAY_FULL[d.getDay()]} ${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`
 
   return (
-    <div style={{ background: 'var(--bg)', minHeight: '100dvh', paddingBottom: '80px' }}>
+    <div style={{ background:'var(--bg)', minHeight:'100dvh', paddingBottom:'80px' }}>
 
-      {/* Modal confirmation */}
-      {confirming && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(26,18,9,.6)', zIndex:200, display:'flex', alignItems:'flex-end', justifyContent:'center' }}
-          onClick={() => setConfirming(null)}>
-          <div style={{ background:'var(--surface)', borderRadius:'20px 20px 0 0', width:'100%', maxWidth:480, padding:'8px 20px 40px' }}
+      {/* ── BOTTOM SHEET PANEL ── */}
+      {panel && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:300, display:'flex', alignItems:'flex-end' }}
+          onClick={() => setPanel(null)}>
+          <div style={{ background:'var(--surface)', borderRadius:'16px 16px 0 0', width:'100%', maxWidth:480, margin:'0 auto', padding:'20px 20px 40px', maxHeight:'85dvh', overflowY:'auto' }}
             onClick={e => e.stopPropagation()}>
-            <div style={{ width:36, height:4, background:'var(--border2)', borderRadius:2, margin:'0 auto 20px' }}/>
-            <div style={{ fontFamily:'var(--font-head)', fontSize:'16px', fontWeight:800, marginBottom:'4px' }}>✅ Confirmer le RDV</div>
-            <div style={{ fontSize:'12px', color:'var(--txt3)', marginBottom:'18px' }}>
-              {confirming.properties['Client prénom']?.rich_text?.[0]?.plain_text || 'Client'} · {getDateOnly(confirming)}
-            </div>
-            <label style={{ fontSize:'11px', fontWeight:600, color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', display:'block', marginBottom:'6px' }}>CA final (€)</label>
-            <input type="number" inputMode="decimal" value={confForm.prix}
-              onChange={e => setConfForm({ ...confForm, prix: e.target.value })}
-              style={{ fontSize:'40px', fontFamily:'var(--font-mono)', fontWeight:400, textAlign:'center', background:'transparent', border:'none', borderBottom:`2.5px solid ${confForm.prix > 0 ? 'var(--gold)' : 'var(--border2)'}`, borderRadius:0, color:'var(--txt)', width:'100%', padding:'6px 0', marginBottom:'14px' }}/>
-            {parseFloat(confForm.acompte) > 0 && (
-              <div style={{ fontSize:'12px', color:'var(--txt3)', textAlign:'center', marginBottom:'12px' }}>
-                Acompte: {confForm.acompte}€ · Solde: {Math.max(0, parseFloat(confForm.prix || 0) - parseFloat(confForm.acompte))}€
+
+            {/* Ajouter RDV direct */}
+            {panel === 'addRdv' && (<>
+              <div style={{ fontFamily:'var(--font-head)', fontSize:'16px', fontWeight:800, marginBottom:'16px' }}>
+                📅 Nouveau RDV — {dayLabel}
               </div>
-            )}
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px', marginBottom:'16px' }}>
-              {['cash','carte'].map(p => (
-                <button key={p} onClick={() => setConfForm({ ...confForm, paiement: p })} style={{
-                  padding:'12px', borderRadius:'var(--r)', fontFamily:'var(--font-head)', fontWeight:700, fontSize:'14px', cursor:'pointer',
-                  background: confForm.paiement === p ? (p === 'cash' ? 'var(--green)' : 'var(--blue)') : 'var(--surface)',
-                  color: confForm.paiement === p ? '#fff' : 'var(--txt2)',
-                  border: confForm.paiement === p ? 'none' : '1.5px solid var(--border2)'
-                }}>{p === 'cash' ? '💵 Cash' : '💳 Carte'}</button>
-              ))}
-            </div>
-            <button className="btn btn-gold" onClick={submitConfirm} disabled={!confForm.prix}
-              style={{ width:'100%', padding:'14px', fontSize:'15px', marginBottom:'8px' }}>
-              ✓ Valider → CA du jour
-            </button>
-            <button onClick={() => setConfirming(null)}
-              style={{ width:'100%', padding:'10px', background:'transparent', border:'none', color:'var(--txt3)', fontSize:'13px', cursor:'pointer' }}>
-              Annuler
-            </button>
+              <div className="form-group" style={{ marginBottom:'10px' }}>
+                <label>Client *</label>
+                <input value={rdvForm.client} onChange={e=>setRdvForm({...rdvForm,client:e.target.value})} placeholder="Prénom / identifiant"/>
+              </div>
+              <div className="form-group" style={{ marginBottom:'10px' }}>
+                <label>Style / Projet</label>
+                <input value={rdvForm.style} onChange={e=>setRdvForm({...rdvForm,style:e.target.value})} placeholder="Botanical, portrait..."/>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'10px' }}>
+                <div className="form-group" style={{ margin:0 }}>
+                  <label>Heure</label>
+                  <input type="time" value={rdvForm.heure} onChange={e=>setRdvForm({...rdvForm,heure:e.target.value})}/>
+                </div>
+                <div className="form-group" style={{ margin:0 }}>
+                  <label>Prix €</label>
+                  <input type="number" inputMode="decimal" value={rdvForm.prixEstime} onChange={e=>setRdvForm({...rdvForm,prixEstime:e.target.value})} style={{textAlign:'center',fontFamily:'var(--font-mono)'}}/>
+                </div>
+                <div className="form-group" style={{ margin:0 }}>
+                  <label>Acompte €</label>
+                  <input type="number" inputMode="decimal" value={rdvForm.acompte} onChange={e=>setRdvForm({...rdvForm,acompte:e.target.value})} style={{textAlign:'center',fontFamily:'var(--font-mono)'}}/>
+                </div>
+              </div>
+              <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', marginBottom:'14px' }}>
+                {[['60','1h'],['90','1h30'],['120','2h'],['150','2h30'],['180','3h'],['240','4h'],['480','Journée']].map(([v,l])=>(
+                  <button key={v} onClick={()=>setRdvForm({...rdvForm,duree:v})} style={{
+                    padding:'5px 11px', borderRadius:'20px', fontSize:'12px', fontWeight:600, cursor:'pointer', border:'none',
+                    background: rdvForm.duree===v ? 'var(--txt)' : 'var(--bg)',
+                    color: rdvForm.duree===v ? 'var(--bg)' : 'var(--txt2)'
+                  }}>{l}</button>
+                ))}
+              </div>
+              <button className="btn btn-primary" onClick={submitRdv} disabled={saving||!rdvForm.client} style={{width:'100%',padding:'14px'}}>
+                {saving ? '…' : '✓ Ajouter le RDV'}
+              </button>
+            </>)}
+
+            {/* Ouvrir / bloquer créneaux */}
+            {panel === 'addCreneau' && (<>
+              <div style={{ fontFamily:'var(--font-head)', fontSize:'16px', fontWeight:800, marginBottom:'16px' }}>
+                🗓 Gérer — {dayLabel}
+              </div>
+
+              {/* Créneaux existants */}
+              {selCreneaux.length > 0 && (
+                <div style={{ marginBottom:'16px' }}>
+                  <div style={{ fontSize:'10px', fontWeight:700, color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'8px' }}>Créneaux actifs</div>
+                  {selCreneaux.map(c => {
+                    const h = c.properties.Heure?.rich_text?.[0]?.plain_text || 'Journée'
+                    const st = c.properties.Statut?.select?.name || ''
+                    const stColor = st==='🟢 Ouvert'?'#1A8C5A': st==='🔒 Bloqué'?'#C0392B':'#2980B9'
+                    return (
+                      <div key={c.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 12px', background:'var(--bg)', borderRadius:'var(--r)', marginBottom:'6px', border:'1px solid var(--border)' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+                          <span style={{ fontFamily:'var(--font-mono)', fontWeight:700, fontSize:'15px' }}>{h || 'Journée'}</span>
+                          <span style={{ fontSize:'11px', fontWeight:700, padding:'2px 8px', borderRadius:'20px', background:stColor+'22', color:stColor }}>{st}</span>
+                        </div>
+                        <button onClick={()=>deleteCreneau(c.id)} style={{ background:'none', border:'none', color:'var(--txt3)', cursor:'pointer', fontSize:'16px', padding:'4px 8px' }}>✕</button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Ouvrir créneaux */}
+              <div style={{ fontSize:'10px', fontWeight:700, color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'8px' }}>Ouvrir un créneau</div>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:'6px', marginBottom:'16px' }}>
+                {SLOTS_DEFAULT.map(h => {
+                  const deja = selCreneaux.find(c => c.properties.Heure?.rich_text?.[0]?.plain_text === h)
+                  return (
+                    <button key={h} onClick={()=>{ if(!deja) addCreneau(h,'🟢 Ouvert') }} disabled={!!deja||saving} style={{
+                      padding:'10px 4px', borderRadius:'10px', textAlign:'center',
+                      fontFamily:'var(--font-mono)', fontSize:'12px', fontWeight:700, cursor: deja?'default':'pointer',
+                      background: deja ? 'var(--bg)' : 'rgba(26,140,90,.1)',
+                      color: deja ? 'var(--txt3)' : '#1A8C5A',
+                      border: `1px solid ${deja ? 'var(--border)' : 'rgba(26,140,90,.3)'}`,
+                      opacity: deja ? .5 : 1
+                    }}>{h}</button>
+                  )
+                })}
+              </div>
+
+              {/* Heure personnalisée */}
+              <div style={{ display:'flex', gap:'8px', marginBottom:'16px' }}>
+                <input type="time" id="custom-h" style={{ flex:1, background:'var(--bg)', border:'1.5px solid var(--border2)', borderRadius:'var(--r)', padding:'10px 12px', fontFamily:'var(--font-mono)', fontSize:'14px', color:'var(--txt)' }} defaultValue="13:00"/>
+                <button onClick={()=>{ const h=document.getElementById('custom-h').value; if(h) addCreneau(h,'🟢 Ouvert') }} disabled={saving} style={{ padding:'10px 16px', background:'rgba(26,140,90,.12)', border:'1px solid rgba(26,140,90,.3)', borderRadius:'var(--r)', color:'#1A8C5A', fontFamily:'var(--font-head)', fontWeight:700, fontSize:'12px', cursor:'pointer' }}>
+                  + Ouvrir
+                </button>
+              </div>
+
+              {/* Bloquer la journée */}
+              <div style={{ borderTop:'1px solid var(--border)', paddingTop:'14px' }}>
+                <div className="form-group" style={{ marginBottom:'10px' }}>
+                  <label>Note (optionnel)</label>
+                  <input placeholder="Congé, convention, perso..." onChange={e=>setPanelData({...(panelData||{}),notes:e.target.value})}/>
+                </div>
+                <button onClick={bloquerJour} disabled={saving} style={{ width:'100%', padding:'12px', background:'rgba(192,57,43,.08)', border:'1.5px solid rgba(192,57,43,.3)', borderRadius:'var(--r)', color:'#C0392B', fontFamily:'var(--font-head)', fontWeight:700, fontSize:'13px', cursor:'pointer' }}>
+                  🔒 Bloquer toute la journée
+                </button>
+              </div>
+            </>)}
+
+            {/* Confirmer RDV */}
+            {panel === 'confirmRdv' && panelData && (<>
+              <div style={{ fontFamily:'var(--font-head)', fontSize:'16px', fontWeight:800, marginBottom:'4px' }}>✅ Confirmer le RDV</div>
+              <div style={{ fontSize:'12px', color:'var(--txt3)', marginBottom:'16px' }}>
+                {panelData.properties['Client prénom']?.rich_text?.[0]?.plain_text||'Client'} · {getHeure(panelData)||''}
+              </div>
+              <div className="form-group" style={{ marginBottom:'12px' }}>
+                <label>CA total (€)</label>
+                <input type="number" inputMode="decimal" value={confForm.prix} onChange={e=>setConfForm({...confForm,prix:e.target.value})}
+                  style={{fontSize:'32px',fontFamily:'var(--font-mono)',fontWeight:500,textAlign:'center',background:'transparent',border:'none',borderBottom:'2px solid var(--pierre)',borderRadius:0,color:'var(--txt)',width:'100%',padding:'6px 0'}}/>
+              </div>
+              {parseFloat(confForm.acompte)>0 && (
+                <div style={{fontSize:'12px',color:'var(--txt3)',textAlign:'center',marginBottom:'10px'}}>
+                  Acompte reçu : {confForm.acompte}€ → solde : {Math.max(0,parseFloat(confForm.prix||0)-parseFloat(confForm.acompte))}€
+                </div>
+              )}
+              <div style={{marginBottom:'16px',display:'flex',gap:'8px'}}>
+                {['cash','carte'].map(p=>(
+                  <button key={p} onClick={()=>setConfForm({...confForm,paiement:p})} style={{
+                    flex:1, padding:'10px', borderRadius:'var(--r)', border:'none', cursor:'pointer', fontFamily:'var(--font-head)', fontWeight:700, fontSize:'13px',
+                    background: confForm.paiement===p ? 'var(--txt)' : 'var(--bg)',
+                    color: confForm.paiement===p ? 'var(--bg)' : 'var(--txt2)'
+                  }}>{p==='cash'?'💵 Cash':'💳 Carte'}</button>
+                ))}
+              </div>
+              <button className="btn btn-primary" onClick={submitConfirm} disabled={saving||!confForm.prix} style={{width:'100%',padding:'14px',marginBottom:'8px'}}>
+                {saving?'…':'✓ Valider → CA du jour'}
+              </button>
+              <button onClick={()=>{ doNoShow(panelData); setPanel(null) }} style={{width:'100%',padding:'10px',background:'transparent',border:'none',color:'var(--txt3)',cursor:'pointer',fontSize:'13px'}}>
+                👻 No-show
+              </button>
+            </>)}
+
           </div>
         </div>
       )}
 
       {/* ── HEADER ── */}
-      <div style={{ background:'var(--surface)', borderBottom:'1px solid var(--border)', position:'sticky', top:0, zIndex:10, boxShadow:'0 2px 8px rgba(26,18,9,.04)' }}>
-        {/* Barre titre */}
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'14px 16px 10px' }}>
-          <button onClick={onBack} style={{ background:'none', border:'none', color:'var(--txt3)', fontSize:'13px', fontWeight:600, cursor:'pointer', padding:'4px 0' }}>← Retour</button>
-          <div style={{ fontFamily:'var(--font-head)', fontSize:'15px', fontWeight:800 }}>Planning</div>
-          <div style={{ display:'flex', gap:'6px' }}>
-            <button onClick={() => setSelectedDay(today)} style={{ padding:'4px 10px', borderRadius:'20px', background: isToday ? 'var(--gold-lt)' : 'var(--bg)', border:`1px solid ${isToday ? 'var(--gold)' : 'var(--border2)'}`, color: isToday ? 'var(--gold-dk)' : 'var(--txt3)', fontSize:'11px', fontWeight:700, cursor:'pointer' }}>
-              Aujourd'hui
-            </button>
-            <button onClick={load} style={{ width:30, height:30, borderRadius:'50%', background:'var(--bg)', border:'1px solid var(--border2)', fontSize:'13px', color:'var(--txt3)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>↻</button>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'16px 16px 10px', background:'var(--surface)', borderBottom:'1px solid var(--border)', position:'sticky', top:0, zIndex:10 }}>
+        <button onClick={onBack} style={{ background:'none', border:'none', color:'var(--txt3)', fontSize:'13px', fontWeight:600, cursor:'pointer' }}>← Hub</button>
+        <div style={{ fontFamily:'var(--font-head)', fontSize:'16px', fontWeight:800 }}>Planning</div>
+        <button onClick={load} style={{ width:30, height:30, borderRadius:'50%', background:'var(--bg)', border:'1px solid var(--border2)', fontSize:'13px', color:'var(--txt3)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>↻</button>
+      </div>
+
+      {/* ── VUE SEMAINE ── */}
+      <div style={{ padding:'12px 16px 0' }}>
+
+        {/* Navigation semaine */}
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
+          <button onClick={()=>setWeekStart(addDays(weekStart,-7))} style={{ background:'none', border:'none', color:'var(--txt2)', fontSize:'20px', cursor:'pointer', padding:'4px 8px' }}>‹</button>
+          <div style={{ fontSize:'12px', fontWeight:700, color:'var(--txt2)', textAlign:'center' }}>
+            {new Date(weekStart).getDate()} {['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][new Date(weekStart).getMonth()]} — {new Date(weekEnd).getDate()} {['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][new Date(weekEnd).getMonth()]}
+            <button onClick={()=>{ setWeekStart(mondayOf(todayStr())); setSelDay(todayStr()) }} style={{ marginLeft:'8px', fontSize:'10px', padding:'2px 8px', borderRadius:'20px', background:'var(--gold-lt)', color:'var(--gold-dk)', border:'none', cursor:'pointer', fontWeight:700 }}>Auj.</button>
           </div>
+          <button onClick={()=>setWeekStart(addDays(weekStart,7))} style={{ background:'none', border:'none', color:'var(--txt2)', fontSize:'20px', cursor:'pointer', padding:'4px 8px' }}>›</button>
         </div>
 
-        {/* Mini-semaine dots */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'2px', padding:'0 12px 10px' }}>
-          {weekDots.map((day, i) => {
-            const nb       = allRdvs.filter(s => getDateOnly(s) === day).length
+        {/* Grille 7 jours */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'4px', marginBottom:'16px' }}>
+          {weekDays.map(day => {
+            const isToday  = day === today
             const isSel    = day === selectedDay
-            const isDayT   = day === today
-            const isDayP   = day < today
+            const rdvsD    = rdvsForDay(day)
+            const crensD   = creneauxForDay(day)
+            const hasPrev  = rdvsD.some(s=>s.properties.Statut?.select?.name===STATUT_PREVU)
+            const hasConf  = rdvsD.some(s=>s.properties.Statut?.select?.name===STATUT_CONFIRM)
+            const hasCren  = crensD.some(c=>c.properties.Statut?.select?.name==='🟢 Ouvert')
+            const isBlok   = crensD.some(c=>c.properties.Statut?.select?.name==='🔒 Bloqué')
+            const dow      = new Date(day).getDay()
+            const dayNum   = new Date(day).getDate()
             return (
-              <div key={day} onClick={() => setSelectedDay(day)}
-                style={{ textAlign:'center', padding:'5px 2px', borderRadius:'var(--r)', cursor:'pointer',
-                  background: isSel ? 'var(--gold-lt)' : isDayT ? 'rgba(196,168,130,.08)' : 'transparent',
-                  border: isSel ? '1.5px solid var(--gold)' : isDayT ? '1px solid var(--gold)' : '1px solid transparent'
-                }}>
-                <div style={{ fontSize:'9px', fontWeight:700, color: isSel ? 'var(--gold-dk)' : isDayP ? 'var(--txt3)' : 'var(--txt2)', textTransform:'uppercase', letterSpacing:'.5px' }}>
-                  {DAY_SHORT[(i + 1) % 7]}
+              <button key={day} onClick={()=>setSelDay(day)} style={{
+                padding:'8px 2px', borderRadius:'10px', textAlign:'center', cursor:'pointer', border:'none',
+                background: isSel ? 'var(--txt)' : isToday ? 'var(--gold-lt)' : 'var(--bg)',
+                outline: isSel ? 'none' : 'none'
+              }}>
+                <div style={{ fontSize:'9px', fontWeight:600, color: isSel?'rgba(255,255,255,.6)':isToday?'var(--gold-dk)':'var(--txt3)', marginBottom:'2px' }}>
+                  {DAY_SHORT[dow]}
                 </div>
-                <div style={{ fontSize:'14px', fontWeight: isSel ? 700 : 400, color: isSel ? 'var(--gold-dk)' : isDayP ? 'var(--txt3)' : 'var(--txt)', lineHeight: 1.2 }}>
-                  {new Date(day).getDate()}
+                <div style={{ fontSize:'16px', fontWeight:700, color: isSel?'var(--bg)':isToday?'var(--gold-dk)':'var(--txt)', lineHeight:1 }}>
+                  {dayNum}
                 </div>
-                <div style={{ height: 5, display:'flex', alignItems:'center', justifyContent:'center', marginTop:'2px' }}>
-                  {nb > 0 && <div style={{ width: nb > 1 ? 10 : 5, height: 5, borderRadius:3, background: isSel ? 'var(--gold-dk)' : isDayP ? 'var(--txt3)' : 'var(--pierre)' }}/>}
+                {/* Indicateurs */}
+                <div style={{ display:'flex', justifyContent:'center', gap:'2px', marginTop:'4px', minHeight:'6px' }}>
+                  {hasPrev  && <div style={{ width:5, height:5, borderRadius:'50%', background: isSel?'rgba(255,255,255,.7)':'var(--amber)' }}/>}
+                  {hasConf  && <div style={{ width:5, height:5, borderRadius:'50%', background: isSel?'rgba(255,255,255,.7)':'var(--green)' }}/>}
+                  {hasCren  && <div style={{ width:5, height:5, borderRadius:'50%', background: isSel?'rgba(255,255,255,.7)':'#1A8C5A' }}/>}
+                  {isBlok   && <div style={{ width:5, height:5, borderRadius:'50%', background: isSel?'rgba(255,255,255,.7)':'var(--red)' }}/>}
                 </div>
-              </div>
+              </button>
             )
           })}
         </div>
 
-        {/* Navigation jour avec flèches */}
-        <div style={{ display:'flex', alignItems:'center', padding:'0 12px 12px', gap:'8px' }}>
-          <button onClick={prevDay} disabled={!canPrev} style={{
-            width:36, height:36, borderRadius:'50%', border:'1px solid var(--border2)',
-            background: canPrev ? 'var(--bg)' : 'transparent',
-            color: canPrev ? 'var(--txt)' : 'var(--border2)',
-            fontSize:'18px', cursor: canPrev ? 'pointer' : 'default',
-            display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0
-          }}>‹</button>
-
-          <div style={{ flex:1, textAlign:'center' }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'8px' }}>
-              <div style={{ fontFamily:'var(--font-head)', fontSize:'16px', fontWeight:800, color: isPast ? 'var(--txt3)' : 'var(--txt)' }}>
-                {dayOfWeek}
-              </div>
-              {isToday && (
-                <span style={{ fontSize:'9px', padding:'2px 8px', background:'var(--gold-lt)', color:'var(--gold-dk)', borderRadius:'10px', fontWeight:700, letterSpacing:'.5px' }}>AUJOURD'HUI</span>
-              )}
-              {isPast && (
-                <span style={{ fontSize:'9px', padding:'2px 8px', background:'rgba(120,100,80,.1)', color:'var(--txt3)', borderRadius:'10px', fontWeight:700 }}>PASSÉ</span>
-              )}
-            </div>
-            <div style={{ fontSize:'11px', color:'var(--txt3)', marginTop:'1px' }}>{dayLabel}</div>
+        {/* ── DÉTAIL DU JOUR SÉLECTIONNÉ ── */}
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px' }}>
+          <div style={{ fontFamily:'var(--font-head)', fontSize:'15px', fontWeight:800 }}>{dayLabel}</div>
+          <div style={{ display:'flex', gap:'6px' }}>
+            <button onClick={()=>{ setPanel('addCreneau'); setPanelData(null) }} style={{ padding:'7px 12px', borderRadius:'20px', fontSize:'12px', fontWeight:700, cursor:'pointer', background:'rgba(26,140,90,.1)', border:'1px solid rgba(26,140,90,.3)', color:'#1A8C5A' }}>
+              🗓 Créneaux
+            </button>
+            <button onClick={()=>{ setPanel('addRdv'); setRdvForm(f=>({...f,heure:'10:00'})) }} style={{ padding:'7px 12px', borderRadius:'20px', fontSize:'12px', fontWeight:700, cursor:'pointer', background:'var(--txt)', border:'none', color:'var(--bg)' }}>
+              + RDV
+            </button>
           </div>
-
-          <button onClick={nextDay} disabled={!canNext} style={{
-            width:36, height:36, borderRadius:'50%', border:'1px solid var(--border2)',
-            background: canNext ? 'var(--bg)' : 'transparent',
-            color: canNext ? 'var(--txt)' : 'var(--border2)',
-            fontSize:'18px', cursor: canNext ? 'pointer' : 'default',
-            display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0
-          }}>›</button>
         </div>
-      </div>
 
-      {/* ── CORPS ── */}
-      <div style={{ padding:'16px' }}>
-
-        {loading && (
-          <div style={{ textAlign:'center', padding:'40px', color:'var(--txt3)', fontSize:'13px' }}>Chargement…</div>
-        )}
-
-        {!loading && rdvsDay.length === 0 && (
-          <div style={{ textAlign:'center', padding:'48px 20px' }}>
-            <div style={{ fontSize:'32px', marginBottom:'12px' }}>📅</div>
-            <div style={{ fontSize:'14px', fontWeight:600, color:'var(--txt2)', marginBottom:'6px' }}>
-              {isFuture ? 'Aucun RDV prévu ce jour' : isToday ? "Pas de RDV aujourd'hui" : 'Aucun RDV ce jour'}
-            </div>
-            <div style={{ fontSize:'11px', color:'var(--txt3)' }}>
-              Navigue avec les flèches pour voir les autres jours
-            </div>
+        {/* Journée bloquée */}
+        {isBloque && (
+          <div style={{ padding:'12px 16px', background:'rgba(192,57,43,.06)', border:'1px solid rgba(192,57,43,.2)', borderRadius:'var(--r)', marginBottom:'12px', fontSize:'13px', color:'#C0392B', fontWeight:600 }}>
+            🔒 Journée bloquée — {creneauxForDay(selectedDay).find(c=>c.properties.Statut?.select?.name==='🔒 Bloqué')?.properties.Notes?.rich_text?.[0]?.plain_text || ''}
           </div>
         )}
 
-        {/* Timeline RDVs */}
-        {rdvsDay.map((s, idx) => {
-          const client   = s.properties['Client prénom']?.rich_text?.[0]?.plain_text || 'Client'
-          const style    = s.properties['Style / Type']?.rich_text?.[0]?.plain_text || ''
-          const prix     = s.properties.Prix?.number || 0
-          const acompte  = s.properties['Acompte reçu']?.number || 0
-          const source   = s.properties.Source?.select?.name || ''
-          const statut   = s.properties.Statut?.select?.name || ''
-          const heure    = getHeure(s)
-          const url      = gcalUrl(s)
-          const isPrevu  = statut === STATUT_PREVU
-          const isConf   = statut === STATUT_CONFIRM
-          const isNS     = statut === STATUT_NOSHOW
+        {/* Créneaux ouverts du jour */}
+        {selCreneaux.filter(c=>c.properties.Statut?.select?.name==='🟢 Ouvert').length > 0 && (
+          <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', marginBottom:'12px' }}>
+            {selCreneaux.filter(c=>c.properties.Statut?.select?.name==='🟢 Ouvert').map(c => (
+              <div key={c.id} style={{ padding:'5px 12px', borderRadius:'20px', background:'rgba(26,140,90,.1)', border:'1px solid rgba(26,140,90,.3)', fontSize:'12px', fontWeight:700, color:'#1A8C5A', display:'flex', alignItems:'center', gap:'6px' }}>
+                🟢 {c.properties.Heure?.rich_text?.[0]?.plain_text}
+                <button onClick={()=>deleteCreneau(c.id)} style={{ background:'none', border:'none', color:'rgba(26,140,90,.5)', cursor:'pointer', fontSize:'12px', padding:0 }}>✕</button>
+              </div>
+            ))}
+          </div>
+        )}
 
-          const accentColor = isConf ? 'var(--green)' : isNS ? 'var(--txt3)' : isPast ? 'var(--red)' : isToday ? 'var(--gold)' : 'var(--pierre)'
-          const cardOpacity = isNS ? 0.5 : 1
+        {/* RDVs du jour */}
+        {loading ? (
+          <div style={{ textAlign:'center', padding:'32px', color:'var(--txt3)', fontSize:'13px' }}>Chargement…</div>
+        ) : selRdvs.length === 0 && !isBloque ? (
+          <div style={{ textAlign:'center', padding:'32px 20px', color:'var(--txt3)', fontSize:'13px' }}>
+            Pas de RDV ce jour
+          </div>
+        ) : (
+          selRdvs.map(s => {
+            const statut  = s.properties.Statut?.select?.name || ''
+            const client  = s.properties['Client prénom']?.rich_text?.[0]?.plain_text || 'Client'
+            const style   = s.properties['Style / Type']?.rich_text?.[0]?.plain_text || ''
+            const prix    = s.properties.Prix?.number || 0
+            const acompte = s.properties['Acompte reçu']?.number || 0
+            const heure   = getHeure(s)
+            const isPrevu = statut === STATUT_PREVU
+            const isConf  = statut === STATUT_CONFIRM
+            const isNS    = statut === STATUT_NOSHOW
+            const isPast  = selectedDay < today
+            const stColor = isConf?'#1A8C5A': isNS?'#888':'var(--amber)'
 
-          return (
-            <div key={s.id} style={{ display:'flex', gap:'12px', marginBottom:'0', opacity: cardOpacity }}>
-              {/* Colonne heure + trait */}
-              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', width:52, flexShrink:0 }}>
-                <div style={{ fontFamily:'var(--font-mono)', fontSize: heure ? '18px' : '11px', fontWeight:700, color: heure ? 'var(--txt)' : 'var(--amber)', lineHeight:1, paddingTop:'14px', textAlign:'center', whiteSpace:'nowrap' }}>
-                  {heure || '⏰?'}
+            return (
+              <div key={s.id} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--r)', padding:'14px 16px', marginBottom:'10px', borderLeft:`3px solid ${stColor}` }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'8px' }}>
+                  <div>
+                    {heure && <div style={{ fontFamily:'var(--font-mono)', fontSize:'13px', fontWeight:700, color:stColor, marginBottom:'2px' }}>{heure}</div>}
+                    <div style={{ fontSize:'16px', fontWeight:700 }}>{client}</div>
+                    {style && <div style={{ fontSize:'12px', color:'var(--txt2)', marginTop:'2px' }}>{style}</div>}
+                  </div>
+                  <div style={{ textAlign:'right' }}>
+                    <div style={{ fontFamily:'var(--font-mono)', fontSize:'18px', fontWeight:600 }}>{prix}€</div>
+                    {acompte > 0 && <div style={{ fontSize:'10px', color:'#1A8C5A' }}>Acompte {acompte}€</div>}
+                    <div style={{ fontSize:'10px', fontWeight:700, marginTop:'4px', padding:'2px 7px', borderRadius:'20px', background:stColor+'22', color:stColor }}>{statut}</div>
+                  </div>
                 </div>
-                {idx < rdvsDay.length - 1 && (
-                  <div style={{ flex:1, width:1, background:'var(--border)', marginTop:'6px', marginBottom:'0', minHeight:'20px' }}/>
+                {!isNS && !isConf && (
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px' }}>
+                    <button onClick={()=>{ setPanelData(s); setConfForm({ prix:String(prix), paiement:'cash', acompte:String(acompte) }); setPanel('confirmRdv') }} style={{
+                      padding:'9px', borderRadius:'var(--r)', border:'none', cursor:'pointer', fontFamily:'var(--font-head)', fontWeight:700, fontSize:'12px',
+                      background: isPast ? 'var(--green)' : 'var(--amber)', color:'#fff'
+                    }}>✅ {isPast?'Valider':'Client venu'}</button>
+                    {onEditRdv && (
+                      <button onClick={()=>{ const dr=s.properties.Date?.date?.start||''; onEditRdv({ id:s.id, client, style, prixEstime:String(prix), sessions:'1', acompte:String(acompte), date:dr.split('T')[0]||'', heure:dr.includes('T')?dr.substring(11,16):'', natio:s.properties.Nationalité?.select?.name||'🇫🇷 FR', source:s.properties.Source?.select?.name||'📸 Instagram' }) }} style={{
+                        padding:'9px', borderRadius:'var(--r)', background:'var(--surface)', border:'1.5px solid var(--gold)', color:'var(--gold-dk)', fontFamily:'var(--font-head)', fontWeight:700, fontSize:'12px', cursor:'pointer'
+                      }}>✏️ Modifier</button>
+                    )}
+                  </div>
+                )}
+                {isConf && onEditRdv && (
+                  <button onClick={()=>{ const dr=s.properties.Date?.date?.start||''; onEditRdv({ id:s.id, client, style, prixEstime:String(prix), sessions:'1', acompte:String(acompte), date:dr.split('T')[0]||'', heure:dr.includes('T')?dr.substring(11,16):'', natio:s.properties.Nationalité?.select?.name||'🇫🇷 FR', source:s.properties.Source?.select?.name||'📸 Instagram' }) }} style={{
+                    width:'100%', padding:'8px', borderRadius:'var(--r)', background:'var(--surface)', border:'1px solid var(--border2)', color:'var(--txt3)', fontFamily:'var(--font-head)', fontWeight:600, fontSize:'11px', cursor:'pointer', marginTop:'4px'
+                  }}>✏️ Modifier</button>
                 )}
               </div>
-
-              {/* Carte RDV */}
-              <div style={{ flex:1, paddingBottom:'12px' }}>
-                <div className="card" style={{
-                  padding:'12px 14px',
-                  borderLeft:`3px solid ${accentColor}`,
-                  boxShadow: isToday && isPrevu ? 'var(--shadow)' : 'var(--shadow-sm)'
-                }}>
-                  {/* Badges statut */}
-                  <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'8px', flexWrap:'wrap' }}>
-                    {isConf && <span style={{ fontSize:'9px', padding:'2px 8px', background:'rgba(80,160,80,.12)', color:'var(--green)', borderRadius:'10px', fontWeight:700, letterSpacing:'.5px' }}>✅ CONFIRMÉ</span>}
-                    {isNS   && <span style={{ fontSize:'9px', padding:'2px 8px', background:'var(--bg)', color:'var(--txt3)', borderRadius:'10px', fontWeight:700, letterSpacing:'.5px' }}>👻 NO-SHOW</span>}
-                    {isPrevu && isPast && <span style={{ fontSize:'9px', padding:'2px 8px', background:'var(--red-bg)', color:'var(--red)', borderRadius:'10px', fontWeight:700, letterSpacing:'.5px' }}>⚠️ À VALIDER</span>}
-                    {isPrevu && isToday && <span style={{ fontSize:'9px', padding:'2px 8px', background:'var(--gold-lt)', color:'var(--gold-dk)', borderRadius:'10px', fontWeight:700, letterSpacing:'.5px' }}>AUJOURD'HUI</span>}
-                    {isPrevu && isFuture && <span style={{ fontSize:'9px', padding:'2px 8px', background:'rgba(196,168,130,.1)', color:'var(--pierre)', borderRadius:'10px', fontWeight:700, letterSpacing:'.5px' }}>🗓 PRÉVU</span>}
-                  </div>
-
-                  {/* Client + prix */}
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:style||source ? '6px' : '10px' }}>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontSize:'16px', fontWeight:700 }}>{client}</div>
-                    </div>
-                    <div style={{ textAlign:'right', flexShrink:0, marginLeft:'12px' }}>
-                      <div style={{ fontFamily:'var(--font-mono)', fontSize:'20px', fontWeight:600 }}>{prix}€</div>
-                      {acompte > 0 && <div style={{ fontSize:'10px', color:'var(--green)', marginTop:'1px' }}>Acompte {acompte}€</div>}
-                    </div>
-                  </div>
-
-                  {(style || source) && (
-                    <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', marginBottom:'10px' }}>
-                      {style && <span style={{ fontSize:'11px', color:'var(--txt2)', background:'var(--bg)', padding:'2px 8px', borderRadius:'6px' }}>{style}</span>}
-                      {source && <span style={{ fontSize:'11px', color:'var(--txt3)', background:'var(--bg)', padding:'2px 8px', borderRadius:'6px' }}>{source}</span>}
-                    </div>
-                  )}
-
-                  {/* Actions */}
-                  {!isNS && !isConf && (
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'6px' }}>
-                      <button onClick={() => openConfirm(s)} style={{
-                        padding:'9px 4px', borderRadius:'var(--r)',
-                        background: isPast ? 'var(--green)' : 'var(--amber)',
-                        border:'none', color:'#fff',
-                        fontFamily:'var(--font-head)', fontWeight:700, fontSize:'11px', cursor:'pointer'
-                      }}>✅ {isPast ? 'Valider' : 'Client venu'}</button>
-                      <button onClick={() => doNoShow(s)} style={{
-                        padding:'9px 4px', borderRadius:'var(--r)',
-                        background:'var(--surface)', border:'1.5px solid var(--border2)',
-                        color:'var(--txt3)', fontFamily:'var(--font-head)', fontWeight:700, fontSize:'11px', cursor:'pointer'
-                      }}>👻 No-show</button>
-                      {onEditRdv && (
-                        <button onClick={() => {
-                          const dr = s.properties.Date?.date?.start || ''
-                          const h  = dr.includes('T') ? dr.substring(11, 16) : ''
-                          onEditRdv({
-                            id: s.id,
-                            client: s.properties['Client prénom']?.rich_text?.[0]?.plain_text || '',
-                            style: s.properties['Style / Type']?.rich_text?.[0]?.plain_text || '',
-                            prixEstime: String(s.properties.Prix?.number || 0),
-                            sessions: '1',
-                            acompte: String(s.properties['Acompte reçu']?.number || 0),
-                            date: dr.split('T')[0] || '',
-                            heure: h,
-                            natio: s.properties.Nationalité?.select?.name || '🇫🇷 FR',
-                            source: s.properties.Source?.select?.name || '📸 Instagram',
-                          })
-                        }} style={{
-                          padding:'9px 4px', borderRadius:'var(--r)',
-                          background:'var(--surface)', border:'1.5px solid var(--gold)',
-                          color:'var(--gold-dk)', fontFamily:'var(--font-head)', fontWeight:700, fontSize:'11px', cursor:'pointer'
-                        }}>✏️ Modifier</button>
-                      )}
-                    </div>
-                  )}
-
-                  {isConf && onEditRdv && (
-                    <button onClick={() => {
-                      const dr = s.properties.Date?.date?.start || ''
-                      const h  = dr.includes('T') ? dr.substring(11, 16) : ''
-                      onEditRdv({
-                        id: s.id,
-                        client: s.properties['Client prénom']?.rich_text?.[0]?.plain_text || '',
-                        style: s.properties['Style / Type']?.rich_text?.[0]?.plain_text || '',
-                        prixEstime: String(s.properties.Prix?.number || 0),
-                        sessions: '1',
-                        acompte: String(s.properties['Acompte reçu']?.number || 0),
-                        date: dr.split('T')[0] || '',
-                        heure: h,
-                        natio: s.properties.Nationalité?.select?.name || '🇫🇷 FR',
-                        source: s.properties.Source?.select?.name || '📸 Instagram',
-                      })
-                    }} style={{
-                      width:'100%', padding:'8px', borderRadius:'var(--r)',
-                      background:'var(--surface)', border:'1px solid var(--border2)',
-                      color:'var(--txt3)', fontFamily:'var(--font-head)', fontWeight:600, fontSize:'11px', cursor:'pointer', marginTop:'4px'
-                    }}>✏️ Modifier</button>
-                  )}
-
-                  {url && isPrevu && (
-                    <a href={url} target="_blank" rel="noopener noreferrer" style={{
-                      display:'block', marginTop:'8px', padding:'6px',
-                      borderRadius:'var(--r)', background:'rgba(30,95,160,.06)',
-                      border:'1px solid rgba(30,95,160,.12)', color:'var(--blue)',
-                      fontSize:'11px', fontWeight:600, textAlign:'center', textDecoration:'none'
-                    }}>📅 Ajouter à Google Calendar</a>
-                  )}
-                </div>
-              </div>
-            </div>
-          )
-        })}
-
-        {/* Raccourcis jours à venir */}
-        {!loading && upcomingDays.filter(d => d !== selectedDay).length > 0 && (
-          <div style={{ marginTop:'24px' }}>
-            <div style={{ fontSize:'10px', fontWeight:700, color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'10px' }}>
-              Prochains RDVs
-            </div>
-            {upcomingDays.filter(d => d !== selectedDay).slice(0, 5).map(day => {
-              const nb   = allRdvs.filter(s => getDateOnly(s) === day && s.properties.Statut?.select?.name === STATUT_PREVU).length
-              const dd   = new Date(day)
-              const isT  = day === today
-              return (
-                <div key={day} onClick={() => setSelectedDay(day)}
-                  style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
-                    padding:'10px 14px', borderRadius:'var(--r)', marginBottom:'6px',
-                    background:'var(--surface)', border:'1px solid var(--border)',
-                    cursor:'pointer'
-                  }}>
-                  <div>
-                    <span style={{ fontSize:'12px', fontWeight:700, color:'var(--txt)' }}>
-                      {DAY_FULL[dd.getDay()]} {dd.getDate()} {MONTH_SHORT[dd.getMonth()]}
-                    </span>
-                    {isT && <span style={{ marginLeft:'6px', fontSize:'9px', padding:'2px 6px', background:'var(--gold-lt)', color:'var(--gold-dk)', borderRadius:'10px', fontWeight:700 }}>AUJ.</span>}
-                  </div>
-                  <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-                    <span style={{ fontSize:'11px', color:'var(--txt3)' }}>{nb} RDV</span>
-                    <span style={{ color:'var(--txt3)', fontSize:'16px' }}>›</span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+            )
+          })
         )}
 
-        {/* Historique jours passés avec RDVs */}
-        {!loading && pastDays.filter(d => allRdvs.some(s => getDateOnly(s) === d)).length > 0 && (
-          <div style={{ marginTop:'24px' }}>
-            <div style={{ fontSize:'10px', fontWeight:700, color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'10px' }}>
-              Historique
-            </div>
-            {pastDays.slice(0, 8).map(day => {
-              const rdvsDayH = allRdvs.filter(s => getDateOnly(s) === day)
-              const ca = rdvsDayH.filter(s => s.properties.Statut?.select?.name === STATUT_CONFIRM).reduce((a, s) => a + (s.properties.Prix?.number || 0), 0)
-              const nb = rdvsDayH.length
-              const dd = new Date(day)
-              return (
-                <div key={day} onClick={() => setSelectedDay(day)}
-                  style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
-                    padding:'10px 14px', borderRadius:'var(--r)', marginBottom:'6px',
-                    background:'var(--surface)', border:'1px solid var(--border)',
-                    cursor:'pointer', opacity:0.8
-                  }}>
-                  <div>
-                    <span style={{ fontSize:'12px', fontWeight:700, color:'var(--txt2)' }}>
-                      {DAY_FULL[dd.getDay()]} {dd.getDate()} {MONTH_SHORT[dd.getMonth()]}
-                    </span>
-                  </div>
-                  <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-                    {ca > 0 && <span style={{ fontSize:'11px', fontFamily:'var(--font-mono)', color:'var(--green)', fontWeight:600 }}>{ca}€</span>}
-                    <span style={{ fontSize:'11px', color:'var(--txt3)' }}>{nb} RDV</span>
-                    <span style={{ color:'var(--txt3)', fontSize:'16px' }}>›</span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
       </div>
-
       {toast && <div className="toast">{toast}</div>}
     </div>
   )

@@ -1,5 +1,6 @@
-const SESSIONS_DB = 'd5c3846e-3d3c-4eae-ade8-2e7efa3c896f'
-const DEVIS_DB    = 'b6d33466-c5db-4046-be2f-a242c8686a97'
+const SESSIONS_DB  = 'd5c3846e-3d3c-4eae-ade8-2e7efa3c896f'
+const DEVIS_DB     = 'b6d33466-c5db-4046-be2f-a242c8686a97'
+const CRENEAUX_DB  = 'adf23a19-e7d1-44c0-9f8a-8374d93a7983'
 const DEPENSES_DB = '323d80c7-6418-4b25-a4c6-70cea0fd20a1'
 const CLIENTS_DB  = '53149c61-3639-45a2-ab49-c2ea77a7c088'
 const KPIS_DB     = '450c0c95-33e0-47c6-ae27-3c9540162cd2'
@@ -276,6 +277,33 @@ export const notion = {
       Notes:  { rich_text: [{ text: { content: `RDV: ${dateRdv} à ${heureRdv}` } }] }
     }
   }),
+
+  // ── CRÉNEAUX ─────────────────────────────────────────────
+  getCreneauxRange: (dateMin, dateMax) => call(`databases/${CRENEAUX_DB}/query`, 'POST', {
+    filter: { and: [
+      { property: 'Date', date: { on_or_after: dateMin } },
+      { property: 'Date', date: { on_or_before: dateMax } },
+    ]},
+    sorts: [{ property: 'Date', direction: 'ascending' }],
+    page_size: 200
+  }),
+
+  addCreneau: (data) => call('pages', 'POST', {
+    parent: { database_id: CRENEAUX_DB },
+    properties: {
+      'Créneau': { title: [{ text: { content: `${data.date} ${data.heure}${data.notes?' — '+data.notes:''}` } }] },
+      'Date':    { date: { start: data.date } },
+      'Heure':   { rich_text: [{ text: { content: data.heure || '' } }] },
+      'Statut':  { select: { name: data.statut || '🟢 Ouvert' } },
+      'Notes':   { rich_text: [{ text: { content: data.notes || '' } }] },
+    }
+  }),
+
+  updateCreneauStatut: (pageId, statut) => call(`pages/${pageId}`, 'PATCH', {
+    properties: { 'Statut': { select: { name: statut } } }
+  }),
+
+  deleteCreneau: (pageId) => call(`pages/${pageId}`, 'PATCH', { archived: true }),
 }
 
 export const parsePaiement = (s) => {

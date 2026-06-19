@@ -126,35 +126,40 @@ export default function Booking() {
     })()
   }, [token])
 
-  // RDV déjà pris — extraire les dates/heures bloquées
-  const bookedSlots = new Set(
-    sessions
-      .filter(s => s.properties.Statut?.select?.name !== '❌ Refusé')
-      .map(s => {
-        const d = s.properties.Date?.date?.start || ''
-        return d.includes('T') ? d.substring(0,16) : '' // "2026-06-19T10:00"
-      })
+  // Créneaux Notion — ouverts uniquement, pas déjà réservés
+  const [creneaux, setCreneaux] = useState([])
+  useEffect(() => {
+    if (!devis) return
+    const dateMin = addDays(todayStr(), 1)
+    const dateMax = addDays(todayStr(), 30)
+    notion.getCreneauxRange(dateMin, dateMax).then(r => {
+      if (r.results) setCreneaux(r.results)
+    }).catch(() => {})
+  }, [devis])
+
+  // Jours qui ont au moins 1 créneau ouvert
+  const daysWithSlots = [...new Set(
+    creneaux
+      .filter(c => c.properties.Statut?.select?.name === '🟢 Ouvert')
+      .map(c => (c.properties.Date?.date?.start || '').split('T')[0])
       .filter(Boolean)
-  )
+  )].sort()
 
-  // 14 prochains jours (jours ouvrables : lun-sam)
+  // Créneaux ouverts pour un jour donné
+  const slotsForDay = (day) =>
+    creneaux
+      .filter(c => {
+        const d = (c.properties.Date?.date?.start || '').split('T')[0]
+        return d === day && c.properties.Statut?.select?.name === '🟢 Ouvert'
+      })
+      .map(c => c.properties.Heure?.rich_text?.[0]?.plain_text || '')
+      .filter(Boolean)
+      .sort()
+
+  // On génère les 30 prochains jours pour la nav calendrier
   const days = []
-  let cursor = addDays(todayStr(), 2) // dès après-demain
-  while (days.length < 14) {
-    const dow = new Date(cursor).getDay()
-    if (dow !== 0) days.push(cursor) // pas dimanche (0)
-    cursor = addDays(cursor, 1)
-  }
-
-  // Créneaux disponibles pour un jour donné
-  const slotsForDay = (day) => {
-    const dow = new Date(day).getDay()
-    // Samedi : 10:00–13:00 seulement
-    const raw = dow === 6
-      ? ['10:00','11:00','12:00']
-      : DEFAULT_SLOTS
-    return raw.filter(h => !bookedSlots.has(`${day}T${h}`))
-  }
+  let cursor = addDays(todayStr(), 1)
+  while (days.length < 30) { days.push(cursor); cursor = addDays(cursor, 1) }
 
   // Confirmer le créneau → marquer dans Notion + redirect SumUp
   // Confirmer le créneau -> aller au paiement (RDV créé APRÈS paiement)
@@ -279,42 +284,30 @@ export default function Booking() {
               <button onClick={() => setStep(1)} style={{ background:'transparent', border:`1px solid ${border}`, color:muted, borderRadius:'20px', padding:'5px 12px', fontSize:'12px', cursor:'pointer' }}>{t.cancel}</button>
             </div>
 
-            {/* Jours */}
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'4px', marginBottom:'16px' }}>
-              {days.slice(0,7).map(d => {
-                const dow  = new Date(d).toLocaleDateString('fr-FR',{weekday:'short'}).substring(0,2).toUpperCase()
-                const num  = new Date(d).getDate()
-                const sel  = selectedDay === d
-                const avail= slotsForDay(d).length > 0
-                return (
-                  <button key={d} onClick={() => { if(avail){ setSelDay(d); setSelHr('') }}} style={{
-                    padding:'8px 4px', borderRadius:'10px', textAlign:'center', cursor:avail?'pointer':'default',
-                    background: sel ? accent : avail ? bg2 : 'transparent',
-                    border: `1px solid ${sel ? accent : avail ? border : 'transparent'}`,
-                    opacity: avail ? 1 : 0.3
-                  }}>
-                    <div style={{ fontSize:'9px', color: sel?'#0C0C0C':muted, fontWeight:600 }}>{dow}</div>
-                    <div style={{ fontSize:'15px', fontWeight:700, color: sel?'#0C0C0C':text }}>{num}</div>
-                  </button>
-                )
-              })}
-            </div>
-            {days.slice(7).length > 0 && (
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'4px', marginBottom:'20px' }}>
-                {days.slice(7).map(d => {
-                  const dow  = new Date(d).toLocaleDateString('fr-FR',{weekday:'short'}).substring(0,2).toUpperCase()
-                  const num  = new Date(d).getDate()
-                  const sel  = selectedDay === d
-                  const avail= slotsForDay(d).length > 0
+            {/* Jours avec créneaux disponibles */}
+            {daysWithSlots.length === 0 ? (
+              <div style={{ textAlign:'center', padding:'32px 20px', color:muted, fontSize:'13px' }}>
+                <div style={{ fontSize:'28px', marginBottom:'10px' }}>📅</div>
+                Aucun créneau disponible pour le moment.<br/>Contacte Tony sur WhatsApp pour fixer un RDV.
+                <br/><br/>
+                <a href="https://wa.me/34601571142" style={{ color:accent, fontWeight:700, textDecoration:'none' }}>💬 WhatsApp Tony →</a>
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:'8px', marginBottom:'20px' }}>
+                {daysWithSlots.map(d => {
+                  const sel   = selectedDay === d
+                  const dd    = new Date(d)
+                  const slots = slotsForDay(d)
+                  const dow   = dd.toLocaleDateString(lang==='fr'?'fr-FR':lang==='es'?'es-ES':lang==='de'?'de-DE':'en-GB',{weekday:'long'})
+                  const date  = dd.toLocaleDateString(lang==='fr'?'fr-FR':lang==='es'?'es-ES':lang==='de'?'de-DE':'en-GB',{day:'numeric',month:'long'})
                   return (
-                    <button key={d} onClick={() => { if(avail){ setSelDay(d); setSelHr('') }}} style={{
-                      padding:'8px 4px', borderRadius:'10px', textAlign:'center', cursor:avail?'pointer':'default',
-                      background: sel ? accent : avail ? bg2 : 'transparent',
-                      border: `1px solid ${sel ? accent : avail ? border : 'transparent'}`,
-                      opacity: avail ? 1 : 0.3
+                    <button key={d} onClick={() => { setSelDay(d); setSelHr('') }} style={{
+                      padding:'12px 16px', borderRadius:'12px', textAlign:'left', cursor:'pointer', border:'none',
+                      background: sel ? accent : bg2,
+                      outline: sel ? `2px solid ${accent}` : 'none'
                     }}>
-                      <div style={{ fontSize:'9px', color: sel?'#0C0C0C':muted, fontWeight:600 }}>{dow}</div>
-                      <div style={{ fontSize:'15px', fontWeight:700, color: sel?'#0C0C0C':text }}>{num}</div>
+                      <div style={{ fontSize:'13px', fontWeight:700, color: sel?'#0C0C0C':text, textTransform:'capitalize' }}>{dow} {date}</div>
+                      <div style={{ fontSize:'11px', color: sel?'rgba(0,0,0,.6)':muted, marginTop:'2px' }}>{slots.length} créneau{slots.length>1?'x':''} disponible{slots.length>1?'s':''}</div>
                     </button>
                   )
                 })}

@@ -276,7 +276,7 @@ export default function Devis({ onBack }) {
                         📤 Lien
                       </button>
                     )}
-                    <button onClick={() => setSelected({ ...d, statut, token, prix, acomp, client, desc })} style={{ ...S.btnGhost, fontSize:'11px', padding:'5px 10px' }}>
+                    <button onClick={() => { setSelected({ ...d, statut, token, prix, acomp, client, desc }); setView('detail') }} style={{ ...S.btnGhost, fontSize:'11px', padding:'5px 10px' }}>
                       Gérer →
                     </button>
                   </div>
