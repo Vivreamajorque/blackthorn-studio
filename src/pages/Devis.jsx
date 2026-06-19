@@ -228,6 +228,15 @@ export default function Devis({ onBack }) {
   }
 
   // ── Copier lien ───────────────────────────────────────────
+  const deleteDevis = async (id) => {
+    if (!window.confirm('Supprimer ce devis ?')) return
+    try {
+      await notion.deleteCreneau(id) // réutilise le même mécanisme d'archivage
+      showToast('Devis supprimé')
+      load()
+    } catch(e) { showToast('Erreur') }
+  }
+
   const copyLink = async (token) => {
     const url = `${window.location.origin}/booking/${token}`
     try {
@@ -309,6 +318,9 @@ export default function Devis({ onBack }) {
                         📤 Lien
                       </button>
                     )}
+                    <button onClick={() => deleteDevis(d.id)} style={{ ...S.btnGhost, fontSize:'11px', padding:'5px 10px', color:'#C0392B', borderColor:'rgba(192,57,43,.3)' }}>
+                      🗑
+                    </button>
                     <button onClick={() => { setSelected({ ...d, statut, token, prix, acomp, client, desc }); setView('detail') }} style={{ ...S.btnGhost, fontSize:'11px', padding:'5px 10px' }}>
                       Gérer →
                     </button>
@@ -576,14 +588,28 @@ export default function Devis({ onBack }) {
             </div>
 
             {/* Acompte — toggle + calcul */}
-            <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px', marginTop:'4px' }}>
-              <input type="checkbox" id="acompte-req" checked={acompteReq}
-                onChange={e => setAcompteReq(e.target.checked)}
-                style={{ width:18, height:18, accentColor:'#D4820A', cursor:'pointer', flexShrink:0 }}/>
-              <label htmlFor="acompte-req" style={{ fontSize:'13px', color:'var(--txt2)', cursor:'pointer', userSelect:'none' }}>
+            <button
+              onClick={() => setAcompteReq(v => !v)}
+              style={{
+                display:'flex', alignItems:'center', gap:'10px',
+                marginBottom:'10px', marginTop:'4px',
+                background:'none', border:'none', cursor:'pointer', padding:'4px 0', width:'100%', textAlign:'left'
+              }}>
+              <div style={{
+                width:36, height:20, borderRadius:10, flexShrink:0,
+                background: acompteReq ? '#D4820A' : 'var(--border2)',
+                position:'relative', transition:'background .2s'
+              }}>
+                <div style={{
+                  position:'absolute', top:2, left: acompteReq ? 18 : 2,
+                  width:16, height:16, borderRadius:'50%', background:'white',
+                  transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,.3)'
+                }}/>
+              </div>
+              <span style={{ fontSize:'13px', color:'var(--txt2)', userSelect:'none' }}>
                 Acompte requis
-              </label>
-            </div>
+              </span>
+            </button>
             {acompteReq && (
               <div style={S.acompteBox}>
                 <div>
