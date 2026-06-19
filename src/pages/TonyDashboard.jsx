@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import Planning from './Planning'
+import Devis    from './Devis'
 import { notion, parsePaiement, getNbSess } from '../lib/notion'
 
 const OBJ_EQ   = 3895   // équilibre
@@ -418,6 +419,8 @@ export default function TonyDashboard({ onLogout }) {
       {toast&&<div className="toast">{toast}</div>}
     </div>
   )
+
+  if (tab==='devis') return <Devis onBack={()=>setTab('home')} />
 
   if (tab==='planning') return <Planning onBack={()=>setTab('home')} onEditRdv={(rdv)=>{setEditRdv(rdv);setTab('editRdv')}} />
 
@@ -1287,10 +1290,11 @@ export default function TonyDashboard({ onLogout }) {
         zIndex:100
       }}>
         {[
-          {id:'home',   icon:'◈', label:'Home'},
-          {id:'planning',icon:'⊡', label:'Planning'},
-          {id:'ca',     icon:'＋', label:'Saisir'},
-          {id:'histo',  icon:'≡', label:'Historique'},
+          {id:'home',    icon:'◈',  label:'Home'},
+          {id:'planning',icon:'⊡',  label:'Planning'},
+          {id:'devis',   icon:'📋', label:'Devis'},
+          {id:'ca',      icon:'＋', label:'Saisir'},
+          {id:'histo',   icon:'≡',  label:'Historique'},
         ].map(item=>(
           <button key={item.id} onClick={()=>setTab(item.id)} style={{
             flex:1, display:'flex', flexDirection:'column', alignItems:'center',

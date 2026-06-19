@@ -1,4 +1,5 @@
 const SESSIONS_DB = 'd5c3846e-3d3c-4eae-ade8-2e7efa3c896f'
+const DEVIS_DB    = import.meta.env.VITE_DEVIS_DB || ''
 const DEPENSES_DB = '323d80c7-6418-4b25-a4c6-70cea0fd20a1'
 const CLIENTS_DB  = '53149c61-3639-45a2-ab49-c2ea77a7c088'
 const KPIS_DB     = '450c0c95-33e0-47c6-ae27-3c9540162cd2'
@@ -234,6 +235,48 @@ export const notion = {
     sorts: [{ property: 'Date', direction: 'descending' }],
     page_size: 100
   }),
+
+  // ── DEVIS ────────────────────────────────
+  getDevis: () => call(`databases/${DEVIS_DB}/query`, 'POST', {
+    sorts: [{ property: 'Date création', direction: 'descending' }],
+    page_size: 50
+  }),
+
+  addDevis: (data) => call('pages', 'POST', {
+    parent: { database_id: DEVIS_DB },
+    properties: {
+      Devis:           { title: [{ text: { content: `Devis · ${data.client} · ${data.prix}€` } }] },
+      Client:          { rich_text: [{ text: { content: data.client || '' } }] },
+      Description:     { rich_text: [{ text: { content: data.description || '' } }] },
+      Prix:            { number: parseFloat(data.prix) || 0 },
+      Acompte:         { number: parseFloat(data.acompte) || 0 },
+      Statut:          { select: { name: '⏳ En attente' } },
+      Token:           { rich_text: [{ text: { content: data.token || '' } }] },
+      Tatouages:       { rich_text: [{ text: { content: data.tatouages || '' } }] },
+      'Date création': { date: { start: data.dateCreation || new Date().toISOString().split('T')[0] } },
+      Notes:           { rich_text: [{ text: { content: data.notes || '' } }] },
+    }
+  }),
+
+  updateDevisStatut: (pageId, statut) => call(`pages/${pageId}`, 'PATCH', {
+    properties: { Statut: { select: { name: statut } } }
+  }),
+
+  updateDevisLienEnvoye: (pageId) => call(`pages/${pageId}`, 'PATCH', {
+    properties: { Statut: { select: { name: '🔗 Lien envoyé' } } }
+  }),
+
+  getDevisByToken: (token) => call(`databases/${DEVIS_DB}/query`, 'POST', {
+    filter: { property: 'Token', rich_text: { equals: token } },
+    page_size: 1
+  }),
+
+  markDevisReserve: (pageId, dateRdv, heureRdv) => call(`pages/${pageId}`, 'PATCH', {
+    properties: {
+      Statut: { select: { name: '✅ Réservé' } },
+      Notes:  { rich_text: [{ text: { content: `RDV: ${dateRdv} à ${heureRdv}` } }] }
+    }
+  }),
 }
 
 export const parsePaiement = (s) => {
@@ -248,3 +291,5 @@ export const getNbSess = (s) => {
   const m = txt.match(/^(\d+)\s*session/)
   return m ? parseInt(m[1]) : 1
 }
+
+// ── DEVIS ────────────────────────────────
