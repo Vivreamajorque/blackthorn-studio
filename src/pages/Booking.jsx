@@ -135,7 +135,7 @@ export default function Booking() {
   useEffect(() => {
     if (!devis) return
     const dateMin = addDays(todayStr(), 1)
-    const dateMax = addDays(todayStr(), 30)
+    const dateMax = addDays(todayStr(), 35)
     notion.getCreneauxRange(dateMin, dateMax).then(r => {
       if (r.results) setCreneaux(r.results)
     }).catch(() => {})

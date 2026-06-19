@@ -73,7 +73,7 @@ export default function Planning({ onBack, onEditRdv }) {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const wEnd2   = addDays(weekStart, 13)
+      const wEnd2   = addDays(weekStart, 35)
       const wStart2 = addDays(weekStart, -7)
       const [s, c] = await Promise.all([
         notion.getSessions(),
@@ -84,11 +84,11 @@ export default function Planning({ onBack, onEditRdv }) {
       setSessions(sess)
       setCreneaux(cren)
 
-      // Auto-ouvrir tous les créneaux libres 9h-22h pour les 7 jours de la semaine
-      const monday = mondayOf(todayStr())
-      const days7  = Array.from({ length: 7 }, (_, i) => addDays(monday, i))
+      // Auto-ouvrir tous les créneaux libres 9h-22h pour les 28 prochains jours
+      const today0 = todayStr()
+      const days28 = Array.from({ length: 28 }, (_, i) => addDays(today0, i + 1))
       const toCreate = []
-      for (const day of days7) {
+      for (const day of days28) {
         const rdvsD  = sess.filter(s => getDateOnly(s) === day && ['🗓 Prévu','✅ Confirmé'].includes(s.properties.Statut?.select?.name||''))
         const crensD = cren.filter(cr => (cr.properties.Date?.date?.start||'').split('T')[0] === day)
         for (const h of SLOTS_ALL) {
@@ -98,13 +98,12 @@ export default function Planning({ onBack, onEditRdv }) {
           toCreate.push({ date: day, heure: h, statut: '🟢 Ouvert' })
         }
       }
-      // Créer les créneaux manquants (en parallèle par batch de 5)
-      for (let i = 0; i < toCreate.length; i += 5) {
-        await Promise.all(toCreate.slice(i, i+5).map(d => notion.addCreneau(d)))
+      // Créer par batch de 10 en parallèle
+      for (let i = 0; i < toCreate.length; i += 10) {
+        await Promise.all(toCreate.slice(i, i+10).map(d => notion.addCreneau(d)))
       }
       if (toCreate.length > 0) {
-        // Recharger les créneaux après création
-        const c2 = await notion.getCreneauxRange(wStart2, wEnd2)
+        const c2 = await notion.getCreneauxRange(addDays(today0, -7), addDays(today0, 35))
         if (c2.results) setCreneaux(c2.results)
       }
     } catch(e) { console.error(e) }
