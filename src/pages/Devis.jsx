@@ -235,11 +235,17 @@ export default function Devis({ onBack }) {
       const prixFinal = modeDevis === 'manuel' && montantManuel
         ? parseFloat(montantManuel)
         : total
+      const acompteFinal = (acompteReq && !versProgressif)
+        ? (prixFinal > 300 ? Math.ceil(prixFinal * 0.1 / 10) * 10 : 30)
+        : 0
+      const descFinal = modeDevis === 'manuel'
+        ? (clientNotes.trim() || 'Devis manuel')
+        : descArr.join(' | ').substring(0, 1900)
       await notion.addDevis({
         client:      clientName.trim(),
-        description: descArr.join(' | ').substring(0, 1900),
-        prix:        total,
-        acompte:     (acompteReq && !versProgressif) ? acompte : 0,
+        description: descFinal,
+        prix:        prixFinal,
+        acompte:     acompteFinal,
         token:       token,
         tatouages:   tatouagesTronc,
         duree:       parseInt(duree) || 120,
