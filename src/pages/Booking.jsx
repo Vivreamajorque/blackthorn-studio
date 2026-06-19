@@ -24,6 +24,24 @@ const DEFAULT_SLOTS = ['10:00','11:00','14:00','15:00','16:00','17:00','18:00','
 // Convertit HH:MM en minutes
 const toMin = (h) => { if (!h) return null; const [hh,mm] = h.split(':').map(Number); return hh*60+mm }
 
+// Convertit HH:MM en minutes
+const getHeureRdv = (s) => {
+  const dateRaw = s.properties.Date?.date?.start || ''
+  if (dateRaw.includes('T')) return dateRaw.substring(11, 16)
+  // Fallback : heure dans les notes "· 17:00"
+  const notes = s.properties.Notes?.rich_text?.[0]?.plain_text || ''
+  return notes.match(/·\s*(\d{2}:\d{2})/)?.[1] || null
+}
+
+const getDureeRdv = (s) => {
+  // Durée stockée en minutes dans Notes "2 session(s)" ou directement
+  const notes = s.properties.Notes?.rich_text?.[0]?.plain_text || ''
+  const durMatch = notes.match(/(\d+)h(\d*)/)
+  if (durMatch) return parseInt(durMatch[1])*60 + (parseInt(durMatch[2])||0)
+  // Par défaut 120min (2h) pour tout RDV sans durée précisée
+  return 120
+}
+
 // Vérifie si [heure, heure+dureeMin] chevauche les RDVs existants du jour
 const hasOverlapBooking = (rdvs, heure, dureeMin) => {
   const start = toMin(heure)
@@ -32,16 +50,10 @@ const hasOverlapBooking = (rdvs, heure, dureeMin) => {
   return rdvs.some(s => {
     const st = s.properties.Statut?.select?.name || ''
     if (st === '👻 No-show' || st === '❌ Annulé') return false
-    const dateRaw = s.properties.Date?.date?.start || ''
-    if (!dateRaw.includes('T')) return false
-    const h = dateRaw.substring(11, 16)
+    const h = getHeureRdv(s)
     if (!h) return false
     const sStart = toMin(h)
-    const notes  = s.properties.Notes?.rich_text?.[0]?.plain_text || ''
-    const durMatch = notes.match(/(\d+)\s*min/)
-    // Durée du RDV existant depuis la propriété ou les notes, sinon 120min par défaut
-    const existingDur = s.properties['Durée']?.number || (durMatch ? parseInt(durMatch[1]) : 120)
-    const sEnd = sStart + existingDur
+    const sEnd = sStart + getDureeRdv(s)
     return start < sEnd && end > sStart
   })
 }
@@ -155,15 +167,24 @@ export default function Booking() {
     })()
   }, [token])
 
-  // Créneaux Notion — ouverts uniquement, pas déjà réservés
+  // Créneaux Notion — chargés par tranches pour éviter la limite 200 de Notion
   const [creneaux, setCreneaux] = useState([])
   useEffect(() => {
     if (!devis) return
-    const dateMin = addDays(todayStr(), 1)
-    const dateMax = addDays(todayStr(), 35)
-    notion.getCreneauxRange(dateMin, dateMax).then(r => {
-      if (r.results) setCreneaux(r.results)
-    }).catch(() => {})
+    const fetchAll = async () => {
+      const all = []
+      // Charger par tranches de 7 jours sur 28 jours
+      for (let w = 0; w < 4; w++) {
+        const dateMin = addDays(todayStr(), w * 7 + 1)
+        const dateMax = addDays(todayStr(), w * 7 + 7)
+        try {
+          const r = await notion.getCreneauxRange(dateMin, dateMax)
+          if (r.results) all.push(...r.results)
+        } catch(e) {}
+      }
+      setCreneaux(all)
+    }
+    fetchAll()
   }, [devis])
 
   // Jours candidats (ont des créneaux ouverts dans Notion)
