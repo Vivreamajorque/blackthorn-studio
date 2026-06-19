@@ -157,11 +157,16 @@ export default function Booking() {
   }
 
   // Confirmer le créneau → marquer dans Notion + redirect SumUp
-  const confirmSlot = async () => {
-    if (!selectedDay || !selectedHr || !devis) return
-    setSaving(true)
+  // Confirmer le créneau -> aller au paiement (RDV créé APRÈS paiement)
+  const confirmSlot = () => {
+    if (!selectedDay || !selectedHr) return
+    setStep(3)
+  }
+
+  // Créer le RDV dans Notion APRÈS paiement confirmé
+  const finalizeBooking = async () => {
+    if (!devis || !selectedDay || !selectedHr) return
     try {
-      // 1. Ajouter le RDV en tant que session "prévu" dans Notion
       await notion.addAppointment({
         client:     devis.properties['Client']?.rich_text?.[0]?.plain_text || 'Client',
         style:      devis.properties['Description']?.rich_text?.[0]?.plain_text || '',
@@ -174,11 +179,9 @@ export default function Booking() {
         source:     '🔗 Lien réservation',
         sessions:   1,
       })
-      // 2. Marquer le devis comme Réservé
       await notion.markDevisReserve(devis.id, selectedDay, selectedHr)
-      setStep(3)
-    } catch(e) { console.error(e) }
-    setSaving(false)
+    } catch(e) { console.error('finalizeBooking error:', e) }
+    setStep(4)
   }
 
   const acompte = devis ? (devis.properties['Acompte']?.number || 0) : 0
@@ -340,10 +343,10 @@ export default function Booking() {
                 )}
 
                 {selectedHr && (
-                  <button onClick={confirmSlot} disabled={saving} style={{
+                  <button onClick={confirmSlot} style={{
                     width:'100%', padding:'16px', background:accent, color:'#0C0C0C',
-                    border:'none', borderRadius:'50px', fontSize:'15px', fontWeight:700, cursor:'pointer', opacity:saving?.6:1
-                  }}>{saving ? '…' : t.confirm}</button>
+                    border:'none', borderRadius:'50px', fontSize:'15px', fontWeight:700, cursor:'pointer'
+                  }}>💳 Passer au paiement →</button>
                 )}
               </div>
             )}
@@ -381,14 +384,13 @@ export default function Booking() {
                     body: JSON.stringify({
                       amount: acompte,
                       description: `Acompte tatouage — ${client} — ${selectedDay} ${selectedHr}`,
-                      reference: `BT-${devis.id.substring(0,8)}-${Date.now()}`
+                      reference: `BT-${token}-${Date.now()}`
                     })
                   })
                   const d = await r.json()
                   if (d.payUrl) setPayUrl(d.payUrl)
                   else throw new Error(d.error)
                 } catch(e) {
-                  // fallback WhatsApp
                   window.open(waLink, '_blank')
                 }
                 setPayLoading(false)
@@ -402,7 +404,7 @@ export default function Booking() {
                 {payLoading ? 'Génération du lien…' : `💳 ${t.payBtn}`}
               </button>
             ) : (
-              <a href={payUrl} target="_blank" rel="noopener" style={{
+              <a href={payUrl} target="_blank" rel="noopener" onClick={() => setTimeout(finalizeBooking, 3000)} style={{
                 display:'block', width:'100%', padding:'16px',
                 background:'#1B5E20', color:'white',
                 textDecoration:'none', borderRadius:'50px',
@@ -411,7 +413,16 @@ export default function Booking() {
                 💳 Payer {acompte}€ maintenant →
               </a>
             )}
-            <div style={{ fontSize:'11px', color:muted, textAlign:'center' }}>
+            {payUrl && (
+              <button onClick={finalizeBooking} style={{
+                width:'100%', padding:'12px', marginTop:'8px',
+                background:'transparent', border:`1px solid ${accent}`, color:accent,
+                borderRadius:'50px', fontSize:'13px', fontWeight:700, cursor:'pointer'
+              }}>
+                ✅ J'ai payé — Confirmer ma réservation
+              </button>
+            )}
+            <div style={{ fontSize:'11px', color:muted, textAlign:'center', marginTop:'8px' }}>
               Paiement sécurisé SumUp · Carte bancaire acceptée
             </div>
           </div>
