@@ -199,10 +199,16 @@ export default function Planning({ onBack, onEditRdv }) {
     if (!panelData) return
     setSaving(true)
     try {
+      const prixTotal   = parseFloat(confForm.prix) || 0
+      const acompteRecu = parseFloat(confForm.acompte) || 0
+      const solde       = Math.max(0, prixTotal - acompteRecu)
       await notion.confirmAppointment(panelData.id, {
-        prix: parseFloat(confForm.prix), paiement: confForm.paiement,
-        acompte: parseFloat(confForm.acompte)||0,
-        date: getDateOnly(panelData), sessions: 1
+        prix:     prixTotal,
+        paiement: confForm.paiement,
+        acompte:  acompteRecu,
+        solde:    solde,
+        date:     getDateOnly(panelData),
+        sessions: 1
       })
       showToast('✅ RDV confirmé')
       setPanel(null); load()
