@@ -230,7 +230,7 @@ export default function TonyDashboard({ onLogout }) {
         acompte:0, solde:parseFloat(caForm.ca)||0,
         natio:caForm.natio, source:caForm.source, date:caForm.date, avis:!!caForm.avis,
         notes:`${caForm.sessions||1} session(s)${caForm.notes?' · '+caForm.notes:''}`,
-        style:caForm.notes, client:'', avis:false
+        style:caForm.notes, client:''
       })
       showToast(parseFloat(caForm.ca)>=156?'🔥 Belle session !':'✓ CA enregistré')
       setCaForm({ca:'',sessions:'1',paiement:'cash',natio:'🇫🇷 FR',source:'📸 Instagram',notes:'',date:todayStr(),avis:false})
