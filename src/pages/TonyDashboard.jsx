@@ -180,15 +180,32 @@ export default function TonyDashboard({ onLogout }) {
     : {icon:'📍',text:`En retard — encore ${fmt(OBJ_EQ-caMois)} pour l'équilibre`,c:'var(--red)'}
 
   // CA prévisionnel (RDV planifiés)
-  // Devis Réservés sans RDV dans les sessions = prévisionnel supplémentaire
-  const devisReserves = devis.filter(d=>{
-    const st = d.properties.Statut?.select?.name||''
-    return st === '✅ Réservé'
-  })
-  const caDevisPrev = devisReserves.reduce((a,d)=>a+(d.properties.Prix?.number||0),0)
+  // Devis Réservés = CA à encaisser (prix - acompte déjà versé)
+  const devisReserves = devis.filter(d=>(d.properties.Statut?.select?.name||'')==='✅ Réservé')
+  const caDevisPrev   = devisReserves.reduce((a,d)=>{
+    const prix    = d.properties.Prix?.number || 0
+    const acompte = d.properties.Acompte?.number || 0
+    return a + Math.max(0, prix - acompte)  // solde restant à encaisser
+  }, 0)
 
-  const caPrevMois = sessPrevu.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m)).reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + caDevisPrev
-  const caPrevSem  = sessPrevu.filter(s=>(s.properties.Date?.date?.start||'')>=ws).reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  // RDVs Prévu futurs : prix - acompte déjà reçu (ex: réservé via lien avec SumUp)
+  const caSessProvMois = sessPrevu
+    .filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
+    .reduce((a,s)=>{
+      const prix    = s.properties.Prix?.number || 0
+      const acompte = s.properties['Acompte reçu']?.number || 0
+      return a + Math.max(0, prix - acompte)
+    }, 0)
+  const caSessProvSem = sessPrevu
+    .filter(s=>(s.properties.Date?.date?.start||'')>=ws)
+    .reduce((a,s)=>{
+      const prix    = s.properties.Prix?.number || 0
+      const acompte = s.properties['Acompte reçu']?.number || 0
+      return a + Math.max(0, prix - acompte)
+    }, 0)
+
+  const caPrevMois = caSessProvMois + caDevisPrev
+  const caPrevSem  = caSessProvSem
 
   // Prochains RDV (7 jours)
   // RDV : inclure passés non validés + 30 jours à venir, triés par date
