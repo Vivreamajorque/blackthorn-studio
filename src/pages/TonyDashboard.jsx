@@ -71,6 +71,7 @@ export default function TonyDashboard({ onLogout }) {
   const [tab,       setTab]      = useState('home')
   const [sessions,  setSessions] = useState([])
   const [depenses,  setDepenses] = useState([])
+  const [devis,     setDevis]    = useState([])
   const [loading,   setLoading]  = useState(true)
   const [toast,     setToast]    = useState('')
   const fileRef   = useRef(null)
