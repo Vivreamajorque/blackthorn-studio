@@ -149,9 +149,10 @@ export default function TonyDashboard({ onLogout }) {
   // Versements confirmés — CA encaissé en avance
   const versements = sessions.filter(s=>(s.properties.Type?.select?.name||'')==='💰 Versement client' && (s.properties.Statut?.select?.name||'')==='✅ Confirmé')
   const sessConf   = sessAll.filter(isConfirme)
-  const sessPrevu  = sessAll.filter(isPrevu).filter(s=>{
-    const d = s.properties.Date?.date?.start||''
-    return !d || d >= td // inclure sans date ET futures
+  // Utiliser la requête dédiée pour les sessions Prévues (pas limitées par les 300)
+  const sessPrevu = sessionsPrevu.filter(s => {
+    const t = s.properties.Type?.select?.name || ''
+    return !t.includes('Amely') && t !== '💰 Versement client'
   })
 
   const sessM = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))

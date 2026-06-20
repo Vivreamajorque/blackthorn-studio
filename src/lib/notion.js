@@ -26,6 +26,18 @@ export const notion = {
     page_size: 300
   }),
 
+  // Récupère spécifiquement les RDVs Prévu futurs (pas limités par le tri)
+  getSessionsPrevu: () => call(`databases/${SESSIONS_DB}/query`, 'POST', {
+    filter: {
+      and: [
+        { property: 'Statut', select: { equals: '🗓 Prévu' } },
+        { property: 'Date', date: { on_or_after: new Date().toISOString().split('T')[0] } }
+      ]
+    },
+    sorts: [{ property: 'Date', direction: 'ascending' }],
+    page_size: 100
+  }),
+
   addSession: (data) => call('pages', 'POST', {
     parent: { database_id: SESSIONS_DB },
     properties: {
