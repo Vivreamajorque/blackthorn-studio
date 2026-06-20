@@ -157,6 +157,8 @@ export default function TonyDashboard({ onLogout }) {
   const sessM = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
   const sessW = sessConf.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
   const sessJ = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(td))
+  console.log('[DEBUG] td:', td, 'sessConf total:', sessConf.length, 'sessJ:', sessJ.length, 'sessJ dates:', sessJ.map(s=>s.properties.Date?.date?.start))
+  console.log('[DEBUG] toutes sessConf dates:', sessConf.map(s=>s.properties.Date?.date?.start?.substring(0,10)+' '+s.properties.Statut?.select?.name))
 
   const versM = versements.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
   const versW = versements.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
