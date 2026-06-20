@@ -144,9 +144,12 @@ export default function Devis({ onBack }) {
     const notes = devisItem?.properties?.Notes?.rich_text?.[0]?.plain_text || ''
     const notesBase = notes.replace(/VERSEMENTS:\[.*?\]/, '').trim()
     const newNotes = (notesBase + ' VERSEMENTS:' + JSON.stringify(vers)).trim().substring(0, 1900)
-    // Sauvegarder dans les notes du devis
+    // Cumul total des versements → met à jour le champ Acompte du devis
+    const totalVerse = vers.reduce((a, v) => a + (parseFloat(v.montant) || 0), 0)
+    // Sauvegarder dans les notes + mettre à jour Acompte pour le prévisionnel
     await notion.patchPage(devisItem.id, {
-      Notes: { rich_text: [{ text: { content: newNotes } }] }
+      Notes:   { rich_text: [{ text: { content: newNotes } }] },
+      Acompte: { number: totalVerse }
     })
     // Créer une session CA pour que ça apparaisse dans le Dashboard
     await notion.addVersementSession({
