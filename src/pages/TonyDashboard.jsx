@@ -152,7 +152,7 @@ export default function TonyDashboard({ onLogout }) {
 
   const sessM = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
   const sessW = sessConf.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
-  const sessJ = sessConf.filter(s=>s.properties.Date?.date?.start===td)
+  const sessJ = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(td))
 
   const versM = versements.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
   const versW = versements.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
