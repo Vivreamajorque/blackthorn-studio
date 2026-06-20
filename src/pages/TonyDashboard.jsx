@@ -126,9 +126,10 @@ export default function TonyDashboard({ onLogout }) {
 
   const load = useCallback(async () => {
     try {
-      const [s,d] = await Promise.all([notion.getSessions(), notion.getDepenses()])
+      const [s,d,sp] = await Promise.all([notion.getSessions(), notion.getDepenses(), notion.getSessionsPrevu()])
       if (s.results) setSessions(s.results)
       if (d.results) setDepenses(d.results)
+      if (sp.results) setSessionsPrevu(sp.results)
     } catch(e) { console.error(e) }
     setLoading(false)
   }, [])
