@@ -179,8 +179,12 @@ export default function TonyDashboard({ onLogout }) {
     : {icon:'📍',text:`En retard — encore ${fmt(OBJ_EQ-caMois)} pour l'équilibre`,c:'var(--red)'}
 
   // CA prévisionnel (RDV planifiés)
-  const caPrevMois = sessPrevu.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m)).reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const caPrevSem  = sessPrevu.filter(s=>(s.properties.Date?.date?.start||'')>=ws).reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const caPrevMois = sessPrevu
+    .filter(s=>(s.properties.Date?.date?.start||'').startsWith(m) || !(s.properties.Date?.date?.start))
+    .reduce((a,s)=>a+Math.max(0,(s.properties.Prix?.number||0)-(s.properties['Acompte reçu']?.number||0)),0)
+  const caPrevSem  = sessPrevu
+    .filter(s=>(s.properties.Date?.date?.start||'')>=ws)
+    .reduce((a,s)=>a+Math.max(0,(s.properties.Prix?.number||0)-(s.properties['Acompte reçu']?.number||0)),0)
 
   // Prochains RDV (7 jours)
   // RDV : inclure passés non validés + 30 jours à venir, triés par date
