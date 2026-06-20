@@ -5,9 +5,10 @@ import { notion } from '../lib/notion'
 const FIXES    = 956
 const MATOS    = 0.08
 const IVA_FL   = 150.47
-const OBJ_EQ   = 3895
-const OBJ_CONF = 7500
-const OBJ_HIV  = 5850
+// Objectifs Amely (piercing + revenus propres, indépendants de Tony)
+const OBJ_EQ   = 1500  // équilibre piercing : SS ~350 + matériel ~150 + perso minimum
+const OBJ_CONF = 3000  // objectif confort Amely seule (piercing pro 2027)
+const OBJ_HIV  = 2000  // palier intermédiaire
 
 const netReel = (ca) => {
   const m=ca*MATOS, b=ca-FIXES-m
@@ -105,15 +106,30 @@ export default function Dashboard() {
   const ws  = weekStart()
   const tom = (() => { const d=new Date(); d.setDate(d.getDate()+1); return d.toISOString().split('T')[0] })()
 
-  const sessActifs = sessions.filter(s=>!(s.properties.Type?.select?.name||'').includes('Amely'))
+  // Amely voit SES sessions : Piercing, Revenu Amely, Bijou vendu, Gift Voucher
+  // ET aussi les sessions studio partagées (Tattoo Tony) pour le CA global studio
+  // Pour sa jauge personnelle : uniquement ses propres revenus
+  const sessActifs    = sessions.filter(s=>{
+    const t = s.properties.Type?.select?.name||''
+    // Exclure les sessions Tony pures et les versements
+    return t !== '🖤 Tattoo Tony' && t !== '💰 Versement client'
+  })
+  // CA global studio (Tony + Amely) pour la vue partagée
+  const sessStudio    = sessions.filter(s=>{
+    const t = s.properties.Type?.select?.name||''
+    return t !== '💰 Versement client' && (s.properties.Statut?.select?.name||'')==='✅ Confirmé'
+  })
   const sessConf   = sessActifs.filter(isConfirme)
-  const sessPrevu  = sessActifs.filter(isPrevu).filter(s=>(s.properties.Date?.date?.start||'')>=td)
+  const sessPrevu  = sessActifs.filter(isPrevu).filter(s=>{
+    const d = s.properties.Date?.date?.start||''
+    return !d || d >= td
+  })
 
   // ── AUJOURD'HUI
-  const sessJ = sessConf.filter(s=>s.properties.Date?.date?.start===td)
+  const sessJ = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(td))
   const caJ   = sessJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const rdvAujourdhui = sessPrevu.filter(s=>s.properties.Date?.date?.start===td)
-  const rdvDemain     = sessPrevu.filter(s=>s.properties.Date?.date?.start===tom)
+  const rdvAujourdhui = sessPrevu.filter(s=>(s.properties.Date?.date?.start||'').startsWith(td))
+  const rdvDemain     = sessPrevu.filter(s=>(s.properties.Date?.date?.start||'').startsWith(tom))
 
   // ── SEMAINE
   const sessW = sessConf.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
