@@ -32,7 +32,7 @@ const uploadToBlob = async (pdfBase64, filename) => {
     const { put } = await import('@vercel/blob')
     const buffer = Buffer.from(pdfBase64.split(',')[1] || pdfBase64, 'base64')
     const blob = await put(`consentements/${filename}`, buffer, {
-      access: 'public',
+      access: 'private',
       contentType: 'application/pdf',
     })
     return blob.url
