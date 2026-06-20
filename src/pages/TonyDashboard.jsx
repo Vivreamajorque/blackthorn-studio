@@ -69,8 +69,9 @@ const NATS=['🇫🇷 FR','🇩🇪 DE','🇬🇧 EN','🇪🇸 ES','Autre']
 
 export default function TonyDashboard({ onLogout }) {
   const [tab,       setTab]      = useState('home')
-  const [sessions,  setSessions] = useState([])
-  const [depenses,  setDepenses] = useState([])
+  const [sessions,     setSessions]     = useState([])
+  const [depenses,     setDepenses]     = useState([])
+  const [sessionsPrevu,setSessionsPrevu] = useState([])
   const [loading,   setLoading]  = useState(true)
   const [toast,     setToast]    = useState('')
   const fileRef   = useRef(null)
@@ -148,7 +149,10 @@ export default function TonyDashboard({ onLogout }) {
   // Versements confirmés — CA encaissé en avance
   const versements = sessions.filter(s=>(s.properties.Type?.select?.name||'')==='💰 Versement client' && (s.properties.Statut?.select?.name||'')==='✅ Confirmé')
   const sessConf   = sessAll.filter(isConfirme)
-  const sessPrevu  = sessAll.filter(isPrevu).filter(s=>(s.properties.Date?.date?.start||'')>=td)
+  const sessPrevu  = sessionsPrevu.filter(s=>{
+    const t = s.properties.Type?.select?.name||''
+    return !t.includes('Amely') && t !== '💰 Versement client'
+  })
 
   const sessM = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
   const sessW = sessConf.filter(s=>(s.properties.Date?.date?.start||'')>=ws)

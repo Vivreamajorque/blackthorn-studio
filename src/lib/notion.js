@@ -23,7 +23,15 @@ const call = async (path, method = 'POST', body = null) => {
 export const notion = {
   getSessions: () => call(`databases/${SESSIONS_DB}/query`, 'POST', {
     sorts: [{ property: 'Date', direction: 'descending' }],
-    page_size: 200
+    page_size: 300
+  }),
+
+  getSessionsPrevu: () => call(`databases/${SESSIONS_DB}/query`, 'POST', {
+    filter: { and: [
+      { property: 'Statut', select: { equals: '🗓 Prévu' } },
+    ]},
+    sorts: [{ property: 'Date', direction: 'ascending' }],
+    page_size: 100
   }),
 
   addSession: (data) => call('pages', 'POST', {
