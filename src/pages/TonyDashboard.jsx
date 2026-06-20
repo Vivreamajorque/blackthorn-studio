@@ -72,6 +72,7 @@ export default function TonyDashboard({ onLogout }) {
   const [sessions,     setSessions]     = useState([])
   const [depenses,     setDepenses]     = useState([])
   const [sessionsPrevu,setSessionsPrevu] = useState([])
+  const [devis,        setDevis]         = useState([])
   const [loading,   setLoading]  = useState(true)
   const [toast,     setToast]    = useState('')
   const fileRef   = useRef(null)
@@ -126,10 +127,11 @@ export default function TonyDashboard({ onLogout }) {
 
   const load = useCallback(async () => {
     try {
-      const [s,d,sp] = await Promise.all([notion.getSessions(), notion.getDepenses(), notion.getSessionsPrevu()])
+      const [s,d,sp,dv] = await Promise.all([notion.getSessions(), notion.getDepenses(), notion.getSessionsPrevu(), notion.getDevis()])
       if (s.results) setSessions(s.results)
       if (d.results) setDepenses(d.results)
       if (sp.results) setSessionsPrevu(sp.results)
+      if (dv.results) setDevis(dv.results)
     } catch(e) { console.error(e) }
     setLoading(false)
   }, [])
@@ -180,9 +182,21 @@ export default function TonyDashboard({ onLogout }) {
     : {icon:'📍',text:`En retard — encore ${fmt(OBJ_EQ-caMois)} pour l'équilibre`,c:'var(--red)'}
 
   // CA prévisionnel (RDV planifiés)
+  // Devis Validés (acompte payé, RDV à caler) = CA restant à encaisser
+  const devisValides  = devis.filter(d=>{
+    const st = d.properties.Statut?.select?.name||''
+    return st === '✅ Réservé' || st === '✅ Validé'
+  })
+  const caDevisPrev = devisValides.reduce((a,d)=>{
+    const prix    = d.properties.Prix?.number || 0
+    const acompte = d.properties.Acompte?.number || 0
+    return a + Math.max(0, prix - acompte)
+  }, 0)
+
   const caPrevMois = sessPrevu
     .filter(s=>(s.properties.Date?.date?.start||'').startsWith(m) || !(s.properties.Date?.date?.start))
     .reduce((a,s)=>a+Math.max(0,(s.properties.Prix?.number||0)-(s.properties['Acompte reçu']?.number||0)),0)
+    + caDevisPrev
   const caPrevSem  = sessPrevu
     .filter(s=>(s.properties.Date?.date?.start||'')>=ws)
     .reduce((a,s)=>a+Math.max(0,(s.properties.Prix?.number||0)-(s.properties['Acompte reçu']?.number||0)),0)
