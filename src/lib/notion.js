@@ -23,19 +23,7 @@ const call = async (path, method = 'POST', body = null) => {
 export const notion = {
   getSessions: () => call(`databases/${SESSIONS_DB}/query`, 'POST', {
     sorts: [{ property: 'Date', direction: 'descending' }],
-    page_size: 300
-  }),
-
-  // Récupère spécifiquement les RDVs Prévu futurs (pas limités par le tri)
-  getSessionsPrevu: () => call(`databases/${SESSIONS_DB}/query`, 'POST', {
-    filter: {
-      and: [
-        { property: 'Statut', select: { equals: '🗓 Prévu' } },
-        { property: 'Date', date: { on_or_after: new Date().toISOString().split('T')[0] } }
-      ]
-    },
-    sorts: [{ property: 'Date', direction: 'ascending' }],
-    page_size: 100
+    page_size: 200
   }),
 
   addSession: (data) => call('pages', 'POST', {
@@ -85,10 +73,8 @@ export const notion = {
     properties: {
       Session:        { title: [{ text: { content: `[${data.paiement==='carte'?'CARTE':'CASH'}] Tony · ${data.date} · ${data.prix}€` } }] },
       Prix:           { number: parseFloat(data.prix) || 0 },
-      // Acompte = ce qui était déjà payé (SumUp ou versement) — on ne l'écrase que si Tony le précise
+      'Solde reçu':   { number: Math.max(0, parseFloat(data.prix) - (parseFloat(data.acompte)||0)) },
       'Acompte reçu': { number: parseFloat(data.acompte) || 0 },
-      // Solde = ce que le client paie en studio aujourd'hui
-      'Solde reçu':   { number: parseFloat(data.solde) || Math.max(0, (parseFloat(data.prix)||0) - (parseFloat(data.acompte)||0)) },
       Statut:         { select: { name: '✅ Confirmé' } },
       Notes:          { rich_text: [{ text: { content: `${data.sessions||1} session(s)` } }] },
     }

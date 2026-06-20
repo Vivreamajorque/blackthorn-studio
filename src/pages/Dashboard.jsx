@@ -110,10 +110,10 @@ export default function Dashboard() {
   const sessPrevu  = sessActifs.filter(isPrevu).filter(s=>(s.properties.Date?.date?.start||'')>=td)
 
   // ── AUJOURD'HUI
-  const sessJ = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(td))
+  const sessJ = sessConf.filter(s=>s.properties.Date?.date?.start===td)
   const caJ   = sessJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const rdvAujourdhui = sessPrevu.filter(s=>(s.properties.Date?.date?.start||'').startsWith(td))
-  const rdvDemain     = sessPrevu.filter(s=>(s.properties.Date?.date?.start||'').startsWith(tom))
+  const rdvAujourdhui = sessPrevu.filter(s=>s.properties.Date?.date?.start===td)
+  const rdvDemain     = sessPrevu.filter(s=>s.properties.Date?.date?.start===tom)
 
   // ── SEMAINE
   const sessW = sessConf.filter(s=>(s.properties.Date?.date?.start||'')>=ws)

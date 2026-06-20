@@ -71,7 +71,6 @@ export default function TonyDashboard({ onLogout }) {
   const [tab,       setTab]      = useState('home')
   const [sessions,  setSessions] = useState([])
   const [depenses,  setDepenses] = useState([])
-  const [devis,     setDevis]    = useState([])
   const [loading,   setLoading]  = useState(true)
   const [toast,     setToast]    = useState('')
   const fileRef   = useRef(null)
@@ -149,15 +148,11 @@ export default function TonyDashboard({ onLogout }) {
   // Versements confirmés — CA encaissé en avance
   const versements = sessions.filter(s=>(s.properties.Type?.select?.name||'')==='💰 Versement client' && (s.properties.Statut?.select?.name||'')==='✅ Confirmé')
   const sessConf   = sessAll.filter(isConfirme)
-  // Utiliser la requête dédiée pour les sessions Prévues (pas limitées par les 300)
-  const sessPrevu = sessionsPrevu.filter(s => {
-    const t = s.properties.Type?.select?.name || ''
-    return !t.includes('Amely') && t !== '💰 Versement client'
-  })
+  const sessPrevu  = sessAll.filter(isPrevu).filter(s=>(s.properties.Date?.date?.start||'')>=td)
 
   const sessM = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
   const sessW = sessConf.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
-  const sessJ = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(td))
+  const sessJ = sessConf.filter(s=>s.properties.Date?.date?.start===td)
 
   const versM = versements.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
   const versW = versements.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
@@ -180,32 +175,8 @@ export default function TonyDashboard({ onLogout }) {
     : {icon:'📍',text:`En retard — encore ${fmt(OBJ_EQ-caMois)} pour l'équilibre`,c:'var(--red)'}
 
   // CA prévisionnel (RDV planifiés)
-  // Devis Réservés = CA à encaisser (prix - acompte déjà versé)
-  const devisReserves = devis.filter(d=>(d.properties.Statut?.select?.name||'')==='✅ Réservé')
-  const caDevisPrev   = devisReserves.reduce((a,d)=>{
-    const prix    = d.properties.Prix?.number || 0
-    const acompte = d.properties.Acompte?.number || 0
-    return a + Math.max(0, prix - acompte)  // solde restant à encaisser
-  }, 0)
-
-  // RDVs Prévu futurs : prix - acompte déjà reçu (ex: réservé via lien avec SumUp)
-  const caSessProvMois = sessPrevu
-    .filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
-    .reduce((a,s)=>{
-      const prix    = s.properties.Prix?.number || 0
-      const acompte = s.properties['Acompte reçu']?.number || 0
-      return a + Math.max(0, prix - acompte)
-    }, 0)
-  const caSessProvSem = sessPrevu
-    .filter(s=>(s.properties.Date?.date?.start||'')>=ws)
-    .reduce((a,s)=>{
-      const prix    = s.properties.Prix?.number || 0
-      const acompte = s.properties['Acompte reçu']?.number || 0
-      return a + Math.max(0, prix - acompte)
-    }, 0)
-
-  const caPrevMois = caSessProvMois + caDevisPrev
-  const caPrevSem  = caSessProvSem
+  const caPrevMois = sessPrevu.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m)).reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const caPrevSem  = sessPrevu.filter(s=>(s.properties.Date?.date?.start||'')>=ws).reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
 
   // Prochains RDV (7 jours)
   // RDV : inclure passés non validés + 30 jours à venir, triés par date
@@ -230,7 +201,7 @@ export default function TonyDashboard({ onLogout }) {
         acompte:0, solde:parseFloat(caForm.ca)||0,
         natio:caForm.natio, source:caForm.source, date:caForm.date, avis:!!caForm.avis,
         notes:`${caForm.sessions||1} session(s)${caForm.notes?' · '+caForm.notes:''}`,
-        style:caForm.notes, client:''
+        style:caForm.notes, client:'', avis:false
       })
       showToast(parseFloat(caForm.ca)>=156?'🔥 Belle session !':'✓ CA enregistré')
       setCaForm({ca:'',sessions:'1',paiement:'cash',natio:'🇫🇷 FR',source:'📸 Instagram',notes:'',date:todayStr(),avis:false})
@@ -955,29 +926,6 @@ export default function TonyDashboard({ onLogout }) {
                       <span>📅</span>
                       Voir tous les rendez-vous
                       {rdvsProchains.length > 3 && <span style={{fontSize:'10px',padding:'1px 7px',background:'var(--bg2)',borderRadius:'20px',color:'var(--txt3)'}}>{rdvsProchains.length}</span>}
-                    {/* Devis Réservés sans RDV calé */}
-                    {devisReserves.length > 0 && (
-                      <div style={{marginTop:'10px',paddingTop:'10px',borderTop:'1px solid var(--border)'}}>
-                        <div style={{fontSize:'10px',fontWeight:700,color:'#2980B9',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'8px'}}>
-                          📋 Devis réservés — RDV à caler
-                        </div>
-                        {devisReserves.map(d=>{
-                          const client = d.properties.Client?.rich_text?.[0]?.plain_text || 'Client'
-                          const prix   = d.properties.Prix?.number || 0
-                          const desc   = d.properties.Description?.rich_text?.[0]?.plain_text || ''
-                          return (
-                            <div key={d.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 12px',background:'rgba(41,128,185,.06)',borderRadius:'var(--r)',border:'1px solid rgba(41,128,185,.2)',marginBottom:'6px'}}>
-                              <div>
-                                <div style={{fontSize:'13px',fontWeight:700,color:'var(--txt)'}}>{client}</div>
-                                <div style={{fontSize:'11px',color:'var(--txt3)',marginTop:'2px'}}>{desc.substring(0,40)}</div>
-                                <div style={{fontSize:'10px',color:'#2980B9',marginTop:'2px'}}>📋 Acompte payé — RDV à planifier</div>
-                              </div>
-                              <div style={{fontFamily:'var(--font-mono)',fontSize:'16px',fontWeight:700,color:'var(--txt)'}}>{prix}€</div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
                     </button>
                   </>
                 )}

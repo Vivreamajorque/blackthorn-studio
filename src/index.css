@@ -228,4 +228,3 @@ input[type="checkbox"] { width: 18px; height: 18px; border-radius: 5px; accentCo
 ::-webkit-scrollbar { width: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
-/* redeploy 1781955370 */
