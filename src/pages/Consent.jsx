@@ -254,6 +254,7 @@ export default function Consent() {
   const [step, setStep] = useState(1)
   const [form, setForm] = useState({ nom: '', dni: '', dateNaissance: '', nationalite: '', email: '', telephone: '', majeur: true })
   const [contras, setContras] = useState({})
+  const [autreDetail, setAutreDetail] = useState('')
   const [consents, setConsents] = useState({})
   const [photo, setPhoto] = useState(null)
   const [sig, setSig] = useState(null)
@@ -337,7 +338,16 @@ export default function Consent() {
     if (checkedContras.length === 0) {
       doc.text('Aucune condition déclarée / No conditions declared', 15, y); y += 5
     } else {
-      checkedContras.forEach(k => { doc.text('✓ ' + t2.contras[k], 15, y); y += 5 })
+      checkedContras.forEach(k => {
+        const lines = doc.splitTextToSize('✓ ' + t2.contras[k], 180)
+        doc.text(lines, 15, y); y += lines.length * 5
+      })
+      if (contras['autre'] && autreDetail) {
+        doc.setFont('helvetica', 'bold')
+        const lines = doc.splitTextToSize('⚠ Précision : ' + autreDetail, 180)
+        doc.text(lines, 15, y); y += lines.length * 5
+        doc.setFont('helvetica', 'normal')
+      }
     }
     y += 4
 
@@ -381,7 +391,7 @@ export default function Consent() {
           lang,
           signature: sig,
           pdfData,
-          data: { ...form, contras, photoOk: photo === true }
+          data: { ...form, contras, autreDetail, photoOk: photo === true }
         })
       })
       setDone(true)
@@ -497,6 +507,22 @@ export default function Consent() {
                 <span style={{ fontSize: 14, lineHeight: 1.4 }}>{t.contras[k]}</span>
               </div>
             ))}
+            {contras['autre'] && (
+              <div style={{ marginTop: 8, padding: '12px 14px', background: 'rgba(192,57,43,.05)', border: '1.5px solid rgba(192,57,43,.25)', borderRadius: 12 }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#C0392B', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 8 }}>
+                  ⚠️ Précisez / Please specify / Por favor especifique
+                </label>
+                <textarea
+                  value={autreDetail}
+                  onChange={e => setAutreDetail(e.target.value)}
+                  placeholder="Décrivez votre condition / Describe your condition / Describa su condición..."
+                  rows={3}
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid rgba(192,57,43,.3)', borderRadius: 8,
+                    fontSize: 13, fontFamily: 'Inter, sans-serif', background: 'white', color: txt,
+                    resize: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+            )}
             <div style={{ marginTop: 12, padding: '10px 14px', background: '#F9F9F9', borderRadius: 10, fontSize: 13, color: muted }}>
               ℹ️ {t.none} — laissez tout décoché / Leave all unchecked
             </div>

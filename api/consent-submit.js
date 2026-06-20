@@ -56,6 +56,9 @@ module.exports = async function handler(req, res) {
     const now = new Date().toLocaleString('fr-FR')
     const contraStr = Object.entries(data.contras || {})
       .filter(([,v]) => v === true).map(([k]) => k).join(', ') || 'Aucune'
+    const autreDetail = data.contras?.autre && data.autreDetail
+      ? ` (Précision : ${data.autreDetail})`
+      : ''
 
     // Upload PDF vers Vercel Blob
     let pdfUrl = null
@@ -71,7 +74,7 @@ module.exports = async function handler(req, res) {
       `Né(e) le : ${data.dateNaissance || '—'} | Nationalité : ${data.nationalite || '—'}`,
       `Email : ${data.email || '—'} | Tél : ${data.telephone || '—'}`,
       `Majeur(e) : ${data.majeur ? 'OUI' : 'NON'}`,
-      `Contre-indications : ${contraStr}`,
+      `Contre-indications : ${contraStr}${autreDetail}`,
       `Photo réseaux : ${data.photoOk ? 'OUI' : 'NON'}`,
       `RGPD : OUI | Langue : ${lang || 'fr'}`,
       signature ? '✍️ Signature numérique : OUI' : '',
