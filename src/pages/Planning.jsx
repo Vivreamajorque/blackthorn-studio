@@ -233,6 +233,18 @@ export default function Planning({ onBack, onEditRdv }) {
         }
       } catch(_) {}
 
+      // Créer une session versement si acompte > 0 (pour la jauge du jour)
+      if (acompteRecu > 0) {
+        const client = panelData.properties?.['Client prénom']?.rich_text?.[0]?.plain_text || 'Client'
+        await notion.addVersementSession({
+          client,
+          montant: acompteRecu,
+          mode: confForm.paiement,
+          date: new Date().toISOString().split('T')[0],
+          devisDesc: `Acompte RDV ${getDateOnly(panelData)}`,
+        }).catch(() => {})
+      }
+
       showToast('✅ RDV confirmé — aftercare envoyé 🖤')
       setPanel(null); load()
     } catch(e) { showToast('Erreur') }
