@@ -66,6 +66,9 @@ export default function Booking() {
   const [error,       setError]     = useState('')
   const [step,        setStep]      = useState(1) // 1=résumé, 2=calendrier, 3=acompte, 4=confirmé
   const [selectedDay, setSelDay]    = useState('')
+  const [calMonth,    setCalMonth]  = useState(() => {
+    const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`
+  })
   const [selectedHr,  setSelHr]     = useState('')
   const [sessions,    setSessions]  = useState([]) // RDV déjà pris
   const [saving,      setSaving]    = useState(false)
@@ -487,32 +490,93 @@ export default function Booking() {
               </div>
             ) : (
               <>
-                {/* Liste des jours */}
-                <div style={{ display:'flex', flexDirection:'column', gap:'8px', marginBottom:'24px' }}>
-                  {daysWithSlots.map(d => {
-                    const sel   = selectedDay === d
-                    const dd    = new Date(d)
-                    const slots = slotsForDay(d)
-                    const dow   = dd.toLocaleDateString(lang==='fr'?'fr-FR':lang==='es'?'es-ES':lang==='de'?'de-DE':'en-GB',{weekday:'long'})
-                    const date  = dd.toLocaleDateString(lang==='fr'?'fr-FR':lang==='es'?'es-ES':lang==='de'?'de-DE':'en-GB',{day:'numeric',month:'long'})
-                    return (
-                      <button key={d} onClick={() => {
-                        setSelDay(d); setSelHr('')
-                        // Scroll vers les horaires après sélection
-                        setTimeout(() => {
-                          document.getElementById('horaires-section')?.scrollIntoView({ behavior:'smooth', block:'start' })
-                        }, 50)
-                      }} style={{
-                        padding:'12px 16px', borderRadius:'12px', textAlign:'left', cursor:'pointer',
-                        border: sel ? `2px solid ${accent}` : `1px solid ${border}`,
-                        background: sel ? `rgba(126,200,192,.08)` : bg2,
-                      }}>
-                        <div style={{ fontSize:'13px', fontWeight:700, color: sel?accent:text, textTransform:'capitalize' }}>{dow} {date}</div>
-                        <div style={{ fontSize:'11px', color:muted, marginTop:'2px' }}>{slots.length} créneau{slots.length>1?'x':''} disponible{slots.length>1?'s':''}</div>
-                      </button>
-                    )
-                  })}
-                </div>
+                {/* Calendrier mensuel */}
+                {(() => {
+                  const [calYear, calMon] = calMonth.split('-').map(Number)
+                  const firstDay = new Date(calYear, calMon-1, 1)
+                  const lastDay  = new Date(calYear, calMon, 0)
+                  const daysInMonth = lastDay.getDate()
+                  // Lundi = 0
+                  let startDow = firstDay.getDay() - 1; if (startDow < 0) startDow = 6
+                  const cells = []
+                  for (let i=0; i<startDow; i++) cells.push(null)
+                  for (let d=1; d<=daysInMonth; d++) cells.push(d)
+
+                  const prevMonth = () => {
+                    const d = new Date(calYear, calMon-2, 1)
+                    setCalMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`)
+                  }
+                  const nextMonth = () => {
+                    const d = new Date(calYear, calMon, 1)
+                    setCalMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`)
+                  }
+
+                  const today0 = new Date().toISOString().split('T')[0]
+                  const locale = lang==='fr'?'fr-FR':lang==='es'?'es-ES':lang==='de'?'de-DE':lang==='ca'?'ca-ES':'en-GB'
+                  const monthLabel = firstDay.toLocaleDateString(locale, { month:'long', year:'numeric' })
+
+                  return (
+                    <div style={{ marginBottom:'20px' }}>
+                      {/* Nav mois */}
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px' }}>
+                        <button onClick={prevMonth} style={{ background:'none', border:`1px solid ${border}`, borderRadius:'50%', width:32, height:32, cursor:'pointer', color:text, fontSize:'16px' }}>‹</button>
+                        <div style={{ fontSize:'15px', fontWeight:700, color:text, textTransform:'capitalize' }}>{monthLabel}</div>
+                        <button onClick={nextMonth} style={{ background:'none', border:`1px solid ${border}`, borderRadius:'50%', width:32, height:32, cursor:'pointer', color:text, fontSize:'16px' }}>›</button>
+                      </div>
+
+                      {/* Jours de la semaine */}
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'4px', marginBottom:'6px' }}>
+                        {['L','M','M','J','V','S','D'].map((d,i) => (
+                          <div key={i} style={{ textAlign:'center', fontSize:'11px', fontWeight:700, color:muted, padding:'4px 0' }}>{d}</div>
+                        ))}
+                      </div>
+
+                      {/* Grille jours */}
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'4px' }}>
+                        {cells.map((day, i) => {
+                          if (!day) return <div key={i} />
+                          const dayStr = `${calYear}-${String(calMon).padStart(2,'0')}-${String(day).padStart(2,'0')}`
+                          const hasSl  = daysWithSlots.includes(dayStr)
+                          const isPast = dayStr < today0
+                          const isSel  = selectedDay === dayStr
+                          const isToday = dayStr === today0
+                          return (
+                            <button key={i} onClick={() => {
+                              if (!hasSl || isPast) return
+                              setSelDay(dayStr); setSelHr('')
+                              setTimeout(() => document.getElementById('horaires-section')?.scrollIntoView({ behavior:'smooth', block:'start' }), 50)
+                            }} style={{
+                              padding:'8px 0', borderRadius:'8px', textAlign:'center',
+                              cursor: hasSl && !isPast ? 'pointer' : 'default',
+                              border: isSel ? `2px solid ${accent}` : isToday ? `1px solid ${muted}` : '1px solid transparent',
+                              background: isSel ? accent : hasSl && !isPast ? `rgba(126,200,192,.12)` : 'transparent',
+                              color: isSel ? '#0C0C0C' : isPast ? border : hasSl ? accent : muted,
+                              fontWeight: hasSl && !isPast ? 700 : 400,
+                              fontSize: '14px',
+                              opacity: isPast ? 0.35 : 1,
+                              position: 'relative'
+                            }}>
+                              {day}
+                              {hasSl && !isPast && !isSel && (
+                                <div style={{ position:'absolute', bottom:3, left:'50%', transform:'translateX(-50%)', width:4, height:4, borderRadius:'50%', background:accent }} />
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+
+                      {/* Légende */}
+                      <div style={{ display:'flex', gap:'14px', marginTop:'10px', justifyContent:'center' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:'5px', fontSize:'11px', color:muted }}>
+                          <div style={{ width:8, height:8, borderRadius:'50%', background:accent }} /> Disponible
+                        </div>
+                        <div style={{ display:'flex', alignItems:'center', gap:'5px', fontSize:'11px', color:muted }}>
+                          <div style={{ width:8, height:8, borderRadius:'50%', background:border }} /> Non disponible
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 {/* Créneaux horaires — section séparée en bas */}
                 <div id="horaires-section" style={{

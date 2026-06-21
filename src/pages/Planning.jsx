@@ -90,9 +90,9 @@ export default function Planning({ onBack, onEditRdv }) {
           // Ne créer que si la dernière création date de plus d'1 jour
           const lastKey = 'bt_slots_last_' + today0
           // Force recréation si on a étendu la période
-          const lastKey90 = 'bt_slots_last90_' + today0
-          if (localStorage.getItem(lastKey) && localStorage.getItem(lastKey90)) return
-          localStorage.setItem(lastKey90, '1')
+          const lastKey100 = 'bt_slots_last100_' + today0
+          if (localStorage.getItem(lastKey100)) return
+          localStorage.setItem(lastKey100, '1')
           const days28 = Array.from({ length: 100 }, (_, i) => addDays(today0, i + 1))
           const toCreate = []
           for (const day of days28) {
