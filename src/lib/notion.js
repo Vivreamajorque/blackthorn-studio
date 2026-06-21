@@ -77,16 +77,28 @@ export const notion = {
     })
   },
 
-  confirmAppointment: (pageId, data) => call(`pages/${pageId}`, 'PATCH', {
-    properties: {
-      Session:        { title: [{ text: { content: `[${data.paiement==='carte'?'CARTE':'CASH'}] Tony · ${data.date} · ${data.prix}€` } }] },
-      Prix:           { number: parseFloat(data.prix) || 0 },
-      'Solde reçu':   { number: Math.max(0, parseFloat(data.prix) - (parseFloat(data.acompte)||0)) },
-      'Acompte reçu': { number: parseFloat(data.acompte) || 0 },
-      Statut:         { select: { name: '✅ Confirmé' } },
-      Notes:          { rich_text: [{ text: { content: `${data.sessions||1} session(s)` } }] },
-    }
-  }),
+  confirmAppointment: async (pageId, data) => {
+    // Lire les Notes existantes avant de confirmer
+    let notesExist = ''
+    try {
+      const page = await call(`pages/${pageId}`, 'GET')
+      notesExist = page?.properties?.Notes?.rich_text?.[0]?.plain_text || ''
+    } catch(_) {}
+    // Préserver les Notes si elles contiennent un consentement signé
+    const newNotes = notesExist.includes('CONSENTEMENT') || notesExist.includes('Email')
+      ? notesExist  // Conserver les données de consentement
+      : `${data.sessions||1} session(s)`
+    return call(`pages/${pageId}`, 'PATCH', {
+      properties: {
+        Session:        { title: [{ text: { content: `[${data.paiement==='carte'?'CARTE':'CASH'}] Tony · ${data.date} · ${data.prix}€` } }] },
+        Prix:           { number: parseFloat(data.prix) || 0 },
+        'Solde reçu':   { number: parseFloat(data.solde) || Math.max(0, (parseFloat(data.prix)||0) - (parseFloat(data.acompte)||0)) },
+        'Acompte reçu': { number: parseFloat(data.acompte) || 0 },
+        Statut:         { select: { name: '✅ Confirmé' } },
+        Notes:          { rich_text: [{ text: { content: newNotes } }] },
+      }
+    })
+  },
 
   updateRdv: (pageId, data) => {
     const natio = data.natio || 'Autre'

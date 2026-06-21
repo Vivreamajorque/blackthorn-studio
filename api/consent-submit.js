@@ -81,11 +81,27 @@ module.exports = async function handler(req, res) {
       pdfUrl ? `📄 PDF : ${pdfUrl}` : '',
     ].filter(Boolean).join('\n')
 
+    // Stocker aussi l'email dans le titre de la session pour ne pas le perdre
+    const sessionTitle = `[CONSENT] ${data.nom || 'Client'} · ${data.email || ''}`
+
     await notion(`pages/${sessionId}`, 'PATCH', {
       properties: {
         'Fiche signée': { checkbox: true },
-        'Notes': { rich_text: [{ text: { content: notes.substring(0, 1900) } }] },
-        'Client prénom': { rich_text: [{ text: { content: (data.nom || '').substring(0, 200) } }] },
+        'Notes':        { rich_text: [{ text: { content: notes.substring(0, 1900) } }] },
+        'Client prénom':{ rich_text: [{ text: { content: (data.nom || '').substring(0, 200) } }] },
+        // Email stocké dans le champ Style/Type pour retrouvabilité si Notes écrasées
+        'Email client': data.email ? { email: data.email } : undefined,
+      }
+    }).catch(() => {
+      // Si champ Email client n'existe pas, on s'en passe
+    })
+
+    // Mise à jour classique sans le champ email
+    await notion(`pages/${sessionId}`, 'PATCH', {
+      properties: {
+        'Fiche signée': { checkbox: true },
+        'Notes':        { rich_text: [{ text: { content: notes.substring(0, 1900) } }] },
+        'Client prénom':{ rich_text: [{ text: { content: (data.nom || '').substring(0, 200) } }] },
       }
     })
 
