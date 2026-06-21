@@ -118,7 +118,10 @@ export default function Planning({ onBack, onEditRdv }) {
 
   // Helpers
   const rdvsForDay = (day) => sessions.filter(s => {
-    const st = s.properties.Statut?.select?.name || ''
+    const st   = s.properties.Statut?.select?.name || ''
+    const type = s.properties.Type?.select?.name || ''
+    // Exclure les versements d'acompte — ils ont leur propre encart
+    if (type === '💰 Versement client') return false
     return getDateOnly(s) === day && [STATUT_PREVU, STATUT_CONFIRM, STATUT_NOSHOW].includes(st)
   }).sort((a,b) => (getHeure(a)||'23:59').localeCompare(getHeure(b)||'23:59'))
 
