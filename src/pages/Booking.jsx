@@ -305,35 +305,41 @@ export default function Booking() {
     return dateDay === day && ['🗓 Prévu','✅ Confirmé'].includes(st)
   })
 
-  // Créneaux ouverts pour un jour — dédupliqués + filtrés selon durée devis et RDVs existants
+  // Créneaux virtuels 9h-20h — indépendants de Notion
+  const ALL_SLOTS = ['09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30',
+    '13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30',
+    '17:00','17:30','18:00','18:30','19:00','19:30']
+
   const slotsForDay = (day) => {
-    const seen = new Set()
     const rdvs = rdvsForDay(day)
-    return creneaux
-      .filter(c => {
-        const d = (c.properties.Date?.date?.start || '').split('T')[0]
-        return d === day && c.properties.Statut?.select?.name === '🟢 Ouvert'
-      })
-      .map(c => c.properties.Heure?.rich_text?.[0]?.plain_text || '')
-      .filter(h => {
-        if (!h || seen.has(h)) return false
-        seen.add(h)
-        // Vérifier que ce créneau + durée du devis ne chevauche pas un RDV existant
-        if (hasOverlapBooking(rdvs, h, devisDureeMin)) return false
-        return true
-      })
-      .sort()
+    // Créneaux bloqués dans Notion (🔴 Fermé ou déjà pris)
+    const blockedNotion = new Set(
+      creneaux
+        .filter(c => {
+          const d = (c.properties.Date?.date?.start || '').split('T')[0]
+          return d === day && c.properties.Statut?.select?.name !== '🟢 Ouvert'
+        })
+        .map(c => c.properties.Heure?.rich_text?.[0]?.plain_text || '')
+        .filter(Boolean)
+    )
+    return ALL_SLOTS.filter(h => {
+      if (blockedNotion.has(h)) return false
+      if (hasOverlapBooking(rdvs, h, devisDureeMin)) return false
+      return true
+    })
   }
 
-  // Jours candidats (ont des créneaux ouverts dans Notion)
-  const candidateDays = [...new Set(
-    creneaux
-      .filter(c => c.properties.Statut?.select?.name === '🟢 Ouvert')
-      .map(c => (c.properties.Date?.date?.start || '').split('T')[0])
-      .filter(Boolean)
-  )].sort()
+  // Tous les jours des 100 prochains jours (sauf dimanche si Tony ne travaille pas le dimanche)
+  const today0 = new Date().toISOString().split('T')[0]
+  const candidateDays = Array.from({ length: 100 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() + i + 1)
+    return d.toISOString().split('T')[0]
+  }).filter(day => {
+    const dow = new Date(day).getDay()
+    return dow !== 0 // Exclure dimanche
+  })
 
-  // Jours réellement disponibles après filtrage durée + chevauchements
+  // Jours réellement disponibles après filtrage chevauchements
   const daysWithSlots = candidateDays.filter(day => slotsForDay(day).length > 0)
 
   // On génère les 30 prochains jours pour la nav calendrier
