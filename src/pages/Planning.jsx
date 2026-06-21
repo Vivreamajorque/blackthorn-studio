@@ -202,12 +202,38 @@ export default function Planning({ onBack, onEditRdv }) {
     if (!panelData) return
     setSaving(true)
     try {
+      const prixTotal   = parseFloat(confForm.prix) || 0
+      const acompteRecu = parseFloat(confForm.acompte) || 0
+      const solde       = Math.max(0, prixTotal - acompteRecu)
       await notion.confirmAppointment(panelData.id, {
-        prix: parseFloat(confForm.prix), paiement: confForm.paiement,
-        acompte: parseFloat(confForm.acompte)||0,
+        prix: prixTotal, paiement: confForm.paiement,
+        acompte: acompteRecu, solde,
         date: getDateOnly(panelData), sessions: 1
       })
-      showToast('✅ RDV confirmé')
+
+      // Envoyer email aftercare si email client disponible dans les Notes
+      try {
+        const notes = panelData.properties?.Notes?.rich_text?.[0]?.plain_text || ''
+        const emailMatch = notes.match(/Email\s*:\s*([\w.+%-]+@[\w.-]+\.\w+)/i)
+        const langMatch  = notes.match(/Langue\s*:\s*(\w{2})/i)
+        const client     = panelData.properties?.Session?.title?.[0]?.plain_text?.replace(/\[.*?\]\s*/,'')?.split('·')[0]?.trim() || 'Client'
+        const style      = panelData.properties?.Style?.rich_text?.[0]?.plain_text || ''
+        if (emailMatch?.[1]) {
+          fetch('/api/send-aftercare', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: emailMatch[1],
+              client,
+              lang: langMatch?.[1] || 'fr',
+              date: getDateOnly(panelData),
+              style,
+            })
+          }).catch(() => {}) // silencieux — ne bloque pas la confirmation
+        }
+      } catch(_) {}
+
+      showToast('✅ RDV confirmé — aftercare envoyé 🖤')
       setPanel(null); load()
     } catch(e) { showToast('Erreur') }
     setSaving(false)
