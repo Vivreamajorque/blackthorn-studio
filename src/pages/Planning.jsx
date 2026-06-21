@@ -89,8 +89,11 @@ export default function Planning({ onBack, onEditRdv }) {
           const today0 = todayStr()
           // Ne créer que si la dernière création date de plus d'1 jour
           const lastKey = 'bt_slots_last_' + today0
-          if (localStorage.getItem(lastKey)) return // déjà créé aujourd'hui
-          const days28 = Array.from({ length: 28 }, (_, i) => addDays(today0, i + 1))
+          // Force recréation si on a étendu la période
+          const lastKey90 = 'bt_slots_last90_' + today0
+          if (localStorage.getItem(lastKey) && localStorage.getItem(lastKey90)) return
+          localStorage.setItem(lastKey90, '1')
+          const days28 = Array.from({ length: 100 }, (_, i) => addDays(today0, i + 1))
           const toCreate = []
           for (const day of days28) {
             const rdvsD  = sess.filter(s => getDateOnly(s) === day && ['🗓 Prévu','✅ Confirmé'].includes(s.properties.Statut?.select?.name||''))
