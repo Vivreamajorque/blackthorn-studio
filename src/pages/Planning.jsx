@@ -283,6 +283,11 @@ export default function Planning({ onBack, onEditRdv }) {
 
   // ── RENDER ────────────────────────────────────────────────
   const selRdvs = rdvsForDay(selectedDay)
+  const versementsForDay = (day) => sessions.filter(s => {
+    const type = s.properties.Type?.select?.name || ''
+    return getDateOnly(s) === day && type === '💰 Versement client'
+  })
+  const selVersements = versementsForDay(selectedDay)
   const selCreneaux = creneauxForDay(selectedDay)
   const isBloque = isBloqueDay(selectedDay)
   const d = new Date(selectedDay)
@@ -607,6 +612,35 @@ export default function Planning({ onBack, onEditRdv }) {
         {isBloque && (
           <div style={{ padding:'12px 16px', background:'rgba(192,57,43,.06)', border:'1px solid rgba(192,57,43,.2)', borderRadius:'var(--r)', marginBottom:'12px', fontSize:'13px', color:'#C0392B', fontWeight:600 }}>
             🔒 Journée bloquée — {creneauxForDay(selectedDay).find(c=>c.properties.Statut?.select?.name==='🔒 Bloqué')?.properties.Notes?.rich_text?.[0]?.plain_text || ''}
+          </div>
+        )}
+
+        {/* Versements d'acompte du jour */}
+        {selVersements.length > 0 && (
+          <div style={{ marginBottom:'12px' }}>
+            {selVersements.map(s => {
+              const client  = s.properties['Client prénom']?.rich_text?.[0]?.plain_text || 'Client'
+              const montant = s.properties.Prix?.number || s.properties['Solde reçu']?.number || 0
+              const notes   = s.properties.Notes?.rich_text?.[0]?.plain_text || ''
+              return (
+                <div key={s.id} style={{
+                  display:'flex', alignItems:'center', gap:'12px',
+                  background:'rgba(201,137,58,.06)', border:'1px solid rgba(201,137,58,.25)',
+                  borderLeft:'3px solid var(--gold)', borderRadius:'var(--r)',
+                  padding:'10px 14px', marginBottom:'8px'
+                }}>
+                  <div style={{ fontSize:'18px' }}>💰</div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:'13px', fontWeight:700 }}>{client}</div>
+                    <div style={{ fontSize:'11px', color:'var(--txt2)', marginTop:'1px' }}>Acompte versé</div>
+                    {notes && <div style={{ fontSize:'11px', color:'var(--txt3)', marginTop:'1px' }}>{notes}</div>}
+                  </div>
+                  <div style={{ fontFamily:'var(--font-mono)', fontSize:'16px', fontWeight:700, color:'var(--gold)' }}>
+                    +{montant}€
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
 
