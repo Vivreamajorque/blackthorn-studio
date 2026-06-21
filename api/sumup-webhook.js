@@ -37,8 +37,9 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   if (req.method === 'OPTIONS') return res.status(200).end()
 
-  // SumUp envoie des POST avec le payload de l'événement
-  if (req.method !== 'POST') return res.status(405).end()
+  // SumUp peut envoyer GET pour vérifier l'URL, OPTIONS pour CORS
+  if (req.method === 'GET') return res.status(200).json({ ok: true, service: 'blackthorn-webhook' })
+  if (req.method !== 'POST') return res.status(200).end() // 200 au lieu de 405 pour ne pas bloquer SumUp
 
   try {
     const event = req.body
@@ -88,12 +89,16 @@ module.exports = async function handler(req, res) {
     const duree     = devis.properties['Durée']?.number || 120
     const notes     = devis.properties.Notes?.rich_text?.[0]?.plain_text || ''
 
-    // Extraire date et heure depuis les notes (format: "RDV: 2026-06-20 à 14:00")
-    // Ces infos sont stockées dans la note du devis quand Tony cale le RDV direct
-    // Ou dans les notes du webhook si disponible
+    // Extraire date et heure depuis plusieurs formats possibles
+    // Format devis: "RDV: 2026-06-25 à 17:30"
+    // Format booking: "Acompte tatouage — Tanja — 2026-06-25 17:30"
+    const descEvent = event?.description || ''
     const rdvMatch  = notes.match(/RDV:\s*(\d{4}-\d{2}-\d{2})\s*à\s*(\d{2}:\d{2})/)
+                   || descEvent.match(/(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})/)
     const rdvDate   = rdvMatch?.[1] || ''
     const rdvHeure  = rdvMatch?.[2] || ''
+    // Extraire le client depuis la description si pas dans le devis
+    const clientFinal = client || descEvent.split('—')[1]?.trim() || 'Client'
 
     // Créer le RDV dans Sessions si on a une date
     if (rdvDate && rdvHeure) {
@@ -101,7 +106,7 @@ module.exports = async function handler(req, res) {
       await notion('pages', 'POST', {
         parent: { database_id: SESSIONS_DB },
         properties: {
-          Session:        { title: [{ text: { content: `[RDV] ${client} · ${rdvDate}` } }] },
+          Session:        { title: [{ text: { content: `[RDV] ${clientFinal} · ${rdvDate}` } }] },
           Type:           { select: { name: '🖤 Tattoo Tony' } },
           Prix:           { number: prix },
           'Acompte reçu': { number: acompte },
@@ -111,7 +116,7 @@ module.exports = async function handler(req, res) {
           Notes:          { rich_text: [{ text: { content: `1 session(s) · Acompte SumUp reçu: ${acompte}€` } }] },
           Statut:         { select: { name: '🗓 Prévu' } },
           Source:         { select: { name: '🔗 Lien réservation' } },
-          'Client prénom':{ rich_text: [{ text: { content: client } }] },
+          'Client prénom':{ rich_text: [{ text: { content: clientFinal } }] },
           'Style / Type': { rich_text: [{ text: { content: desc.substring(0, 200) } }] },
         }
       })

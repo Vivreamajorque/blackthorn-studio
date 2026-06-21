@@ -77,7 +77,12 @@ module.exports = async function handler(req, res) {
     const duree   = devis.properties['Durée']?.number || 120
     const desc    = devis.properties.Description?.rich_text?.[0]?.plain_text || ''
     const notes   = devis.properties.Notes?.rich_text?.[0]?.plain_text || ''
+    // Parser la date depuis les notes du devis OU depuis la description du checkout
+    const checkoutDesc = checkout?.description || ''
     const rdvMatch = notes.match(/RDV:\s*(\d{4}-\d{2}-\d{2})\s*à\s*(\d{2}:\d{2})/)
+                  || checkoutDesc.match(/(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})/)
+    // Client depuis description si pas dans devis
+    const clientFinal = client || checkoutDesc.split('—')[1]?.trim() || 'Client'
 
     // 4. Créer le RDV si on a la date
     if (rdvMatch) {
@@ -85,7 +90,7 @@ module.exports = async function handler(req, res) {
       await notionCall('pages', 'POST', {
         parent: { database_id: SESSIONS_DB },
         properties: {
-          Session:        { title: [{ text: { content: `[RDV] ${client} · ${dateRdv}` } }] },
+          Session:        { title: [{ text: { content: `[RDV] ${clientFinal} · ${dateRdv}` } }] },
           Type:           { select: { name: '🖤 Tattoo Tony' } },
           Prix:           { number: prix },
           'Acompte reçu': { number: acompte },
@@ -95,7 +100,7 @@ module.exports = async function handler(req, res) {
           Notes:          { rich_text: [{ text: { content: `Acompte SumUp payé: ${acompte}€` } }] },
           Statut:         { select: { name: '🗓 Prévu' } },
           Source:         { select: { name: '🔗 Lien réservation' } },
-          'Client prénom':{ rich_text: [{ text: { content: client } }] },
+          'Client prénom':{ rich_text: [{ text: { content: clientFinal } }] },
           'Style / Type': { rich_text: [{ text: { content: desc.substring(0, 200) } }] },
         }
       })
