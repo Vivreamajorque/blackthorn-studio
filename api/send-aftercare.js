@@ -19,7 +19,7 @@ module.exports = async function handler(req, res) {
   const payload = {
     templateId: 9,
     to: [{ email, name: client || 'Client' }],
-    sender: { name: 'Blackthorn Tattoo', email: 'Blackthorntattoo.campos@gmail.com' },
+    sender: { name: 'Blackthorn Tattoo', email: 'amely.attias@gmail.com' },
     subject,
     params: {
       CLIENT: client || '',
