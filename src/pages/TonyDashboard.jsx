@@ -261,7 +261,10 @@ export default function TonyDashboard({ onLogout }) {
         prix:parseFloat(confForm.prix), paiement:confForm.paiement,
         acompte:parseFloat(confForm.acompte)||0,
         date:confirming.properties.Date?.date?.start||td,
-        sessions:confForm.sessions
+        sessions:confForm.sessions,
+        client:confirming.properties['Client prénom']?.rich_text?.[0]?.plain_text||'Client',
+        style:confirming.properties['Style / Type']?.rich_text?.[0]?.plain_text||'',
+        natio:confirming.properties.Nationalité?.select?.name||'Autre',
       })
       showToast('✅ RDV confirmé → CA du jour')
       setConfirming(null); load()
@@ -724,13 +727,20 @@ export default function TonyDashboard({ onLogout }) {
               {confirming.properties['Client prénom']?.rich_text?.[0]?.plain_text||'Client'} · {confirming.properties.Date?.date?.start||''}
             </div>
             <div style={{marginBottom:'12px'}}>
-              <label style={{fontSize:'11px',fontWeight:600,color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'.8px',display:'block',marginBottom:'6px'}}>CA total (€)</label>
+              <label style={{fontSize:'11px',fontWeight:600,color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'.8px',display:'block',marginBottom:'6px'}}>Prix total (€)</label>
               <input type="number" inputMode="decimal" value={confForm.prix} onChange={e=>setConfForm({...confForm,prix:e.target.value})}
                 style={{fontSize:'36px',fontFamily:'var(--font-mono)',fontWeight:500,textAlign:'center',background:'transparent',border:'none',borderBottom:'2px solid var(--pierre)',borderRadius:0,color:'var(--txt)',width:'100%',padding:'6px 0'}}/>
             </div>
             {parseFloat(confForm.acompte)>0&&(
-              <div style={{fontSize:'12px',color:'var(--txt3)',textAlign:'center',marginBottom:'10px'}}>
-                Acompte déjà reçu : {confForm.acompte}€ → solde : {Math.max(0,parseFloat(confForm.prix||0)-parseFloat(confForm.acompte))}€
+              <div style={{background:'rgba(26,140,90,.08)',border:'1px solid rgba(26,140,90,.2)',borderRadius:'10px',padding:'10px 14px',marginBottom:'12px'}}>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:'12px',color:'var(--txt3)',marginBottom:'4px'}}>
+                  <span>Acompte déjà encaissé</span>
+                  <span style={{fontFamily:'var(--font-mono)',color:'var(--green)',fontWeight:700}}>- {confForm.acompte}€</span>
+                </div>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:'15px',fontWeight:800,borderTop:'1px solid rgba(26,140,90,.2)',paddingTop:'6px',marginTop:'2px'}}>
+                  <span>Solde à encaisser</span>
+                  <span style={{fontFamily:'var(--font-mono)',color:'var(--txt)'}}>{Math.max(0,parseFloat(confForm.prix||0)-parseFloat(confForm.acompte))}€</span>
+                </div>
               </div>
             )}
             <div style={{marginBottom:'16px'}}><PayBtns val={confForm.paiement} onChange={p=>setConfForm({...confForm,paiement:p})}/></div>

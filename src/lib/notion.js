@@ -86,18 +86,45 @@ export const notion = {
     } catch(_) {}
     // Préserver les Notes si elles contiennent un consentement signé
     const newNotes = notesExist.includes('CONSENTEMENT') || notesExist.includes('Email')
-      ? notesExist  // Conserver les données de consentement
+      ? notesExist
       : `${data.sessions||1} session(s)`
-    return call(`pages/${pageId}`, 'PATCH', {
+
+    const solde = Math.max(0, (parseFloat(data.prix)||0) - (parseFloat(data.acompte)||0))
+    const today = new Date().toISOString().split('T')[0]
+    const client = data.client || 'Client'
+
+    // Mettre à jour le RDV existant (prévisionnel / historique)
+    await call(`pages/${pageId}`, 'PATCH', {
       properties: {
         Session:        { title: [{ text: { content: `[${data.paiement==='carte'?'CARTE':'CASH'}] Tony · ${data.date} · ${data.prix}€` } }] },
         Prix:           { number: parseFloat(data.prix) || 0 },
-        'Solde reçu':   { number: parseFloat(data.solde) || Math.max(0, (parseFloat(data.prix)||0) - (parseFloat(data.acompte)||0)) },
+        'Solde reçu':   { number: solde },
         'Acompte reçu': { number: parseFloat(data.acompte) || 0 },
         Statut:         { select: { name: '✅ Confirmé' } },
         Notes:          { rich_text: [{ text: { content: newNotes } }] },
       }
     })
+
+    // Créer un [VERSEMENT] pour le solde encaissé aujourd'hui
+    if (solde > 0) {
+      await call('pages', 'POST', {
+        parent: { database_id: SESSIONS_DB },
+        properties: {
+          Session:        { title: [{ text: { content: `[VERSEMENT] ${client} · ${solde}€` } }] },
+          Type:           { select: { name: '💰 Versement client' } },
+          Prix:           { number: solde },
+          'Acompte reçu': { number: 0 },
+          'Solde reçu':   { number: solde },
+          Nationalité:    { select: { name: data.natio || 'Autre' } },
+          Date:           { date: { start: today } },
+          Notes:          { rich_text: [{ text: { content: `Solde · ${data.paiement==='carte'?'carte':'cash'} · tattoo ${data.date}` } }] },
+          Statut:         { select: { name: '✅ Confirmé' } },
+          Source:         { select: { name: '📸 Instagram' } },
+          'Client prénom':{ rich_text: [{ text: { content: client } }] },
+          'Style / Type': { rich_text: [{ text: { content: data.style || '' } }] },
+        }
+      })
+    }
   },
 
   updateRdv: (pageId, data) => {
