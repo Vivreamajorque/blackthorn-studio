@@ -101,6 +101,7 @@ module.exports = async function handler(req, res) {
     const clientFinal = client || descEvent.split('—')[1]?.trim() || 'Client'
 
     // Créer le RDV dans Sessions si on a une date
+    const today = new Date().toISOString().split('T')[0]
     if (rdvDate && rdvHeure) {
       const dateStart = `${rdvDate}T${rdvHeure}:00`
       await notion('pages', 'POST', {
@@ -113,7 +114,7 @@ module.exports = async function handler(req, res) {
           'Solde reçu':   { number: 0 },
           Nationalité:    { select: { name: 'Autre' } },
           Date:           { date: { start: dateStart } },
-          Notes:          { rich_text: [{ text: { content: `1 session(s) · Acompte SumUp reçu: ${acompte}€` } }] },
+          Notes:          { rich_text: [{ text: { content: `1 session(s) · Acompte SumUp payé: ${acompte}€` } }] },
           Statut:         { select: { name: '🗓 Prévu' } },
           Source:         { select: { name: '🔗 Lien réservation' } },
           'Client prénom':{ rich_text: [{ text: { content: clientFinal } }] },
@@ -121,6 +122,25 @@ module.exports = async function handler(req, res) {
         }
       })
     }
+
+    // Créer systématiquement le [VERSEMENT] pour comptabiliser l'acompte
+    await notion('pages', 'POST', {
+      parent: { database_id: SESSIONS_DB },
+      properties: {
+        Session:        { title: [{ text: { content: `[VERSEMENT] ${clientFinal} · ${acompte}€` } }] },
+        Type:           { select: { name: '💰 Versement client' } },
+        'Acompte reçu': { number: acompte },
+        'Solde reçu':   { number: 0 },
+        Prix:           { number: acompte },
+        Nationalité:    { select: { name: 'Autre' } },
+        Date:           { date: { start: today } },
+        Notes:          { rich_text: [{ text: { content: `Acompte SumUp ${reference}${rdvDate ? ` · RDV ${rdvDate} ${rdvHeure}` : ''}` } }] },
+        Statut:         { select: { name: '✅ Confirmé' } },
+        Source:         { select: { name: '🔗 Lien réservation' } },
+        'Client prénom':{ rich_text: [{ text: { content: clientFinal } }] },
+        'Style / Type': { rich_text: [{ text: { content: desc.substring(0, 200) } }] },
+      }
+    })
 
     // Marquer le devis comme Réservé
     await notion(`pages/${devis.id}`, 'PATCH', {
