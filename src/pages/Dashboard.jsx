@@ -79,16 +79,23 @@ function Arc({ pct, color, size=120, stroke=10, value, sub, label, sub2 }) {
 }
 
 export default function Dashboard() {
-  const [sessions, setSessions] = useState([])
-  const [depenses, setDepenses] = useState([])
-  const [loading,  setLoading]  = useState(true)
+  const [sessions,       setSessions]      = useState([])
+  const [depenses,       setDepenses]      = useState([])
+  const [devis,          setDevis]          = useState([])
+  const [sessionsPrevu,  setSessionsPrevu]  = useState([])
+  const [loading,        setLoading]        = useState(true)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [s,d] = await Promise.all([notion.getSessions(), notion.getDepenses()])
-      if (s.results) setSessions(s.results)
-      if (d.results) setDepenses(d.results)
+      const [s,d,dv,sp] = await Promise.all([
+        notion.getSessions(), notion.getDepenses(),
+        notion.getDevis(), notion.getSessionsPrevu()
+      ])
+      if (s.results)  setSessions(s.results)
+      if (d.results)  setDepenses(d.results)
+      if (dv.results) setDevis(dv.results)
+      if (sp.results) setSessionsPrevu(sp.results)
     } catch(e) {}
     setLoading(false)
   }, [])
@@ -105,28 +112,53 @@ export default function Dashboard() {
   const ws  = weekStart()
   const tom = (() => { const d=new Date(); d.setDate(d.getDate()+1); return d.toISOString().split('T')[0] })()
 
-  const sessActifs = sessions.filter(s=>!(s.properties.Type?.select?.name||'').includes('Amely'))
-  const sessConf   = sessActifs.filter(isConfirme)
-  const sessPrevu  = sessActifs.filter(isPrevu).filter(s=>(s.properties.Date?.date?.start||'')>=td)
+  const sessActifs  = sessions.filter(s=>{
+    const t = s.properties.Type?.select?.name||''
+    return !t.includes('Amely') && t !== '💰 Versement client'
+  })
+  const versements  = sessions.filter(s=>(s.properties.Type?.select?.name||'')==='💰 Versement client' && (s.properties.Statut?.select?.name||'')==='✅ Confirmé')
+  const sessConf    = sessActifs.filter(isConfirme)
+  const sessPrevu   = sessionsPrevu.filter(s=>{
+    const t = s.properties.Type?.select?.name||''
+    return !t.includes('Amely') && t !== '💰 Versement client'
+  })
 
   // ── AUJOURD'HUI
   const sessJ = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(td))
+  const versJ = versements.filter(s=>(s.properties.Date?.date?.start||'').startsWith(td))
   const caJ   = sessJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+             + versJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
   const rdvAujourdhui = sessPrevu.filter(s=>s.properties.Date?.date?.start===td)
   const rdvDemain     = sessPrevu.filter(s=>s.properties.Date?.date?.start===tom)
 
   // ── SEMAINE
   const sessW = sessConf.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
+  const versW = versements.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
   const caSem = sessW.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+             + versW.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
   const OBJ_SEM = Math.round(OBJ_CONF/4.3)
 
   // ── MOIS
-  const sessM    = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
-  const caMois   = sessM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const nbSessM  = sessM.reduce((a,s)=>a+getNbSess(s),0)
-  const panier   = nbSessM>0 ? Math.round(caMois/nbSessM) : 0
-  const prevMois = sessPrevu.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m)).reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const totalM   = caMois+prevMois
+  const sessM   = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
+  const versM   = versements.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
+  const caMois  = sessM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+               + versM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const nbSessM = sessM.reduce((a,s)=>a+getNbSess(s),0)
+  const panier  = nbSessM>0 ? Math.round(caMois/nbSessM) : 0
+  // Prévisionnel : RDVs prévus + devis validés/réservés (comme Tony)
+  const devisValides = devis.filter(d=>{
+    const st = d.properties.Statut?.select?.name||''
+    return st === '✅ Réservé' || st === '✅ Validé'
+  })
+  const caDevisPrev = devisValides.reduce((a,d)=>{
+    const prix = d.properties.Prix?.number||0
+    const ac   = d.properties.Acompte?.number||0
+    return a + Math.max(0, prix - ac)
+  }, 0)
+  const prevMois = sessPrevu.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
+    .reduce((a,s)=>a+Math.max(0,(s.properties.Prix?.number||0)-(s.properties['Acompte reçu']?.number||0)),0)
+    + caDevisPrev
+  const totalM  = caMois + prevMois
   const depMois  = depenses.filter(d=>(d.properties.Date?.date?.start||'').startsWith(m)).reduce((a,d)=>a+(d.properties.Montant?.number||0),0)
   const r        = netReel(caMois)
   const pctConf  = Math.round(totalM/OBJ_CONF*100)
