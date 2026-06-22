@@ -1146,6 +1146,19 @@ export default function TonyDashboard({ onLogout }) {
                 />
               </div>
 
+              {versJ.length>0&&(
+                <div style={{display:'flex',flexWrap:'wrap',gap:'6px',marginBottom:'8px'}}>
+                  {versJ.map((v,i)=>{
+                    const nom = v.properties['Client prénom']?.rich_text?.[0]?.plain_text || v.properties.Session?.title?.[0]?.plain_text?.replace(/\[VERSEMENT\]\s*/,'') || 'Client'
+                    const mt  = v.properties.Prix?.number || v.properties['Acompte reçu']?.number || 0
+                    return (
+                      <div key={i} style={{display:'inline-flex',alignItems:'center',gap:'5px',padding:'4px 10px',borderRadius:'20px',background:'rgba(26,140,90,.12)',border:'1px solid rgba(26,140,90,.3)',fontSize:'11px',fontWeight:700,color:'var(--green)'}}>
+                        💳 {nom} · {mt}€
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
               <div style={{padding:'10px 14px',background:msgMois.c+'15',borderRadius:'var(--r)',borderLeft:`3px solid ${msgMois.c}`,marginBottom:(caPrevSem>0||caPrevMois>0)?'8px':0}}>
                 <span style={{fontSize:'12px',fontWeight:600,color:msgMois.c}}>{msgMois.icon} {msgMois.text}</span>
               </div>

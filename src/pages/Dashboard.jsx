@@ -413,6 +413,20 @@ export default function Dashboard() {
               )
             })()}
 
+            {versJ.length>0&&(
+              <div style={{display:'flex',flexWrap:'wrap',gap:'6px',marginBottom:'10px'}}>
+                {versJ.map((v,i)=>{
+                  const nom = v.properties['Client prénom']?.rich_text?.[0]?.plain_text || v.properties.Session?.title?.[0]?.plain_text?.replace(/\[VERSEMENT\]\s*/,'') || 'Client'
+                  const mt  = v.properties.Prix?.number || v.properties['Acompte reçu']?.number || 0
+                  return (
+                    <div key={i} style={{display:'inline-flex',alignItems:'center',gap:'5px',padding:'4px 10px',borderRadius:'20px',background:'rgba(26,140,90,.12)',border:'1px solid rgba(26,140,90,.3)',fontSize:'11px',fontWeight:700,color:'var(--green)'}}>
+                      💳 {nom} · {mt}€
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
             {/* Stats inline */}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'6px'}}>
               {[
