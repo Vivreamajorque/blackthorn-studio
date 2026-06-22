@@ -149,7 +149,7 @@ export default function TonyDashboard({ onLogout }) {
     const t = s.properties.Type?.select?.name||''
     return !t.includes('Amely') && t !== '💰 Versement client'
   })
-  // Versements confirmés — CA encaissé en avance
+  // Versements confirmés — seule source de vérité pour le CA encaissé
   const versements = sessions.filter(s=>(s.properties.Type?.select?.name||'')==='💰 Versement client' && (s.properties.Statut?.select?.name||'')==='✅ Confirmé')
   const sessConf   = sessAll.filter(isConfirme)
   const sessPrevu  = sessionsPrevu.filter(s=>{
@@ -164,9 +164,10 @@ export default function TonyDashboard({ onLogout }) {
   const versM = versements.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
   const versW = versements.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
   const versJ = versements.filter(s=>(s.properties.Date?.date?.start||'').startsWith(todayStr()))
-  const caMois   = sessM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const caSem    = sessW.reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versW.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const caJour   = sessJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  // CA = uniquement les [VERSEMENT] (acomptes + soldes) — les [CARTE]/[CASH] sont l'historique des sessions
+  const caMois   = versM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const caSem    = versW.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const caJour   = versJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
   const totalSessM = sessM.reduce((a,s)=>a+getNbSess(s),0)
   const panier   = totalSessM>0 ? Math.round(caMois/totalSessM) : 0
 
