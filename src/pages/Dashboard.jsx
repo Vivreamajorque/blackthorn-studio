@@ -126,20 +126,24 @@ export default function Dashboard() {
   // ── AUJOURD'HUI
   const sessJ = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(td))
   const versJ = versements.filter(s=>(s.properties.Date?.date?.start||'').startsWith(td))
-  const caJ   = versJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
   const rdvAujourdhui = sessPrevu.filter(s=>s.properties.Date?.date?.start===td)
   const rdvDemain     = sessPrevu.filter(s=>s.properties.Date?.date?.start===tom)
 
   // ── SEMAINE
   const sessW = sessConf.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
   const versW = versements.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
-  const caSem = versW.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
   const OBJ_SEM = Math.round(OBJ_CONF/4.3)
 
   // ── MOIS
   const sessM   = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
   const versM   = versements.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
-  const caMois  = versM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+
+  // Clients déjà couverts par un [VERSEMENT] → exclure leur [CARTE]/[CASH] pour éviter doublon
+  const clientsAvecVersement = new Set(versM.map(s=>s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'').filter(Boolean))
+  const dedup = arr => arr.filter(s=>{ const c=s.properties['Client prénom']?.rich_text?.[0]?.plain_text||''; return !c||!clientsAvecVersement.has(c) })
+  const caMois  = dedup(sessM).reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const caSem   = dedup(sessW).reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versW.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const caJ     = dedup(sessJ).reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
   const nbSessM = sessM.reduce((a,s)=>a+getNbSess(s),0)
   const panier  = nbSessM>0 ? Math.round(caMois/nbSessM) : 0
   // Prévisionnel : RDVs prévus + devis validés/réservés (comme Tony)

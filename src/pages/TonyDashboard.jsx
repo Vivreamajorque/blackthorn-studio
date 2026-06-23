@@ -164,10 +164,23 @@ export default function TonyDashboard({ onLogout }) {
   const versM = versements.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
   const versW = versements.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
   const versJ = versements.filter(s=>(s.properties.Date?.date?.start||'').startsWith(todayStr()))
-  // CA = uniquement les [VERSEMENT] (acomptes + soldes) — les [CARTE]/[CASH] sont l'historique des sessions
-  const caMois   = versM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const caSem    = versW.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const caJour   = versJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  // Clients déjà couverts par un [VERSEMENT] ce mois → exclure leur [CARTE]/[CASH] pour éviter doublon
+  const clientsAvecVersement = new Set(versM.map(s=>s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'').filter(Boolean))
+  const sessM_dedup = sessM.filter(s=>{
+    const c = s.properties['Client prénom']?.rich_text?.[0]?.plain_text||''
+    return !c || !clientsAvecVersement.has(c)
+  })
+  const sessW_dedup = sessW.filter(s=>{
+    const c = s.properties['Client prénom']?.rich_text?.[0]?.plain_text||''
+    return !c || !clientsAvecVersement.has(c)
+  })
+  const sessJ_dedup = sessJ.filter(s=>{
+    const c = s.properties['Client prénom']?.rich_text?.[0]?.plain_text||''
+    return !c || !clientsAvecVersement.has(c)
+  })
+  const caMois  = sessM_dedup.reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const caSem   = sessW_dedup.reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versW.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const caJour  = sessJ_dedup.reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
   const totalSessM = sessM.reduce((a,s)=>a+getNbSess(s),0)
   const panier   = totalSessM>0 ? Math.round(caMois/totalSessM) : 0
 
@@ -1060,7 +1073,7 @@ export default function TonyDashboard({ onLogout }) {
                         <div style={{marginTop:'6px',display:'flex',gap:'4px',flexWrap:'wrap'}}>
                           {data.rdvs.slice(0,4).map((s,i)=>(
                             <span key={i} style={{fontSize:'10px',padding:'2px 7px',background:'var(--bg)',borderRadius:'10px',color:'var(--txt2)'}}>
-                              {s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'Client'} · {s.properties.Date?.date?.start?.split('-').slice(1).join('/')}
+                              {s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'Client'} · {(s.properties.Date?.date?.start||'').substring(0,10).split('-').slice(1).join('/')}
                             </span>
                           ))}
                           {data.rdvs.length>4&&<span style={{fontSize:'10px',color:'var(--txt3)'}}>+{data.rdvs.length-4}</span>}
