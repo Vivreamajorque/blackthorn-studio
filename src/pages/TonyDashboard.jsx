@@ -1222,7 +1222,8 @@ export default function TonyDashboard({ onLogout }) {
           const MOIS_S=['J','Jl','A','S','O','N','D','J','F','M','A','M']
           const MKEYS=['2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12','2027-01','2027-02','2027-03','2027-04','2027-05']
           const caByM={}
-          sessConf.forEach(s=>{const d=s.properties.Date?.date?.start||'';if(d){const mk=d.substring(0,7);caByM[mk]=(caByM[mk]||0)+(s.properties.Prix?.number||0)}})
+          sessConf.forEach(s=>{const d=dateOf(s);if(d){const mk=d.substring(0,7);caByM[mk]=(caByM[mk]||0)+(s.properties.Prix?.number||0)}})
+          versements.forEach(s=>{const d=dateOf(s);if(d){const mk=d.substring(0,7);caByM[mk]=(caByM[mk]||0)+(s.properties.Prix?.number||0)}})
           // Aussi ajouter le prévisionnel
           sessPrevu.forEach(s=>{const d=s.properties.Date?.date?.start||'';if(d){const mk=d.substring(0,7);if(!caByM[mk+'_prev']) caByM[mk+'_prev']=0; caByM[mk+'_prev']+=(s.properties.Prix?.number||0)}})
           const vals=MKEYS.map(k=>Math.round(caByM[k]||0))
