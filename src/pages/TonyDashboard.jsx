@@ -674,21 +674,30 @@ export default function TonyDashboard({ onLogout }) {
         <label>Style / Projet</label>
         <input value={editRdv.style} onChange={e=>setEditRdv({...editRdv,style:e.target.value})} placeholder="Botanical, portrait..."/>
       </div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px',marginBottom:'12px'}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'12px'}}>
         <div className="form-group" style={{margin:0}}>
           <label>Prix estimé (€)</label>
           <input type="number" inputMode="decimal" value={editRdv.prixEstime} onChange={e=>setEditRdv({...editRdv,prixEstime:e.target.value})}
-            style={{textAlign:'center',fontSize:'18px',fontFamily:'var(--font-mono)',fontWeight:500}}/>
+            style={{textAlign:'center',fontSize:'22px',fontFamily:'var(--font-mono)',fontWeight:700}}/>
         </div>
         <div className="form-group" style={{margin:0}}>
           <label>Nb sessions</label>
           <input type="number" inputMode="numeric" value={editRdv.sessions||'1'} onChange={e=>setEditRdv({...editRdv,sessions:e.target.value})}
             style={{textAlign:'center',fontSize:'18px'}}/>
         </div>
-        <div className="form-group" style={{margin:0}}>
-          <label>Acompte (€)</label>
-          <input type="number" inputMode="decimal" value={editRdv.acompte} onChange={e=>setEditRdv({...editRdv,acompte:e.target.value})}
-            style={{textAlign:'center',fontSize:'18px',fontFamily:'var(--font-mono)'}}/>
+      </div>
+      <div style={{background:'var(--bg2)',borderRadius:'12px',padding:'12px 14px',marginBottom:'12px'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
+          <span style={{fontSize:'11px',fontWeight:600,color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'.8px'}}>Acompte reçu</span>
+          <span style={{fontFamily:'var(--font-mono)',fontSize:'15px',fontWeight:700,color:'var(--green)'}}>
+            {parseFloat(editRdv.acompte||0)>0 ? editRdv.acompte+'€' : '—'}
+          </span>
+        </div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',paddingTop:'8px',borderTop:'1px solid var(--border)'}}>
+          <span style={{fontSize:'13px',fontWeight:800,color:'var(--txt)'}}>Restant à encaisser</span>
+          <span style={{fontFamily:'var(--font-mono)',fontSize:'22px',fontWeight:900,color:'var(--txt)'}}>
+            {Math.max(0,(parseFloat(editRdv.prixEstime)||0)-(parseFloat(editRdv.acompte)||0))+'€'}
+          </span>
         </div>
       </div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'12px'}}>
