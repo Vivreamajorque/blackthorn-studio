@@ -853,13 +853,16 @@ export default function TonyDashboard({ onLogout }) {
                       <div style={{flexShrink:0,marginLeft:'10px',textAlign:'right'}}>
                         <div style={{fontFamily:'var(--font-mono)',fontSize:'18px',fontWeight:600,color:isPast?'var(--red)':'var(--txt)'}}>{prix}€</div>
                         <div style={{display:'flex',gap:'5px',marginTop:'5px',justifyContent:'flex-end',alignItems:'center'}}>
-                          {isToday && (
-                            <label onClick={e=>e.stopPropagation()} style={{display:'flex',alignItems:'center',gap:'5px',cursor:'pointer',padding:'5px 8px',borderRadius:'8px',background:venusIds.has(s.id)?'rgba(212,130,10,.12)':'var(--bg2)',border:`1px solid ${venusIds.has(s.id)?'var(--amber)':'var(--border2)'}`,transition:'all .15s'}}>
-                              <input type="checkbox" checked={venusIds.has(s.id)} onChange={()=>toggleVenu(s.id)}
-                                style={{width:14,height:14,accentColor:'var(--amber)',cursor:'pointer'}}/>
-                              <span style={{fontSize:'11px',fontWeight:700,color:venusIds.has(s.id)?'var(--amber)':'var(--txt3)',whiteSpace:'nowrap'}}>Venu</span>
-                            </label>
-                          )}
+                          {isToday && (<>
+                            <button onClick={e=>{e.stopPropagation();setConfirming(s);const acompte=s.properties['Acompte reçu']?.number||0;const prix=s.properties.Prix?.number||0;setConfForm({prix:String(prix),paiement:'cash',sessions:'1',acompte:String(acompte)})}}
+                              style={{padding:'5px 10px',borderRadius:'8px',fontSize:'12px',fontWeight:700,cursor:'pointer',background:'rgba(26,140,90,.12)',border:'1px solid rgba(26,140,90,.3)',color:'var(--green)'}}>
+                              ✓ Venu
+                            </button>
+                            <button onClick={e=>{e.stopPropagation();if(window.confirm('No-show — confirmer ?')){notion.noShowAppointment(s.id).then(()=>{showToast('👻 No-show enregistré');load()})}}}
+                              style={{padding:'5px 8px',borderRadius:'8px',fontSize:'12px',cursor:'pointer',background:'var(--bg2)',border:'1px solid var(--border2)',color:'var(--txt3)'}}>
+                              👻
+                            </button>
+                          </>)}
                           <button onClick={()=>{
                             const dr=s.properties.Date?.date?.start||''
                             const h=dr.includes('T')?dr.substring(11,16):''
