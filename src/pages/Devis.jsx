@@ -765,12 +765,26 @@ export default function Devis({ onBack }) {
           </div>
 
           {/* Complexité */}
-          <div style={{ fontSize:'10px', color:'var(--txt3)', fontWeight:700, letterSpacing:'1px', textTransform:'uppercase', marginBottom:'8px' }}>
+          <div style={{ fontSize:'10px', color:'var(--txt3)', fontWeight:700, letterSpacing:'1px', textTransform:'uppercase', marginBottom:'10px' }}>
             Complexité — <span style={{ color:'var(--gold-dk)' }}>{COMPLEXITY[complexity].label}</span>
           </div>
-          <input type="range" min="0" max="4" value={complexity}
-            onChange={e => setComplexity(parseInt(e.target.value))}
-            style={{ width:'100%', accentColor:'var(--txt)', marginBottom:'14px', cursor:'pointer' }} />
+          <div style={{ position:'relative', marginBottom:'18px' }}>
+            {/* Track */}
+            <div style={{ position:'relative', height:'6px', borderRadius:'3px', background:'var(--bg2)', border:'1px solid var(--border2)', margin:'0 0 8px' }}>
+              <div style={{ position:'absolute', left:0, top:0, height:'100%', width:`${complexity/4*100}%`, borderRadius:'3px', background:`linear-gradient(90deg, #1A8C5A, ${complexity>=3?'#C0392B':complexity>=2?'#D4820A':'#1A8C5A'})`, transition:'width .15s' }}/>
+              <input type="range" min="0" max="4" value={complexity}
+                onChange={e=>setComplexity(parseInt(e.target.value))}
+                style={{ position:'absolute', inset:'-6px 0', width:'100%', opacity:0, cursor:'pointer', height:'18px' }}/>
+              {/* Thumb visible */}
+              <div style={{ position:'absolute', top:'50%', left:`${complexity/4*100}%`, transform:'translate(-50%,-50%)', width:16, height:16, borderRadius:'50%', background:'var(--txt)', border:'2px solid var(--bg)', boxShadow:'0 1px 4px rgba(0,0,0,.2)', pointerEvents:'none', transition:'left .15s' }}/>
+            </div>
+            {/* Labels */}
+            <div style={{ display:'flex', justifyContent:'space-between', fontSize:'8px', color:'var(--txt3)', fontWeight:600 }}>
+              {COMPLEXITY.map((c,i)=>(
+                <span key={i} style={{ color:i===complexity?'var(--txt)':'var(--txt3)', fontWeight:i===complexity?700:400, cursor:'pointer' }} onClick={()=>setComplexity(i)}>{c.label.split(' ').pop()}</span>
+              ))}
+            </div>
+          </div>
 
           {/* Encre */}
           <div style={{ fontSize:'10px', color:'var(--txt3)', fontWeight:700, letterSpacing:'1px', textTransform:'uppercase', marginBottom:'8px' }}>Encre</div>
