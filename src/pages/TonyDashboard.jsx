@@ -164,23 +164,12 @@ export default function TonyDashboard({ onLogout }) {
   const versM = versements.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
   const versW = versements.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
   const versJ = versements.filter(s=>(s.properties.Date?.date?.start||'').startsWith(todayStr()))
-  // Clients déjà couverts par un [VERSEMENT] ce mois → exclure leur [CARTE]/[CASH] pour éviter doublon
-  const clientsAvecVersement = new Set(versM.map(s=>s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'').filter(Boolean))
-  const sessM_dedup = sessM.filter(s=>{
-    const c = s.properties['Client prénom']?.rich_text?.[0]?.plain_text||''
-    return !c || !clientsAvecVersement.has(c)
-  })
-  const sessW_dedup = sessW.filter(s=>{
-    const c = s.properties['Client prénom']?.rich_text?.[0]?.plain_text||''
-    return !c || !clientsAvecVersement.has(c)
-  })
-  const sessJ_dedup = sessJ.filter(s=>{
-    const c = s.properties['Client prénom']?.rich_text?.[0]?.plain_text||''
-    return !c || !clientsAvecVersement.has(c)
-  })
-  const caMois  = sessM_dedup.reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const caSem   = sessW_dedup.reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versW.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const caJour  = sessJ_dedup.reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+
+  // CA = sessions CARTE/CASH (Prix = solde encaissé le jour J) + VERSEMENT (acomptes SumUp)
+  // Pas de doublon car le formulaire de confirmation enregistre Prix = total - acompte déjà reçu
+  const caMois  = sessM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const caSem   = sessW.reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versW.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const caJour  = sessJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
   const totalSessM = sessM.reduce((a,s)=>a+getNbSess(s),0)
   const panier   = totalSessM>0 ? Math.round(caMois/totalSessM) : 0
 
