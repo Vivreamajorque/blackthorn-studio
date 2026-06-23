@@ -15,8 +15,10 @@ const netReel = (ca) => {
   return { net:Math.max(0,Math.round(b-irpf-iva)), irpf:Math.round(irpf), iva:Math.round(iva) }
 }
 
-const todayStr  = () => new Date().toISOString().split('T')[0]
-const thisMonth = () => new Date().toISOString().substring(0,7)
+const todayStr   = () => { const d=new Date(); const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}` }
+const thisMonth  = () => { const d=new Date(); const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'); return `${y}-${m}` }
+// Extrait les 10 premiers caractères d'une date Notion (ignore le timestamp UTC)
+const dateOf     = (s) => (s.properties.Date?.date?.start||'').substring(0,10)
 const fmt = (n) => { const a=Math.abs(Math.round(n)); return (n<0?'-':'')+(a>=1000?(a/1000).toFixed(1)+'k€':a+'€') }
 
 const weekStart = () => {
@@ -158,13 +160,13 @@ export default function TonyDashboard({ onLogout }) {
     return !t.includes('Amely') && t !== '💰 Versement client'
   })
 
-  const sessM = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
-  const sessW = sessConf.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
-  const sessJ = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(td))
+  const sessM = sessConf.filter(s=>dateOf(s).startsWith(m))
+  const sessW = sessConf.filter(s=>dateOf(s)>=ws)
+  const sessJ = sessConf.filter(s=>dateOf(s)===td)
 
-  const versM = versements.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
-  const versW = versements.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
-  const versJ = versements.filter(s=>(s.properties.Date?.date?.start||'').startsWith(todayStr()))
+  const versM = versements.filter(s=>dateOf(s).startsWith(m))
+  const versW = versements.filter(s=>dateOf(s)>=ws)
+  const versJ = versements.filter(s=>dateOf(s)===todayStr())
 
   // CA = sessions CARTE/CASH (Prix = solde encaissé le jour J) + VERSEMENT (acomptes SumUp)
   // Pas de doublon car le formulaire de confirmation enregistre Prix = total - acompte déjà reçu
@@ -198,11 +200,11 @@ export default function TonyDashboard({ onLogout }) {
   }, 0)
 
   const caPrevMois = sessPrevu
-    .filter(s=>(s.properties.Date?.date?.start||'').startsWith(m) || !(s.properties.Date?.date?.start))
+    .filter(s=>dateOf(s).startsWith(m) || !(s.properties.Date?.date?.start))
     .reduce((a,s)=>a+Math.max(0,(s.properties.Prix?.number||0)-(s.properties['Acompte reçu']?.number||0)),0)
     + caDevisPrev
   const caPrevSem  = sessPrevu
-    .filter(s=>(s.properties.Date?.date?.start||'')>=ws)
+    .filter(s=>dateOf(s)>=ws)
     .reduce((a,s)=>a+Math.max(0,(s.properties.Prix?.number||0)-(s.properties['Acompte reçu']?.number||0)),0)
 
   // Prochains RDV (7 jours)
@@ -772,7 +774,7 @@ export default function TonyDashboard({ onLogout }) {
         <div style={{marginBottom:'14px'}}>
           {/* RDVs du jour */}
           {(()=>{
-            const rdvsAujourd = rdvsProchains.filter(s=>s.properties.Date?.date?.start?.split('T')[0]===td)
+            const rdvsAujourd = rdvsProchains.filter(s=>dateOf(s)===td)
             return rdvsAujourd.length > 0 ? (
               <>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>

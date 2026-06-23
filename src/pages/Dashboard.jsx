@@ -16,8 +16,9 @@ const netReel = (ca) => {
   return { net:Math.max(0,Math.round(b-irpf-iva)), irpf:Math.round(irpf), iva:Math.round(iva) }
 }
 
-const todayStr  = () => new Date().toISOString().split('T')[0]
-const thisMonth = () => new Date().toISOString().substring(0,7)
+const todayStr  = () => { const d=new Date(); const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}` }
+const thisMonth = () => { const d=new Date(); const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'); return `${y}-${m}` }
+const dateOf    = (s) => (s.properties.Date?.date?.start||'').substring(0,10)
 const fmt = (n) => { const a=Math.abs(Math.round(n)); return (n<0?'-':'')+(a>=1000?(a/1000).toFixed(1)+'k€':a+'€') }
 const fmtN = (n) => { const a=Math.abs(Math.round(n)); return (n<0?'-':'')+(a>=1000?(a/1000).toFixed(1)+'k':String(a)) }
 
@@ -111,7 +112,7 @@ export default function Dashboard() {
   const td  = todayStr()
   const m   = thisMonth()
   const ws  = weekStart()
-  const tom = (() => { const d=new Date(); d.setDate(d.getDate()+1); return d.toISOString().split('T')[0] })()
+  const tom = (() => { const d=new Date(); d.setDate(d.getDate()+1); const y=d.getFullYear(), mo=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0'); return `${y}-${mo}-${dd}` })()
 
   const sessActifs  = sessions.filter(s=>{
     const t = s.properties.Type?.select?.name||''
@@ -125,19 +126,19 @@ export default function Dashboard() {
   })
 
   // ── AUJOURD'HUI
-  const sessJ = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(td))
-  const versJ = versements.filter(s=>(s.properties.Date?.date?.start||'').startsWith(td))
-  const rdvAujourdhui = sessPrevu.filter(s=>s.properties.Date?.date?.start===td)
-  const rdvDemain     = sessPrevu.filter(s=>s.properties.Date?.date?.start===tom)
+  const sessJ = sessConf.filter(s=>dateOf(s)===td)
+  const versJ = versements.filter(s=>dateOf(s)===td)
+  const rdvAujourdhui = sessPrevu.filter(s=>dateOf(s)===td)
+  const rdvDemain     = sessPrevu.filter(s=>dateOf(s)===tom)
 
   // ── SEMAINE
-  const sessW = sessConf.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
-  const versW = versements.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
+  const sessW = sessConf.filter(s=>dateOf(s)>=ws)
+  const versW = versements.filter(s=>dateOf(s)>=ws)
   const OBJ_SEM = Math.round(OBJ_CONF/4.3)
 
   // ── MOIS
-  const sessM   = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
-  const versM   = versements.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
+  const sessM   = sessConf.filter(s=>dateOf(s).startsWith(m))
+  const versM   = versements.filter(s=>dateOf(s).startsWith(m))
 
   // Clients déjà couverts par un [VERSEMENT] → exclure leur [CARTE]/[CASH] pour éviter doublon
   const clientsAvecVersement = new Set(versM.map(s=>s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'').filter(Boolean))
@@ -157,11 +158,11 @@ export default function Dashboard() {
     const ac   = d.properties.Acompte?.number||0
     return a + Math.max(0, prix - ac)
   }, 0)
-  const prevMois = sessPrevu.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
+  const prevMois = sessPrevu.filter(s=>dateOf(s).startsWith(m))
     .reduce((a,s)=>a+Math.max(0,(s.properties.Prix?.number||0)-(s.properties['Acompte reçu']?.number||0)),0)
     + caDevisPrev
   const totalM  = caMois + prevMois
-  const depMois  = depenses.filter(d=>(d.properties.Date?.date?.start||'').startsWith(m)).reduce((a,d)=>a+(d.properties.Montant?.number||0),0)
+  const depMois  = depenses.filter(d=>dateOf(d).startsWith(m)).reduce((a,d)=>a+(d.properties.Montant?.number||0),0)
   const r        = netReel(caMois)
   const pctConf  = Math.round(totalM/OBJ_CONF*100)
 
