@@ -1028,9 +1028,9 @@ export default function TonyDashboard({ onLogout }) {
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'6px',marginBottom:'10px'}}>
                   {[
-                    {l:'Réalisé',v:fmt(caMois),c:caMois>=3895?'#D4820A':'#C0392B'},
+                    {l:'Réalisé',v:fmt(caMois),c:caMois>=OBJ_CONF?'#1A8C5A':caMois>=OBJ_EQ?'#D4820A':'#C0392B'},
                     {l:'Planifié',v:caPrevMois>0?'+'+fmt(caPrevMois):'—',c:'#2980B9'},
-                    {l:'Total estimé',v:fmt(totalPrevu),c:depasse?'#1A8C5A':totalPrevu>=3895?'#D4820A':'#C0392B'},
+                    {l:'Total estimé',v:fmt(totalPrevu),c:depasse?'#1A8C5A':totalPrevu>=OBJ_EQ?'#D4820A':'#C0392B'},
                   ].map(x=>(
                     <div key={x.l} style={{textAlign:'center',padding:'5px 3px',background:'var(--bg)',borderRadius:'var(--r)'}}>
                       <div style={{fontSize:'9px',color:'var(--txt3)',textTransform:'uppercase',marginBottom:'2px'}}>{x.l}</div>
