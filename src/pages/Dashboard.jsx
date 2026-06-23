@@ -24,7 +24,8 @@ const fmtN = (n) => { const a=Math.abs(Math.round(n)); return (n<0?'-':'')+(a>=1
 const weekStart = () => {
   const d=new Date(); const day=d.getDay()
   d.setDate(d.getDate()+(day===0?-6:1-day))
-  return d.toISOString().split('T')[0]
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0')
+  return `${y}-${m}-${dd}`
 }
 
 const FISCAL = [
