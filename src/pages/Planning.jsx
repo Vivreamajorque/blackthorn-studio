@@ -1,19 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { notion } from '../lib/notion'
 
-const todayStr = () => new Date().toISOString().split('T')[0]
+const todayStr = () => { const d=new Date(); const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}` }
 const DAY_FULL  = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
 const DAY_SHORT = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam']
 const MONTH_NAMES = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre']
 
-const addDays = (dateStr, n) => {
-  const d = new Date(dateStr); d.setDate(d.getDate() + n); return d.toISOString().split('T')[0]
-}
-const mondayOf = (dateStr) => {
-  const d = new Date(dateStr), day = d.getDay()
-  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day))
-  return d.toISOString().split('T')[0]
-}
+const addDays = (dateStr, n) => { const d=new Date(dateStr+'T12:00:00'); d.setDate(d.getDate()+n); const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}` }
+const mondayOf = (dateStr) => { const d=new Date(dateStr+'T12:00:00'), day=d.getDay(); d.setDate(d.getDate()+(day===0?-6:1-day)); const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}` }
 const getHeure = (s) => {
   const raw = s.properties.Date?.date?.start || ''
   if (raw.includes('T')) return raw.substring(11, 16)
@@ -236,17 +230,8 @@ export default function Planning({ onBack, onEditRdv }) {
         }
       } catch(_) {}
 
-      // Créer une session versement si acompte > 0 (pour la jauge du jour)
-      if (acompteRecu > 0) {
-        const client = panelData.properties?.['Client prénom']?.rich_text?.[0]?.plain_text || 'Client'
-        await notion.addVersementSession({
-          client,
-          montant: acompteRecu,
-          mode: confForm.paiement,
-          date: new Date().toISOString().split('T')[0],
-          devisDesc: `Acompte RDV ${getDateOnly(panelData)}`,
-        }).catch(() => {})
-      }
+      // Email aftercare envoyé ci-dessus — pas de [VERSEMENT] supplémentaire
+      // L'acompte SumUp a déjà son [VERSEMENT] via le webhook
 
       showToast('✅ RDV confirmé — aftercare envoyé 🖤')
       setPanel(null); load()
