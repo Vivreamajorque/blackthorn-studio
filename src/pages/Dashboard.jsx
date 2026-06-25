@@ -37,7 +37,6 @@ const FISCAL = [
 ]
 const daysUntil = (d) => Math.round((new Date(d)-new Date())/86400000)
 
-// Objectif annuel saisonnier (confort ajusté)
 const PM_MOIS = [
   [7500,25],[7500,25],[7500,25],[7500,25],[6500,22],
   [4500,15],[0,0],[0,0],[2000,5],[3250,12],[5400,18],[6000,20]
@@ -48,20 +47,20 @@ const getNbSess = (s) => { const t=s.properties.Notes?.rich_text?.[0]?.plain_tex
 const isConfirme = (s) => { const st=s.properties.Statut?.select?.name||''; return st===''||st==='✅ Confirmé' }
 const isPrevu    = (s) => s.properties.Statut?.select?.name==='🗓 Prévu'
 
-// Mois activité (pour graphe annuel)
 const MKEYS = ['2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12','2027-01','2027-02','2027-03','2027-04','2027-05']
 const MLABELS = ['Juin','Juil','Août','Sep','Oct','Nov','Déc','Jan','Fév','Mar','Avr','Mai']
 const MSHORT  = ['J','Jl','A','S','O','N','D','J','F','M','A','M']
 
-// Arc SVG
-function Arc({ pct, color, size=120, stroke=10, value, sub, label, sub2 }) {
+// Arc SVG — 2 jauges Jour + Semaine vs OBJ_EQ
+function ArcEq({ pct, color, value, sub, label }) {
+  const size=108, stroke=9
   const r=(size-stroke)/2, circ=2*Math.PI*r
   const arcLen=circ*240/360, filled=Math.min(arcLen, arcLen*Math.min(1,pct/100))
   return (
     <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'4px'}}>
-      <div style={{position:'relative',width:size,height:size*0.82}}>
+      <div style={{position:'relative',width:size,height:Math.round(size*0.82)}}>
         <svg width={size} height={size} style={{position:'absolute',top:0,left:0}}>
-          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#E8E2D8" strokeWidth={stroke}
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--bg2)" strokeWidth={stroke}
             strokeDasharray={`${arcLen} ${circ-arcLen}`} strokeLinecap="round"
             transform={`rotate(150 ${size/2} ${size/2})`}/>
           <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke}
@@ -70,12 +69,12 @@ function Arc({ pct, color, size=120, stroke=10, value, sub, label, sub2 }) {
             style={{transition:'stroke-dasharray .6s ease'}}/>
         </svg>
         <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',paddingTop:'8px'}}>
-          <div style={{fontFamily:'var(--font-mono)',fontSize:'19px',fontWeight:500,color:'var(--txt)'}}>{value}</div>
-          {sub && <div style={{fontSize:'10px',color:'var(--txt3)',marginTop:'1px'}}>{sub}</div>}
+          <div style={{fontFamily:'var(--font-mono)',fontSize:'17px',fontWeight:500,color:'var(--txt)',lineHeight:1}}>{value}</div>
+          {sub && <div style={{fontSize:'9px',color:'var(--txt3)',marginTop:'2px'}}>{sub}</div>}
         </div>
       </div>
-      <div style={{fontSize:'11px',fontWeight:700,color:'var(--txt2)',textTransform:'uppercase',letterSpacing:'1px'}}>{label}</div>
-      {sub2 && <div style={{fontSize:'10px',color,fontWeight:600,textAlign:'center',maxWidth:size}}>{sub2}</div>}
+      <div style={{fontSize:'10px',fontWeight:700,color:'var(--txt2)',textTransform:'uppercase',letterSpacing:'1px'}}>{label}</div>
+      <div style={{fontSize:'10px',color,fontWeight:600}}>{pct}%</div>
     </div>
   )
 }
@@ -134,13 +133,11 @@ export default function Dashboard() {
   // ── SEMAINE
   const sessW = sessConf.filter(s=>dateOf(s)>=ws)
   const versW = versements.filter(s=>dateOf(s)>=ws)
-  const OBJ_SEM = Math.round(OBJ_CONF/4.3)
 
   // ── MOIS
   const sessM   = sessConf.filter(s=>dateOf(s).startsWith(m))
   const versM   = versements.filter(s=>dateOf(s).startsWith(m))
 
-  // Clients déjà couverts par un [VERSEMENT] → exclure leur [CARTE]/[CASH] pour éviter doublon
   const clientsAvecVersement = new Set(versM.map(s=>s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'').filter(Boolean))
   const dedup = arr => arr.filter(s=>{ const c=s.properties['Client prénom']?.rich_text?.[0]?.plain_text||''; return !c||!clientsAvecVersement.has(c) })
   const caMois  = dedup(sessM).reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
@@ -148,7 +145,7 @@ export default function Dashboard() {
   const caJ     = dedup(sessJ).reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
   const nbSessM = sessM.reduce((a,s)=>a+getNbSess(s),0)
   const panier  = nbSessM>0 ? Math.round(caMois/nbSessM) : 0
-  // Prévisionnel : RDVs prévus + devis validés/réservés (comme Tony)
+
   const devisValides = devis.filter(d=>{
     const st = d.properties.Statut?.select?.name||''
     return st === '✅ Réservé' || st === '✅ Validé'
@@ -170,15 +167,14 @@ export default function Dashboard() {
   const caAnnee = sessConf.reduce((a,s)=>{const d=s.properties.Date?.date?.start||''; return d?a+(s.properties.Prix?.number||0):a},0)
   const curMIdx = MKEYS.indexOf(m)
 
-  // Cible proratisée : mois passés en entier + mois courant au prorata du jour
   const today_d  = new Date()
   const daysInM  = new Date(today_d.getFullYear(), today_d.getMonth()+1, 0).getDate()
   const dayOfM   = today_d.getDate()
-  const ratioM   = dayOfM / daysInM  // ex: 9/30 = 0.30 le 9 juin
+  const ratioM   = dayOfM / daysInM
 
   const cibleDate = curMIdx>=0
-    ? PM_MOIS.slice(0, curMIdx).reduce((a,[pm,j])=>a+pm*j/25, 0)          // mois passés entiers
-      + PM_MOIS[curMIdx][0] * PM_MOIS[curMIdx][1] / 25 * ratioM           // mois courant proraté
+    ? PM_MOIS.slice(0, curMIdx).reduce((a,[pm,j])=>a+pm*j/25, 0)
+      + PM_MOIS[curMIdx][0] * PM_MOIS[curMIdx][1] / 25 * ratioM
     : 0
   const caByM = {}
   sessConf.forEach(s=>{const d=s.properties.Date?.date?.start||''; if(d){const mk=d.substring(0,7); caByM[mk]=(caByM[mk]||0)+(s.properties.Prix?.number||0)}})
@@ -190,12 +186,27 @@ export default function Dashboard() {
   const prochainFiscal = FISCAL.filter(f=>daysUntil(f.date)>=0).sort((a,b)=>daysUntil(a.date)-daysUntil(b.date))[0]
   const fiscalUrgent   = prochainFiscal && daysUntil(prochainFiscal.date)<=30
 
-  // ── Message mois
-  const msgMois = totalM>=OBJ_CONF
+  // ── Message mois (basé sur caMois réel uniquement)
+  const msgMois = caMois>=OBJ_CONF
     ? {icon:'🎯',text:'Objectif confort atteint !',c:'var(--green)',bg:'var(--green-bg)'}
-    : totalM>=OBJ_EQ
-    ? {icon:'⚖️',text:`À l'équilibre · ${pctConf}% de l'objectif confort`,c:'var(--amber)',bg:'var(--amber-bg)'}
+    : caMois>=OBJ_EQ
+    ? {icon:'⚖️',text:`À l'équilibre · ${Math.round(caMois/OBJ_CONF*100)}% de l'objectif confort`,c:'var(--amber)',bg:'var(--amber-bg)'}
     : {icon:'📍',text:`En retard · encore ${fmt(OBJ_EQ-caMois)} pour l'équilibre`,c:'var(--red)',bg:'var(--red-bg)'}
+
+  // ── Jauges Jour + Semaine vs OBJ_EQ
+  const OBJ_JOUR_EQ = Math.round(OBJ_EQ / daysInM)
+  const OBJ_SEM_EQ  = Math.round(OBJ_EQ / 4.3)
+  const pctJour = Math.min(100, OBJ_JOUR_EQ>0 ? Math.round(caJ/OBJ_JOUR_EQ*100) : 0)
+  const pctSem  = Math.min(100, OBJ_SEM_EQ>0  ? Math.round(caSem/OBJ_SEM_EQ*100) : 0)
+  const colJour = caJ>=OBJ_JOUR_EQ?'var(--green)':caJ>=OBJ_JOUR_EQ*0.5?'var(--amber)':'var(--red)'
+  const colSem  = caSem>=OBJ_SEM_EQ?'var(--green)':caSem>=OBJ_SEM_EQ*0.5?'var(--amber)':'var(--red)'
+
+  // ── Pipeline devis
+  const devisEnAttente  = devis.filter(d=>d.properties.Statut?.select?.name==='⏳ En attente')
+  const devisValidesCnt = devis.filter(d=>{ const st=d.properties.Statut?.select?.name||''; return st==='✅ Réservé'||st==='✅ Validé' })
+  const devisTotal      = devis.filter(d=>{ const st=d.properties.Statut?.select?.name||''; return st!=='❌ Refusé'&&st!=='❌ Annulé' })
+  const potentielAttente = devisEnAttente.reduce((a,d)=>a+(d.properties.Prix?.number||0),0)
+  const tauxTransfo = devisTotal.length>0 ? Math.round(devisValidesCnt.length/devisTotal.length*100) : 0
 
   // ── RENDER ──────────────────────────────────────────
   return (
@@ -245,18 +256,16 @@ export default function Dashboard() {
         <div style={{marginBottom:'14px'}}>
           <div className="section-title-gold" style={{marginBottom:'10px'}}>Aujourd'hui</div>
           <div className="card" style={{padding:'16px'}}>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom: (rdvAujourdhui.length>0||sessJ.length>0) ?'12px':'0'}}>
-              {/* CA du jour */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:(rdvAujourdhui.length>0||sessJ.length>0)?'12px':'0'}}>
               <div style={{textAlign:'center',padding:'12px',background:'var(--bg)',borderRadius:'var(--r)'}}>
                 <div style={{fontSize:'9px',fontWeight:700,color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1.2px',marginBottom:'5px'}}>CA du jour</div>
                 <div style={{fontFamily:'var(--font-mono)',fontSize:'28px',fontWeight:400,color:caJ>0?'var(--green)':'var(--txt3)',lineHeight:1}}>
                   {caJ>0?fmt(caJ):'—'}
                 </div>
                 <div style={{fontSize:'10px',color:'var(--txt3)',marginTop:'3px'}}>
-                  {sessJ.length>0?`${sessJ.length} session${sessJ.length>1?'s':''}`:'Aucune saisie'}
+                  {sessJ.length>0?`${sessJ.length} session${sessJ.length>1?'s':''}`:versJ.length>0?`${versJ.length} versement${versJ.length>1?'s':''}` :'Aucune saisie'}
                 </div>
               </div>
-              {/* Prochain RDV */}
               <div style={{textAlign:'center',padding:'12px',background:'var(--bg)',borderRadius:'var(--r)'}}>
                 <div style={{fontSize:'9px',fontWeight:700,color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1.2px',marginBottom:'5px'}}>RDV aujourd'hui</div>
                 {rdvAujourdhui.length>0 ? (
@@ -284,12 +293,11 @@ export default function Dashboard() {
                 )}
               </div>
             </div>
-            {/* RDVs du jour planifiés */}
             {rdvAujourdhui.length>0 && (
               <div style={{display:'flex',flexDirection:'column',gap:'5px'}}>
                 {rdvAujourdhui.map(s=>{
                   const notes=s.properties.Notes?.rich_text?.[0]?.plain_text||''
-                  const heure=notes.match(/·\s*(\d{2}:\d{2})/)?.[1]||null
+                  const heure=s.properties.Date?.date?.start?.includes('T')?s.properties.Date.date.start.substring(11,16):notes.match(/·\s*(\d{2}:\d{2})/)?.[1]||null
                   const style=s.properties['Style / Type']?.rich_text?.[0]?.plain_text||''
                   const prix=s.properties.Prix?.number||0
                   return (
@@ -311,7 +319,7 @@ export default function Dashboard() {
           <div className="section-title-gold" style={{marginBottom:'10px'}}>Ce mois — {new Date().toLocaleDateString('fr-FR',{month:'long'})}</div>
           <div className="card" style={{padding:'16px'}}>
 
-            {/* Grand chiffre + badge */}
+            {/* Grand chiffre */}
             <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',marginBottom:'10px'}}>
               <div>
                 <div style={{fontFamily:'var(--font-mono)',fontSize:'42px',fontWeight:400,color:msgMois.c,lineHeight:1}}>{fmt(caMois)}</div>
@@ -319,147 +327,114 @@ export default function Dashboard() {
               </div>
               <div style={{textAlign:'right'}}>
                 <div style={{fontSize:'10px',color:'var(--txt3)',marginBottom:'2px'}}>/ {fmt(OBJ_CONF)}</div>
-                <div style={{fontFamily:'var(--font-mono)',fontSize:'24px',fontWeight:500,color:msgMois.c}}>{pctConf}%</div>
+                <div style={{fontFamily:'var(--font-mono)',fontSize:'24px',fontWeight:500,color:msgMois.c}}>{Math.round(caMois/OBJ_CONF*100)}%</div>
               </div>
             </div>
 
-            {/* Barre de progression */}
+            {/* Barre progression */}
             <div style={{height:'8px',background:'var(--bg2)',borderRadius:'4px',overflow:'hidden',marginBottom:'8px',position:'relative'}}>
               {prevMois>0&&(
                 <div style={{position:'absolute',left:`${Math.min(100,caMois/OBJ_CONF*100)}%`,top:0,bottom:0,width:`${Math.min(100-caMois/OBJ_CONF*100, prevMois/OBJ_CONF*100)}%`,background:'rgba(41,128,185,.35)',backgroundImage:'repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(255,255,255,.3) 3px,rgba(255,255,255,.3) 6px)'}}/>
               )}
               <div style={{height:'100%',width:`${Math.min(100,caMois/OBJ_CONF*100)}%`,background:msgMois.c,borderRadius:'4px',transition:'width .5s'}}/>
-              {/* Marqueur équilibre */}
               <div style={{position:'absolute',top:0,bottom:0,left:`${OBJ_EQ/OBJ_CONF*100}%`,width:'1.5px',background:'rgba(0,0,0,.15)'}}/>
             </div>
 
             {/* Message seuil */}
-            <div style={{padding:'8px 12px',background:msgMois.bg,borderRadius:'var(--r)',borderLeft:`3px solid ${msgMois.c}`,marginBottom:'12px'}}>
+            <div style={{padding:'8px 12px',background:msgMois.bg,borderRadius:'var(--r)',borderLeft:`3px solid ${msgMois.c}`,marginBottom:'16px'}}>
               <span style={{fontSize:'12px',fontWeight:700,color:msgMois.c}}>{msgMois.icon} {msgMois.text}</span>
             </div>
 
-            {/* 3 jauges — objectif glissant calendaire */}
-            {(()=>{
-              const now      = new Date()
-              const daysInM  = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate()
-              const dayOfM   = now.getDate()
-
-              const joursRestants = daysInM - dayOfM + 1
-              const joursEcoules  = dayOfM - 1
-
-              const OBJ_JOUR_BASE = Math.round(OBJ_CONF / daysInM)
-              const resteAFaire   = Math.max(0, OBJ_CONF - caMois)
-              const OBJ_JOUR_ADJ  = joursRestants > 0 ? Math.round(resteAFaire / joursRestants) : 0
-
-              const todayDow     = now.getDay()
-              // Objectif semaine fixe = OBJ_CONF / 4.3 (indépendant de l'objectif jour ajusté)
-              // Objectif semaine adaptatif : reste mensuel ÷ semaines restantes dans le mois
-              const joursDimanche  = todayDow === 0 ? 0 : 7 - todayDow
-              const joursFinMois   = daysInM - dayOfM
-              const semRestantes   = Math.max(1, Math.ceil((joursFinMois + joursDimanche + 1) / 7))
-              const OBJ_SEM_ADJ  = Math.round(resteAFaire / semRestantes)
-
-              const caAttendu = OBJ_JOUR_BASE * joursEcoules
-              const deltaM    = caMois - caAttendu
-              const enAvance  = deltaM >= 0
-
-              const colJour  = caJ>=OBJ_JOUR_ADJ?'var(--green)':caJ>=OBJ_JOUR_ADJ*0.5?'var(--amber)':'var(--red)'
-              const colSem   = caSem>=OBJ_SEM_ADJ?'var(--green)':caSem>=OBJ_SEM_ADJ*0.5?'var(--amber)':'var(--red)'
-              const colMois  = caMois>=OBJ_CONF?'var(--green)':caMois>=OBJ_EQ?'var(--amber)':'var(--red)'
-              const pctJour  = Math.min(100, OBJ_JOUR_ADJ>0?Math.round(caJ/OBJ_JOUR_ADJ*100):0)
-              const pctSem   = Math.min(100, OBJ_SEM_ADJ>0?Math.round(caSem/OBJ_SEM_ADJ*100):0)
-              const pctMois  = Math.min(100, Math.round(caMois/OBJ_CONF*100))
-
-              return (
-                <>
-                  <div style={{textAlign:'center',marginBottom:'16px'}}>
-                    <div style={{fontSize:'10px',fontWeight:700,color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px'}}>
-                      Objectif aujourd'hui
-                    </div>
-                    <div style={{fontFamily:'var(--font-mono)',fontSize:'38px',fontWeight:500,lineHeight:1,
-                      color:OBJ_JOUR_ADJ<=OBJ_JOUR_BASE?'var(--green)':OBJ_JOUR_ADJ<=OBJ_JOUR_BASE*1.3?'var(--amber)':'var(--red)'}}>
-                      {fmt(OBJ_JOUR_ADJ)}
-                    </div>
-                    <div style={{fontSize:'11px',color:'var(--txt3)',marginTop:'4px'}}>
-                      base {fmt(OBJ_JOUR_BASE)}/j · {joursRestants} j. restants
-                    </div>
-                    {joursEcoules>0&&(
-                      <div style={{display:'inline-flex',alignItems:'center',gap:'4px',marginTop:'6px',fontSize:'10px',fontWeight:700,padding:'3px 10px',borderRadius:'20px',
-                        background:enAvance?'rgba(26,140,90,.1)':'rgba(192,57,43,.1)',
-                        color:enAvance?'var(--green)':'var(--red)'}}>
-                        {enAvance?'▲':'▼'} {enAvance?'+':''}{fmt(deltaM)} vs rythme
-                      </div>
-                    )}
-                  </div>
-
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',justifyItems:'center',marginBottom:'14px'}}>
-                    <Arc pct={pctJour} color={colJour} size={108} stroke={9}
-                      label="Jour"
-                      value={caJ>0?fmt(caJ):'—'}
-                      sub={`/ ${fmt(OBJ_JOUR_ADJ)}`}
-                      sub2={caJ>=OBJ_JOUR_ADJ?'✓ Ok':caJ>0?`-${fmt(OBJ_JOUR_ADJ-caJ)}`:null}
-                    />
-                    <Arc pct={pctSem} color={colSem} size={108} stroke={9}
-                      label="Semaine"
-                      value={caSem>0?fmt(caSem):'—'}
-                      sub={`/ ${fmt(OBJ_SEM_ADJ)}`}
-                      sub2={caSem>=OBJ_SEM_ADJ?'✓ Ok':caSem>0?`-${fmt(OBJ_SEM_ADJ-caSem)}`:null}
-                    />
-                    <Arc pct={pctMois} color={colMois} size={108} stroke={9}
-                      label="Mois"
-                      value={caMois>0?fmt(caMois):'—'}
-                      sub={`/ ${fmt(OBJ_CONF)}`}
-                      sub2={caMois>=OBJ_CONF?'🎯 Confort':caMois>=OBJ_EQ?`⚖️ ${pctMois}%`:caMois>0?`-${fmt(OBJ_CONF-caMois)}`:null}
-                    />
-                  </div>
-                </>
-              )
-            })()}
-
-            {versJ.length>0&&(
-              <div style={{display:'flex',flexWrap:'wrap',gap:'6px',marginBottom:'10px'}}>
-                {versJ.map((v,i)=>{
-                  const nom = v.properties['Client prénom']?.rich_text?.[0]?.plain_text || v.properties.Session?.title?.[0]?.plain_text?.replace(/\[VERSEMENT\]\s*/,'') || 'Client'
-                  const mt  = v.properties.Prix?.number || v.properties['Acompte reçu']?.number || 0
-                  return (
-                    <div key={i} style={{display:'inline-flex',alignItems:'center',gap:'5px',padding:'4px 10px',borderRadius:'20px',background:'rgba(26,140,90,.12)',border:'1px solid rgba(26,140,90,.3)',fontSize:'11px',fontWeight:700,color:'var(--green)'}}>
-                      💳 {nom} · {mt}€
-                    </div>
-                  )
-                })}
+            {/* ── 2 JAUGES vs objectif équilibre ── */}
+            <div style={{borderTop:'1px solid var(--border)',paddingTop:'14px',marginBottom:'16px'}}>
+              <div style={{fontSize:'9px',fontWeight:700,color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'14px',textAlign:'center'}}>
+                vs objectif équilibre ({fmt(OBJ_EQ)})
               </div>
-            )}
-
-            {/* Stats inline */}
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'6px'}}>
-              {[
-                {l:'Panier moyen',v:panier>0?panier+'€':'—',s:`${nbSessM} sess.`,c:'var(--txt)'},
-                {l:'Net estimé',v:fmt(r.net),s:'après impôts',c:r.net>1500?'var(--green)':'var(--txt)'},
-                {l:'Dépenses',v:fmt(depMois),s:'ce mois',c:depMois>FIXES?'var(--red)':'var(--txt)'},
-              ].map(x=>(
-                <div key={x.l} style={{textAlign:'center',padding:'7px 4px',background:'var(--bg)',borderRadius:'var(--r)'}}>
-                  <div style={{fontSize:'8px',fontWeight:700,color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px',lineHeight:1.2}}>{x.l}</div>
-                  <div style={{fontFamily:'var(--font-mono)',fontSize:'14px',fontWeight:500,color:x.c}}>{x.v}</div>
-                  <div style={{fontSize:'9px',color:'var(--txt3)',marginTop:'1px'}}>{x.s}</div>
-                </div>
-              ))}
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',justifyItems:'center'}}>
+                <ArcEq pct={pctJour} color={colJour}
+                  value={caJ>0?fmt(caJ):'—'}
+                  sub={`/ ${fmt(OBJ_JOUR_EQ)}`}
+                  label="Jour"
+                />
+                <ArcEq pct={pctSem} color={colSem}
+                  value={caSem>0?fmt(caSem):'—'}
+                  sub={`/ ${fmt(OBJ_SEM_EQ)}`}
+                  label="Semaine"
+                />
+              </div>
             </div>
 
-            {/* IRPF + IVA */}
-            {caMois>0&&(
-              <div style={{marginTop:'10px',padding:'8px 12px',background:'rgba(154,82,0,.05)',borderRadius:'var(--r)',borderLeft:'2px solid var(--amber)'}}>
-                <div style={{fontSize:'9px',color:'var(--amber)',fontWeight:700,textTransform:'uppercase',letterSpacing:'1px',marginBottom:'5px'}}>À mettre de côté</div>
-                <div style={{display:'flex',gap:'16px',fontSize:'11px'}}>
-                  <span>IRPF : <span style={{fontFamily:'var(--font-mono)',fontWeight:600}}>{fmt(r.irpf)}</span></span>
-                  <span>IVA nette : <span style={{fontFamily:'var(--font-mono)',fontWeight:600}}>{fmt(r.iva)}</span></span>
-                  <span style={{color:'var(--amber)',fontWeight:700}}>Total : <span style={{fontFamily:'var(--font-mono)'}}>{fmt(r.irpf+r.iva)}</span></span>
-                </div>
+            {/* ── STATS MOIS ── */}
+            <div style={{borderTop:'1px solid var(--border)',paddingTop:'12px'}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'6px'}}>
+                {[
+                  {l:'Sessions',v:nbSessM>0?String(nbSessM):'—',s:'ce mois',c:'var(--txt)'},
+                  {l:'Panier moyen',v:panier>0?panier+'€':'—',s:`${nbSessM} sess.`,c:'var(--txt)'},
+                  {l:'Net estimé',v:fmt(r.net),s:'après impôts',c:r.net>1500?'var(--green)':'var(--txt)'},
+                ].map(x=>(
+                  <div key={x.l} style={{textAlign:'center',padding:'7px 4px',background:'var(--bg)',borderRadius:'var(--r)'}}>
+                    <div style={{fontSize:'8px',fontWeight:700,color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px',lineHeight:1.2}}>{x.l}</div>
+                    <div style={{fontFamily:'var(--font-mono)',fontSize:'14px',fontWeight:500,color:x.c}}>{x.v}</div>
+                    <div style={{fontSize:'9px',color:'var(--txt3)',marginTop:'1px'}}>{x.s}</div>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
           </div>
         </div>
 
-        {/* ══ PROCHAINS RDV (compacts) ══════════════════ */}
+        {/* ══ PIPELINE DEVIS ════════════════════════════ */}
+        <div style={{marginBottom:'14px'}}>
+          <div className="section-title-gold" style={{marginBottom:'10px'}}>Pipeline devis</div>
+          <div className="card" style={{padding:'16px'}}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'14px'}}>
+              <div style={{textAlign:'center',padding:'12px',background:'var(--bg)',borderRadius:'var(--r)'}}>
+                <div style={{fontSize:'9px',fontWeight:700,color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'5px'}}>En attente</div>
+                <div style={{fontFamily:'var(--font-mono)',fontSize:'32px',fontWeight:400,color:'var(--blue)',lineHeight:1}}>{devisEnAttente.length}</div>
+                <div style={{fontSize:'10px',color:'var(--txt3)',marginTop:'3px'}}>{fmt(potentielAttente)} potentiel</div>
+              </div>
+              <div style={{textAlign:'center',padding:'12px',background:'var(--bg)',borderRadius:'var(--r)'}}>
+                <div style={{fontSize:'9px',fontWeight:700,color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'5px'}}>Validés</div>
+                <div style={{fontFamily:'var(--font-mono)',fontSize:'32px',fontWeight:400,color:'var(--green)',lineHeight:1}}>{devisValidesCnt.length}</div>
+                <div style={{fontSize:'10px',color:'var(--txt3)',marginTop:'3px'}}>{fmt(caDevisPrev)} planifié</div>
+              </div>
+            </div>
+            <div style={{marginBottom:'6px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <span style={{fontSize:'11px',color:'var(--txt3)'}}>Taux de transformation</span>
+              <span style={{fontFamily:'var(--font-mono)',fontSize:'13px',fontWeight:700,color:'var(--green)'}}>{tauxTransfo}%</span>
+            </div>
+            <div style={{height:'6px',background:'var(--bg2)',borderRadius:'3px',overflow:'hidden',marginBottom:'6px'}}>
+              <div style={{height:'100%',width:`${tauxTransfo}%`,background:'var(--green)',borderRadius:'3px',transition:'width .5s'}}/>
+            </div>
+            <div style={{fontSize:'10px',color:'var(--txt3)',textAlign:'center'}}>
+              {devisValidesCnt.length} validés sur {devisTotal.length} devis envoyés
+            </div>
+          </div>
+        </div>
+
+        {/* ══ À METTRE DE CÔTÉ ══════════════════════════ */}
+        {caMois>0&&(
+          <div style={{marginBottom:'14px'}}>
+            <div className="section-title-gold" style={{marginBottom:'10px'}}>À mettre de côté</div>
+            <div className="card" style={{padding:'16px'}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px'}}>
+                {[
+                  {l:'IRPF',v:fmt(r.irpf),s:'20% bénéfice',c:'var(--amber)'},
+                  {l:'IVA nette',v:fmt(r.iva),s:'21% - déductible',c:'var(--amber)'},
+                  {l:'Total',v:fmt(r.irpf+r.iva),s:'à réserver',c:'var(--red)'},
+                ].map(x=>(
+                  <div key={x.l} style={{textAlign:'center',padding:'10px 6px',background:'var(--bg)',borderRadius:'var(--r)'}}>
+                    <div style={{fontSize:'8px',fontWeight:700,color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px'}}>{x.l}</div>
+                    <div style={{fontFamily:'var(--font-mono)',fontSize:'16px',fontWeight:500,color:x.c}}>{x.v}</div>
+                    <div style={{fontSize:'9px',color:'var(--txt3)',marginTop:'2px'}}>{x.s}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ PROCHAINS RDV ══════════════════════════════ */}
         {sessPrevu.length>0&&(
           <div style={{marginBottom:'14px'}}>
             <div className="section-title-gold" style={{marginBottom:'10px'}}>Prochains rendez-vous</div>
@@ -468,8 +443,7 @@ export default function Dashboard() {
               const client = s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'Client'
               const style  = s.properties['Style / Type']?.rich_text?.[0]?.plain_text||''
               const prix   = s.properties.Prix?.number||0
-              const notes  = s.properties.Notes?.rich_text?.[0]?.plain_text||''
-              const heure  = notes.match(/·\s*(\d{2}:\d{2})/)?.[1]||null
+              const heure  = s.properties.Date?.date?.start?.includes('T')?s.properties.Date.date.start.substring(11,16):null
               const d      = new Date(date)
               const diff   = Math.round((d-new Date(td))/86400000)
               const label  = diff===0?"Auj.":diff===1?'Dem.':d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})
@@ -509,14 +483,13 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ══ GRAPHE ANNUEL (compact) ════════════════════ */}
+        {/* ══ GRAPHE ANNUEL ══════════════════════════════ */}
         <div style={{marginBottom:'14px'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
             <div className="section-title-gold" style={{margin:0}}>Vision annuelle</div>
             <div style={{fontSize:'11px',color:'var(--txt3)',fontFamily:'var(--font-mono)'}}>{fmt(caAnnee)} / {fmt(caObjectifAnnuel)}</div>
           </div>
           <div className="card" style={{padding:'14px'}}>
-            {/* Barres mensuelles */}
             <div style={{display:'flex',alignItems:'flex-end',gap:'3px',height:'56px',marginBottom:'4px'}}>
               {MKEYS.map((mk,i)=>{
                 const val   = Math.round(caByM[mk]||0)
@@ -550,7 +523,6 @@ export default function Dashboard() {
                 <div key={i} style={{flex:1,textAlign:'center',fontSize:'8px',color:MKEYS[i]===m?'var(--gold-dk)':'var(--txt3)',fontWeight:MKEYS[i]===m?700:400}}>{mo}</div>
               ))}
             </div>
-            {/* Stats cumulées */}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'6px',marginTop:'10px'}}>
               {[
                 {l:'CA cumulé',v:fmt(caAnnee),c:'var(--txt)'},
@@ -568,7 +540,6 @@ export default function Dashboard() {
 
         {/* ══ FISCAL + GOOGLE ══════════════════════════ */}
         <div style={{marginBottom:'14px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
-          {/* Prochaine échéance */}
           {prochainFiscal&&(
             <div className="card" style={{padding:'12px'}}>
               <div style={{fontSize:'9px',fontWeight:700,color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'6px'}}>Prochaine échéance</div>
@@ -582,7 +553,6 @@ export default function Dashboard() {
               </div>
             </div>
           )}
-          {/* Liens rapides */}
           <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
             <a href="https://calendar.google.com" target="_blank" rel="noopener noreferrer" className="card" style={{
               display:'flex',alignItems:'center',gap:'8px',padding:'11px 12px',
