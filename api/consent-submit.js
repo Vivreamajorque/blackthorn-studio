@@ -2,7 +2,6 @@
 const https   = require('https')
 const NOTION_KEY  = process.env.NOTION_KEY
 const SESSIONS_DB = 'd5c3846e-3d3c-4eae-ade8-2e7efa3c896f'
-// ID du dossier Google Drive "Fiches de consentement"
 const DRIVE_FOLDER_ID = '1hKI1f8Ur7oVQ4PF6WMjwoSAhDttQB-Z2'
 
 const notion = (path, method, body) => new Promise((resolve, reject) => {
@@ -26,7 +25,6 @@ const notion = (path, method, body) => new Promise((resolve, reject) => {
   r.end()
 })
 
-// Upload PDF vers Vercel Blob Storage
 const uploadToBlob = async (pdfBase64, filename) => {
   try {
     const { put } = await import('@vercel/blob')
@@ -60,7 +58,7 @@ module.exports = async function handler(req, res) {
       ? ` (Précision : ${data.autreDetail})`
       : ''
 
-    // Upload PDF vers Vercel Blob
+    // Upload PDF
     let pdfUrl = null
     const filename = `${data.nom?.replace(/\s+/g,'-') || 'client'}-${Date.now()}.pdf`
     if (pdfData) {
@@ -68,7 +66,7 @@ module.exports = async function handler(req, res) {
       console.log('[consent-submit] PDF URL:', pdfUrl)
     }
 
-    const notes = [
+    const newConsent = [
       `📋 CONSENTEMENT SIGNÉ — ${now}`,
       `Nom : ${data.nom || '—'} | DNI/Passeport : ${data.dni || '—'}`,
       `Né(e) le : ${data.dateNaissance || '—'} | Nationalité : ${data.nationalite || '—'}`,
@@ -81,31 +79,32 @@ module.exports = async function handler(req, res) {
       pdfUrl ? `📄 PDF : ${pdfUrl}` : '',
     ].filter(Boolean).join('\n')
 
-    // Stocker aussi l'email dans le titre de la session pour ne pas le perdre
-    const sessionTitle = `[CONSENT] ${data.nom || 'Client'} · ${data.email || ''}`
+    // Lire les Notes existantes pour NE PAS écraser les fiches précédentes
+    let existingNotes = ''
+    try {
+      const page = await notion(`pages/${sessionId}`, 'GET')
+      existingNotes = page?.properties?.Notes?.rich_text?.[0]?.plain_text || ''
+    } catch(_) {}
+
+    // Concatener : si Notes existantes contiennent déjà un consentement, on ajoute séparateur
+    const hasExistingConsent = existingNotes.includes('📋 CONSENTEMENT SIGNÉ')
+    const nbExisting = (existingNotes.match(/📋 CONSENTEMENT SIGNÉ/g) || []).length
+    const separator = hasExistingConsent ? `\n\n--- FICHE ${nbExisting + 1} ---\n` : ''
+    const finalNotes = (existingNotes + separator + newConsent).substring(0, 1900)
+
+    // Mise à jour — on préserve le Client prénom de la première fiche si déjà rempli
+    const clientPrenom = nbExisting === 0 ? (data.nom || '').substring(0, 200) : undefined
 
     await notion(`pages/${sessionId}`, 'PATCH', {
       properties: {
         'Fiche signée': { checkbox: true },
-        'Notes':        { rich_text: [{ text: { content: notes.substring(0, 1900) } }] },
-        'Client prénom':{ rich_text: [{ text: { content: (data.nom || '').substring(0, 200) } }] },
-        // Email stocké dans le champ Style/Type pour retrouvabilité si Notes écrasées
-        'Email client': data.email ? { email: data.email } : undefined,
-      }
-    }).catch(() => {
-      // Si champ Email client n'existe pas, on s'en passe
-    })
-
-    // Mise à jour classique sans le champ email
-    await notion(`pages/${sessionId}`, 'PATCH', {
-      properties: {
-        'Fiche signée': { checkbox: true },
-        'Notes':        { rich_text: [{ text: { content: notes.substring(0, 1900) } }] },
-        'Client prénom':{ rich_text: [{ text: { content: (data.nom || '').substring(0, 200) } }] },
+        'Notes':        { rich_text: [{ text: { content: finalNotes } }] },
+        ...(clientPrenom ? { 'Client prénom': { rich_text: [{ text: { content: clientPrenom } }] } } : {}),
       }
     })
 
-    return res.status(200).json({ success: true, pdfUrl })
+    console.log(`[consent-submit] ✅ Fiche ${nbExisting + 1} ajoutée pour session ${sessionId}`)
+    return res.status(200).json({ success: true, pdfUrl, ficheNum: nbExisting + 1 })
   } catch(e) {
     console.error('[consent-submit]', e.message)
     return res.status(500).json({ error: e.message })
