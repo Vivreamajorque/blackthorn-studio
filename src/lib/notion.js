@@ -107,6 +107,7 @@ export const notion = {
   updateRdv: (pageId, data) => {
     const natio = data.natio || 'Autre'
     const dateStart = data.heure && data.date ? `${data.date}T${data.heure}:00` : (data.date || new Date().toISOString().split('T')[0])
+    const nb = parseInt(data.sessions) || 1
     return call(`pages/${pageId}`, 'PATCH', {
       properties: {
         Session:        { title: [{ text: { content: `[RDV] ${data.client || 'Client'} · ${data.date || ''}` } }] },
@@ -116,6 +117,15 @@ export const notion = {
         Date:           { date: { start: dateStart } },
         'Client prénom':{ rich_text: [{ text: { content: data.client || '' } }] },
         'Style / Type': { rich_text: [{ text: { content: data.style || '' } }] },
+        // Préserver le consentement — on remplace juste le préfixe nb sessions
+        Notes: { rich_text: [{ text: { content: (() => {
+          const existing = data.existingNotes || ''
+          // Retirer l'ancien préfixe "N session(s) · " ou "N session(s)"
+          const withoutPrefix = existing.replace(/^\d+\s*session\(s?\)\s*\.?\s*/i, '').trim()
+          return withoutPrefix
+            ? `${nb} session(s) · ${withoutPrefix}`.substring(0, 1900)
+            : `${nb} session(s)`
+        })() } }] },
         ...(data.source ? { Source: { select: { name: data.source } } } : {})
       }
     })
