@@ -74,11 +74,17 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ received: true, ignored: true, reason: 'devis_not_found' })
     }
 
-    // Vérifier que le devis n'est pas déjà réservé
+    // Vérifier si déjà traité (session Planning déjà créée) pour éviter les doublons
     const statut = devis.properties.Statut?.select?.name || ''
-    if (statut === '✅ Réservé') {
-      console.log('[SumUp Webhook] Devis déjà réservé')
-      return res.status(200).json({ received: true, ignored: true, reason: 'already_reserved' })
+    // On vérifie l'existence d'un [RDV] pour ce token plutôt que le statut du devis
+    // car le statut peut être Réservé sans que le paiement soit confirmé (bug ancien flow)
+    const existingRdv = await notion(
+      `databases/${SESSIONS_DB}/query`, 'POST',
+      { filter: { property: 'Session', title: { contains: `SUMUP-${token}` } }, page_size: 1 }
+    )
+    if (existingRdv?.results?.length > 0) {
+      console.log('[SumUp Webhook] Déjà traité pour token:', token)
+      return res.status(200).json({ received: true, ignored: true, reason: 'already_processed' })
     }
 
     // Lire les infos du devis
@@ -107,7 +113,7 @@ module.exports = async function handler(req, res) {
       await notion('pages', 'POST', {
         parent: { database_id: SESSIONS_DB },
         properties: {
-          Session:        { title: [{ text: { content: `[RDV] ${clientFinal} · ${rdvDate}` } }] },
+          Session:        { title: [{ text: { content: `[RDV] ${clientFinal} · ${rdvDate} · SUMUP-${token}` } }] },
           Type:           { select: { name: '🖤 Tattoo Tony' } },
           Prix:           { number: prix },
           'Acompte reçu': { number: acompte },

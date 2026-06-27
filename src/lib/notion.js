@@ -327,6 +327,14 @@ export const notion = {
     }
   }),
 
+  // Écrit uniquement la date dans les Notes, SANS changer le statut
+  // → appelé avant SumUp pour que le webhook trouve la date
+  saveRdvDate: (pageId, dateRdv, heureRdv) => call(`pages/${pageId}`, 'PATCH', {
+    properties: {
+      Notes: { rich_text: [{ text: { content: `RDV: ${dateRdv} à ${heureRdv}` } }] }
+    }
+  }),
+
   // ── CRÉNEAUX ─────────────────────────────────────────────
   getCreneauxRange: (dateMin, dateMax) => call(`databases/${CRENEAUX_DB}/query`, 'POST', {
     filter: { and: [

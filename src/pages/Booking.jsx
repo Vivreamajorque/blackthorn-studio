@@ -660,9 +660,9 @@ export default function Booking() {
                   if (d.payUrl) {
                     setPayUrl(d.payUrl)
                     setCheckoutId(d.checkoutId || '')
-                    // ✅ FIX : écrire la date dans le devis AVANT d'ouvrir SumUp
-                    // → le webhook arrive toujours après, la date est déjà dans Notion
-                    try { await notion.markDevisReserve(devis.id, selectedDay, selectedHr) } catch(_) {}
+                    // Écrire uniquement la date dans les Notes (pas de statut Réservé)
+                    // → le webhook confirmera le paiement et passera en Réservé
+                    try { await notion.saveRdvDate(devis.id, selectedDay, selectedHr) } catch(_) {}
                     window.open(d.payUrl, '_blank')
                   } else {
                     throw new Error(d.error || JSON.stringify(d.details) || 'Erreur SumUp')
