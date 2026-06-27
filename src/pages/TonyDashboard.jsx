@@ -430,7 +430,7 @@ export default function TonyDashboard({ onLogout }) {
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'12px'}}>
         <div className="form-group" style={{margin:0}}>
           <label>Nb sessions</label>
-          <input type="number" inputMode="numeric" value={caForm.sessions} onChange={e=>setCaForm({...caForm,sessions:e.target.value})} style={{textAlign:'center',fontSize:'20px'}}/>
+          <input type="number" inputMode="numeric" value={caForm.sessions} onChange={e=>setCaForm({...caForm,sessions:e.target.value})} onFocus={e=>e.target.select()} style={{textAlign:'center',fontSize:'20px'}}/>
         </div>
         <div className="form-group" style={{margin:0}}>
           <label>Date</label>
@@ -486,7 +486,7 @@ export default function TonyDashboard({ onLogout }) {
         </div>
         <div className="form-group" style={{margin:0}}>
           <label>Nb sessions</label>
-          <input type="number" inputMode="numeric" placeholder="1" value={rdvForm.sessions} onChange={e=>setRdvForm({...rdvForm,sessions:e.target.value})} style={{textAlign:'center',fontSize:'18px'}}/>
+          <input type="number" inputMode="numeric" placeholder="1" value={rdvForm.sessions} onChange={e=>setRdvForm({...rdvForm,sessions:e.target.value})} onFocus={e=>e.target.select()} style={{textAlign:'center',fontSize:'18px'}}/>
         </div>
         <div className="form-group" style={{margin:0}}>
           <label>Acompte (€)</label>
@@ -544,7 +544,7 @@ export default function TonyDashboard({ onLogout }) {
         </div>
         <div className="form-group" style={{margin:0}}>
           <label>Nb sessions</label>
-          <input type="number" inputMode="numeric" value={editing.sessions} onChange={e=>setEditing({...editing,sessions:e.target.value})} style={{textAlign:'center',fontSize:'22px'}}/>
+          <input type="number" inputMode="numeric" value={editing.sessions} onChange={e=>setEditing({...editing,sessions:e.target.value})} onFocus={e=>e.target.select()} style={{textAlign:'center',fontSize:'22px'}}/>
         </div>
       </div>
       {parseInt(editing.sessions)>1&&editing.ca>0&&(
@@ -684,7 +684,7 @@ export default function TonyDashboard({ onLogout }) {
         </div>
         <div className="form-group" style={{margin:0}}>
           <label>Nb sessions</label>
-          <input type="number" inputMode="numeric" value={editRdv.sessions||'1'} onChange={e=>setEditRdv({...editRdv,sessions:e.target.value})}
+          <input type="number" inputMode="numeric" value={editRdv.sessions||'1'} onChange={e=>setEditRdv({...editRdv,sessions:e.target.value})} onFocus={e=>e.target.select()}
             style={{textAlign:'center',fontSize:'18px'}}/>
         </div>
       </div>
