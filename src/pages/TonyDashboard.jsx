@@ -168,11 +168,13 @@ export default function TonyDashboard({ onLogout }) {
   const versW = versements.filter(s=>dateOf(s)>=ws)
   const versJ = versements.filter(s=>dateOf(s)===todayStr())
 
-  // CA = sessions CARTE/CASH (Prix = solde encaissé le jour J) + VERSEMENT (acomptes SumUp)
-  // Pas de doublon car le formulaire de confirmation enregistre Prix = total - acompte déjà reçu
-  const caMois  = sessM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const caSem   = sessW.reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versW.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const caJour  = sessJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  // dedup : si un client a un [VERSEMENT] ce mois-ci, on ne compte pas sa session en double
+  const clientsAvecVersement = new Set(versM.map(s=>s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'').filter(Boolean))
+  const dedup = arr => arr.filter(s=>{ const c=s.properties['Client prénom']?.rich_text?.[0]?.plain_text||''; return !c||!clientsAvecVersement.has(c) })
+
+  const caMois  = dedup(sessM).reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const caSem   = dedup(sessW).reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versW.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
+  const caJour  = dedup(sessJ).reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
   const totalSessM = sessM.reduce((a,s)=>a+getNbSess(s),0)
   const panier   = totalSessM>0 ? Math.round(caMois/totalSessM) : 0
 
@@ -767,7 +769,36 @@ export default function TonyDashboard({ onLogout }) {
         </div>
       )}
 
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 20px 14px',background:'var(--surface)',borderBottom:'1px solid var(--border)',position:'sticky',top:0,zIndex:10,boxShadow:'0 2px 8px rgba(26,18,9,.04)'}}>
+      {/* BANDEAU ACOMPTES DU JOUR */}
+      {versJ.length > 0 && (
+        <div style={{position:'sticky',top:0,zIndex:20,background:'linear-gradient(135deg,#1A8C5A,#16744A)',boxShadow:'0 2px 12px rgba(26,140,90,.35)'}}>
+          {versJ.map((v, i) => {
+            const client  = v.properties['Client prénom']?.rich_text?.[0]?.plain_text || 'Client'
+            const montant = v.properties['Solde reçu']?.number || v.properties.Prix?.number || 0
+            const notes   = v.properties.Notes?.rich_text?.[0]?.plain_text || ''
+            const rdvMatch = notes.match(/RDV\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})/)
+            const rdvDate  = rdvMatch ? new Date(rdvMatch[1]+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) : null
+            const rdvHeure = rdvMatch?.[2] || null
+            const style    = v.properties['Style / Type']?.rich_text?.[0]?.plain_text || ''
+            return (
+              <div key={v.id} style={{display:'flex',alignItems:'center',gap:'10px',padding:'10px 16px',borderBottom: i < versJ.length-1 ? '1px solid rgba(255,255,255,.1)' : 'none'}}>
+                <span style={{fontSize:'18px'}}>💰</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:'13px',fontWeight:700,color:'#fff',lineHeight:1.2}}>Acompte reçu — {client} · {montant}€</div>
+                  {(rdvDate || style) && (
+                    <div style={{fontSize:'11px',color:'rgba(255,255,255,.75)',marginTop:'2px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                      {rdvDate && `📅 ${rdvDate}${rdvHeure ? ' à '+rdvHeure : ''}`}{rdvDate && style ? ' · ' : ''}{style && style.replace(/#\d+\s*/g,'').substring(0,40)}
+                    </div>
+                  )}
+                </div>
+                <span style={{fontFamily:'var(--font-mono)',fontSize:'15px',fontWeight:700,color:'#fff',flexShrink:0}}>+{montant}€</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 20px 14px',background:'var(--surface)',borderBottom:'1px solid var(--border)',position:'sticky',top: versJ.length > 0 ? (versJ.length * 52) + 'px' : '0',zIndex:10,boxShadow:'0 2px 8px rgba(26,18,9,.04)'}}>
         <img src="/blackthorn-logo.png" alt="Blackthorn" style={{height:'34px',opacity:.92,filter:'contrast(1.1)'}}/>
         <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
           <span style={{fontSize:'11px',color:'var(--txt3)',fontWeight:500}}>{new Date().toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</span>
