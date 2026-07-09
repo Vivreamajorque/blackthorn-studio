@@ -345,6 +345,16 @@ export const notion = {
     }
   }),
 
+  // Écrit la date RDV + le checkout SumUp dans les Notes, SANS changer le statut
+  // → appelé avant window.open(SumUp) pour que webhook, sumup-check ET la
+  // réconciliation automatique (api/sumup-reconcile) puissent tous retrouver
+  // ce paiement même si le client ferme l'onglet après avoir payé.
+  saveCheckoutPending: (pageId, dateRdv, heureRdv, checkoutId) => call(`pages/${pageId}`, 'PATCH', {
+    properties: {
+      Notes: { rich_text: [{ text: { content: `RDV: ${dateRdv} à ${heureRdv} · CHECKOUT:${checkoutId}` } }] }
+    }
+  }),
+
   // ── CRÉNEAUX ─────────────────────────────────────────────
   getCreneauxRange: (dateMin, dateMax) => call(`databases/${CRENEAUX_DB}/query`, 'POST', {
     filter: { and: [

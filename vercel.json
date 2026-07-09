@@ -1,4 +1,7 @@
 {
+  "crons": [
+    { "path": "/api/sumup-reconcile", "schedule": "0 6 * * *" }
+  ],
   "headers": [
     {
       "source": "/(index\\.html|sw\\.js)",

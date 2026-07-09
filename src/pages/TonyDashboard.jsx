@@ -141,6 +141,21 @@ export default function TonyDashboard({ onLogout }) {
 
   useEffect(() => { load() }, [load])
 
+  // Filet de sécurité : à chaque ouverture du Hub, on demande au serveur de
+  // vérifier tous les paiements SumUp "en attente" directement auprès de
+  // SumUp (indépendamment du webhook et du navigateur du client). Si l'un
+  // d'eux est payé mais pas encore remonté, il est finalisé ici. Silencieux
+  // et non bloquant — si ça matche quelque chose, on recharge les données.
+  useEffect(() => {
+    fetch('/api/sumup-reconcile')
+      .then(r => r.json())
+      .then(d => {
+        const reconciled = (d?.results || []).filter(r => r.reconciled)
+        if (reconciled.length > 0) { console.log('[Reconcile] rattrapés:', reconciled); load() }
+      })
+      .catch(() => {})
+  }, [load])
+
   const isConfirme  = (s) => { const st=s.properties.Statut?.select?.name||''; return st===''||st==='✅ Confirmé' }
   const isPrevu     = (s) => s.properties.Statut?.select?.name==='🗓 Prévu'
 

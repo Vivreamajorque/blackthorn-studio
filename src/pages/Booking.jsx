@@ -75,7 +75,27 @@ export default function Booking() {
   const [payUrl,      setPayUrl]    = useState('')
   const [payLoading,  setPayLoading]= useState(false)
   const [checkoutId,  setCheckoutId]= useState('')
+  const [checkMsg,    setCheckMsg]  = useState('')
   const [lang,        setLang]      = useState('fr')
+
+  // Récupère un paiement en cours si la page a été rechargée après le retour
+  // de SumUp (fréquent sur mobile — l'onglet d'origine est parfois déchargé
+  // par le système pendant que le client paie dans le nouvel onglet/app SumUp).
+  // Sans ça, l'état React est perdu et la vérification automatique ne se
+  // déclenche jamais → c'est une des causes du bug "acompte payé mais rien
+  // ne remonte".
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('bt_pending_checkout')
+      if (!raw) return
+      const saved = JSON.parse(raw)
+      if (saved?.token !== token || !saved?.checkoutId) return
+      setCheckoutId(saved.checkoutId)
+      if (saved.selectedDay) setSelDay(saved.selectedDay)
+      if (saved.selectedHr) setSelHr(saved.selectedHr)
+      setStep(3)
+    } catch(_) {}
+  }, [token])
 
   const T = {
     fr: {
@@ -370,6 +390,7 @@ export default function Booking() {
         sessions:   1,
       })
       await notion.markDevisReserve(devis.id, selectedDay, selectedHr)
+      try { sessionStorage.removeItem('bt_pending_checkout') } catch(_) {}
     } catch(e) { console.error('finalizeBooking error:', e) }
     setStep(4)
   }
@@ -660,9 +681,14 @@ export default function Booking() {
                   if (d.payUrl) {
                     setPayUrl(d.payUrl)
                     setCheckoutId(d.checkoutId || '')
-                    // Écrire uniquement la date dans les Notes (pas de statut Réservé)
-                    // → le webhook confirmera le paiement et passera en Réservé
-                    try { await notion.saveRdvDate(devis.id, selectedDay, selectedHr) } catch(_) {}
+                    // Écrire la date + le checkout id dans les Notes (pas de statut Réservé)
+                    // → le webhook, sumup-check ET la réconciliation auto (Hub) pourront
+                    // tous retrouver ce paiement, même si ce navigateur est fermé après paiement.
+                    try { await notion.saveCheckoutPending(devis.id, selectedDay, selectedHr, d.checkoutId || '') } catch(_) {}
+                    // Sauvegarde locale — permet de reprendre la vérification si la page recharge
+                    try { sessionStorage.setItem('bt_pending_checkout', JSON.stringify({
+                      checkoutId: d.checkoutId, token, selectedDay, selectedHr
+                    })) } catch(_) {}
                     window.open(d.payUrl, '_blank')
                   } else {
                     throw new Error(d.error || JSON.stringify(d.details) || 'Erreur SumUp')
@@ -707,6 +733,30 @@ export default function Booking() {
                 <br/>
                 <span style={{ fontSize:'11px', opacity:.8 }}>{t.payReturn}</span>
               </div>
+            )}
+            {payUrl && !payUrl.startsWith('ERROR:') && checkoutId && (
+              <>
+                <button onClick={async () => {
+                  setPayLoading(true)
+                  setCheckMsg('')
+                  try {
+                    const r = await fetch(`/api/sumup-check?checkoutId=${checkoutId}&token=${token}`)
+                    const d = await r.json()
+                    if (d.paid) { await finalizeBooking() }
+                    else { setCheckMsg("Paiement pas encore détecté côté SumUp — réessaie dans quelques secondes, ou contacte Tony si tu as bien payé.") }
+                  } catch(_) { setCheckMsg('Erreur de vérification, réessaie.') }
+                  setPayLoading(false)
+                }} disabled={payLoading} style={{
+                  width:'100%', padding:'12px', marginTop:'10px', background:'transparent',
+                  border:`1px solid ${accent}`, color:accent, borderRadius:'50px',
+                  fontSize:'13px', fontWeight:600, cursor:'pointer'
+                }}>
+                  {payLoading ? 'Vérification…' : '✅ J\'ai déjà payé — vérifier maintenant'}
+                </button>
+                {checkMsg && (
+                  <div style={{ marginTop:'8px', fontSize:'12px', color:muted, textAlign:'center' }}>{checkMsg}</div>
+                )}
+              </>
             )}
             <div style={{ fontSize:'11px', color:muted, textAlign:'center', marginTop:'8px' }}>
               Paiement sécurisé SumUp · Carte bancaire acceptée
