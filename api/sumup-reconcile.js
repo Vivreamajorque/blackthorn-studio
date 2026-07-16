@@ -78,7 +78,7 @@ module.exports = async function handler(req, res) {
   try {
     // Tous les devis avec un lien de paiement envoyé mais pas encore réservés
     const pending = await notion(`databases/${DEVIS_DB}/query`, 'POST', {
-      filter: { property: 'Statut', select: { equals: '🔗 Lien envoyé' } },
+      filter: { and: [{ property: 'Statut', select: { does_not_equal: '✅ Réservé' } }, { property: 'Statut', select: { does_not_equal: '❌ Refusé' } }] },
       page_size: 50
     })
 
