@@ -1,3 +1,5 @@
+import { collectPages } from './pagination.mjs'
+import { paymentMethod, includedVat, money, today } from './finance.mjs'
 const SESSIONS_DB  = 'd5c3846e-3d3c-4eae-ade8-2e7efa3c896f'
 const DEVIS_DB     = 'b6d33466-c5db-4046-be2f-a242c8686a97'
 const CRENEAUX_DB  = 'adf23a19-e7d1-44c0-9f8a-8374d93a7983'
@@ -6,7 +8,7 @@ const CLIENTS_DB  = '53149c61-3639-45a2-ab49-c2ea77a7c088'
 const KPIS_DB     = '450c0c95-33e0-47c6-ae27-3c9540162cd2'
 const METRIQUES_RS_DB = '55a61a2b-04ba-4eb6-ad58-02e041ad7b54'
 
-const call = async (path, method = 'POST', body = null) => {
+const rawCall = async (path, method = 'POST', body = null) => {
   const url = `/api/notion?path=${encodeURIComponent(path)}`
   const r = await fetch(url, {
     method,
@@ -14,11 +16,16 @@ const call = async (path, method = 'POST', body = null) => {
     body: body ? JSON.stringify(body) : undefined
   })
   if (!r.ok) {
+    if (r.status === 401) window.dispatchEvent(new Event('bt-auth-expired'))
     const err = await r.json().catch(() => ({}))
     throw new Error(`Notion ${r.status}: ${err.message || err.code || JSON.stringify(err).substring(0,120)}`)
   }
   return r.json()
 }
+
+const call = (path, method = 'POST', body = null) => path.endsWith('/query') && method === 'POST'
+  ? collectPages(page => rawCall(path, method, page), body || {})
+  : rawCall(path, method, body)
 
 export const notion = {
   getSessions: () => call(`databases/${SESSIONS_DB}/query`, 'POST', {
@@ -54,11 +61,11 @@ export const notion = {
   }),
 
   // RDV PRÉVISIONNEL
-  addAppointment: (data) => {
+  addAppointment: async (data) => {
     const dateStart = data.heure && data.date
       ? `${data.date}T${data.heure}:00`
       : (data.date || new Date().toISOString().split('T')[0])
-    return call('pages', 'POST', {
+    const appointment = await call('pages', 'POST', {
       parent: { database_id: SESSIONS_DB },
       properties: {
         Session:        { title: [{ text: { content: `[RDV] ${data.client || 'Client'} · ${data.date}` } }] },
@@ -68,29 +75,34 @@ export const notion = {
         'Solde reçu':   { number: 0 },
         Nationalité:    { select: { name: data.natio || 'Autre' } },
         Date:           { date: { start: dateStart } },
-        Notes:          { rich_text: [{ text: { content: `${data.sessions||1} session(s)` } }] },
+        Notes:          { rich_text: [{ text: { content: `${data.sessions||1} session(s) · DUREE:${parseInt(data.duree)||120}${data.token ? ' · DEVIS_TOKEN:' + data.token : ''}` } }] },
         'Statut':       { select: { name: '🗓 Prévu' } },
         ...(data.source ? { 'Source': { select: { name: data.source } } } : {}),
         'Client prénom':{ rich_text: [{ text: { content: data.client || '' } }] },
         'Style / Type': { rich_text: [{ text: { content: data.style || '' } }] },
       }
     })
+    if (!data.token && (parseFloat(data.acompte) || 0) > 0) await notion.addVersementSession({client:data.client || 'Client',montant:parseFloat(data.acompte),date:today(),mode:'mode à préciser',token:data.token,paymentId:`manual-${appointment.id}-deposit`,devisDesc:data.style || ''})
+    return appointment
   },
 
   confirmAppointment: async (pageId, data) => {
-    let notesExist = ''
+    let notesExist = '', existingTitle = '', originalDate = ''
     try {
       const page = await call(`pages/${pageId}`, 'GET')
       notesExist = page?.properties?.Notes?.rich_text?.[0]?.plain_text || ''
-    } catch(_) {}
-    const newNotes = notesExist.includes('CONSENTEMENT') || notesExist.includes('Email')
-      ? notesExist
-      : `${data.sessions||1} session(s)`
+      existingTitle = page?.properties?.Session?.title?.[0]?.plain_text || ''
+      originalDate = page?.properties?.Date?.date?.start || ''
+      if (page.properties?.Statut?.select?.name === '✅ Confirmé') return page
+    } catch(_) { throw new Error('Impossible de relire la séance avant confirmation') }
+    const token = existingTitle.match(/SUMUP-([a-zA-Z0-9-]+)/)?.[1]
+    const newNotes = `${data.sessions || 1} session(s) · ${token ? 'DEVIS_TOKEN:' + token + ' · ' : ''}${originalDate ? 'RDV_INITIAL:' + originalDate + ' · ' : ''}${notesExist.replace(/^\d+\s*session\(s?\)\s*·?\s*/, '')}`.slice(0,1900)
 
     const prixTotal = parseFloat(data.prix) || 0
     const acompte   = parseFloat(data.acompte) || 0
     // Prix enregistré = solde encaissé aujourd'hui (total - acompte déjà reçu via SumUp)
-    const solde = Math.max(0, prixTotal - acompte)
+    if (prixTotal < 0 || acompte < 0 || acompte > prixTotal) throw new Error('Le prix total doit être au moins égal à l’acompte reçu')
+    const solde = money(prixTotal - acompte)
 
     return call(`pages/${pageId}`, 'PATCH', {
       properties: {
@@ -98,6 +110,7 @@ export const notion = {
         Prix:           { number: solde },
         'Acompte reçu': { number: acompte },
         'Solde reçu':   { number: solde },
+        Date:           { date: { start: data.date || today() } },
         Statut:         { select: { name: '✅ Confirmé' } },
         Notes:          { rich_text: [{ text: { content: newNotes } }] },
       }
@@ -155,12 +168,12 @@ export const notion = {
       Achat:              { title: [{ text: { content: `${data.categorie} · ${data.date}${data.fournisseur?' · '+data.fournisseur:''}` } }] },
       Date:               { date: { start: data.date } },
       Montant:            { number: parseFloat(data.montant) || 0 },
-      'Montant IVA':      { number: Math.round(parseFloat(data.montant)*0.21*100)/100 || 0 },
+      'Montant IVA':      { number: includedVat(parseFloat(data.montant) || 0, Number(data.taux_iva ?? 21)) },
       Catégorie:          { select: { name: data.categorie || '📦 Autre' } },
       Fournisseur:        { rich_text: [{ text: { content: data.fournisseur || '' } }] },
       'IVA récupérable':  { checkbox: !!data.iva_recuperable },
       'Saisi par':        { select: { name: data.saisi_par || 'Tony' } },
-      Notes:              { rich_text: [{ text: { content: data.notes || '' } }] }
+      Notes:              { rich_text: [{ text: { content: `[IVA:${Number(data.taux_iva ?? 21)}] ${data.notes || ''}`.slice(0,1900) } }] }
     },
     ...(data.photoUrl ? {
       children: [{ object:'block', type:'image', image:{ type:'external', external:{ url: data.photoUrl } } }]
@@ -310,7 +323,7 @@ export const notion = {
       'Solde reçu':   { number: parseFloat(data.montant) || 0 },
       Nationalité:    { select: { name: 'Autre' } },
       Date:           { date: { start: data.date || new Date().toISOString().split('T')[0] } },
-      Notes:          { rich_text: [{ text: { content: `Versement progressif · ${data.mode} · Devis: ${data.devisDesc || ''}`.substring(0, 500) } }] },
+      Notes:          { rich_text: [{ text: { content: `Versement progressif · ${data.mode} · Devis: ${data.devisDesc || ''}${data.token ? ' · DEVIS_TOKEN:' + data.token : ''}${data.paymentId ? ' · PAYMENT_ID:' + data.paymentId : ''}`.substring(0, 500) } }] },
       Statut:         { select: { name: '✅ Confirmé' } },
       'Client prénom':{ rich_text: [{ text: { content: String(data.client || '').substring(0, 200) } }] },
       'Style / Type': { rich_text: [{ text: { content: String(data.devisDesc || '').substring(0, 200) } }] },
@@ -412,11 +425,7 @@ export const notion = {
   },
 }
 
-export const parsePaiement = (s) => {
-  const title = s.properties.Session?.title?.[0]?.plain_text || ''
-  if (title.startsWith('[CARTE]')) return 'carte'
-  return 'cash'
-}
+export const parsePaiement = paymentMethod
 
 // Nb sessions stocké dans Notes
 export const getNbSess = (s) => {

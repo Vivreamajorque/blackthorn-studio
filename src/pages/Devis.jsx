@@ -154,6 +154,7 @@ export default function Devis({ onBack }) {
     // Créer une session CA pour que ça apparaisse dans le Dashboard
     await notion.addVersementSession({
       client:     devisItem?.properties?.Client?.rich_text?.[0]?.plain_text || 'Client',
+      token:      devisItem?.properties?.Token?.rich_text?.[0]?.plain_text || '',
       montant:    parseFloat(montant),
       mode,
       date:       today,
@@ -171,6 +172,7 @@ export default function Devis({ onBack }) {
         style:      getStr(selected, 'Description').substring(0, 200),
         prixEstime: getNum(selected, 'Prix'),
         acompte:    getNum(selected, 'Acompte'),
+        token:      selected?.properties?.Token?.rich_text?.[0]?.plain_text || '',
         date:       rdvDate,
         heure:      rdvHeure,
         duree:      String(dureeDevis),
@@ -287,14 +289,10 @@ export default function Devis({ onBack }) {
 
   // ── Copier lien ───────────────────────────────────────────
   const deleteDevis = async (id, clientNom) => {
-    if (!window.confirm('Supprimer ce devis et tous les versements associés ?')) return
+    if (!window.confirm('Archiver ce devis ? Les paiements enregistrés seront conservés.')) return
     try {
       await notion.deleteCreneau(id)
-      if (clientNom) {
-        await notion.deleteVersementsSessions(clientNom)
-        await notion.deleteRdvPrevu(clientNom)
-      }
-      showToast('Devis et versements supprimés')
+      showToast('Devis archivé — encaissements conservés')
       load()
     } catch(e) { showToast('Erreur: ' + e.message) }
   }

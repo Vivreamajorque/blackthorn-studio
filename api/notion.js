@@ -1,11 +1,12 @@
+const { requireSession } = require('../server/session.cjs')
 const https = require('https')
 const NOTION_KEY = process.env.NOTION_KEY
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
   if (req.method === 'OPTIONS') return res.status(200).end()
+  if (!await requireSession(req,res)) return
 
   const rawPath = req.query.path
   if (!rawPath) return res.status(400).json({ error: 'path requis' })

@@ -1,25 +1,18 @@
+import { receipts, inMonth, between, sum, sessionCount, forecast, forecastSum, financials, today, splitPayments, expenseVat } from '../lib/finance.mjs'
+import FinanceNotice from '../components/FinanceNotice'
 import React, { useState, useEffect, useCallback } from 'react'
 import { notion } from '../lib/notion'
 
 // ── MODÈLE FINANCIER ─────────────────────────────────
-const FIXES    = 956
-const MATOS    = 0.08
-const IVA_FL   = 150.47
 const OBJ_EQ   = 3895
 const OBJ_CONF = 7500
 const OBJ_HIV  = 5850
 
-const netReel = (ca) => {
-  const m=ca*MATOS, b=ca-FIXES-m
-  const irpf=Math.max(0,b*0.20)
-  const iva=Math.max(0,ca*0.21-IVA_FL-m*0.21)
-  return { net:Math.max(0,Math.round(b-irpf-iva)), irpf:Math.round(irpf), iva:Math.round(iva) }
-}
 
 const todayStr  = () => { const d=new Date(); const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}` }
 const thisMonth = () => { const d=new Date(); const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'); return `${y}-${m}` }
 const dateOf    = (s) => (s.properties.Date?.date?.start||'').substring(0,10)
-const fmt = (n) => { const a=Math.abs(Math.round(n)); return (n<0?'-':'')+(a>=1000?(a/1000).toFixed(1)+'k€':a+'€') }
+const fmt = n => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'}).format(n)
 const fmtN = (n) => { const a=Math.abs(Math.round(n)); return (n<0?'-':'')+(a>=1000?(a/1000).toFixed(1)+'k':String(a)) }
 
 const weekStart = () => {
@@ -84,10 +77,12 @@ export default function Dashboard() {
   const [depenses,       setDepenses]      = useState([])
   const [devis,          setDevis]          = useState([])
   const [sessionsPrevu,  setSessionsPrevu]  = useState([])
+  const [loadError, setLoadError] = useState('')
   const [loading,        setLoading]        = useState(true)
 
   const load = useCallback(async () => {
     setLoading(true)
+    setLoadError('')
     try {
       const [s,d,dv,sp] = await Promise.all([
         notion.getSessions(), notion.getDepenses(),
@@ -97,7 +92,7 @@ export default function Dashboard() {
       if (d.results)  setDepenses(d.results)
       if (dv.results) setDevis(dv.results)
       if (sp.results) setSessionsPrevu(sp.results)
-    } catch(e) {}
+    } catch(e) { setLoadError(e.message || 'Données indisponibles') }
     setLoading(false)
   }, [])
 
@@ -118,7 +113,7 @@ export default function Dashboard() {
     return !t.includes('Amely') && t !== '💰 Versement client'
   })
   const versements  = sessions.filter(s=>(s.properties.Type?.select?.name||'')==='💰 Versement client' && (s.properties.Statut?.select?.name||'')==='✅ Confirmé')
-  const sessConf    = sessActifs.filter(isConfirme)
+  const sessConf = receipts(sessions).filter(s=>s.properties.Type?.select?.name !== '💰 Versement client')
   const sessPrevu   = sessionsPrevu.filter(s=>{
     const t = s.properties.Type?.select?.name||''
     return !t.includes('Amely') && t !== '💰 Versement client'
@@ -138,33 +133,24 @@ export default function Dashboard() {
   const sessM   = sessConf.filter(s=>dateOf(s).startsWith(m))
   const versM   = versements.filter(s=>dateOf(s).startsWith(m))
 
-  const clientsAvecVersement = new Set(versM.map(s=>s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'').filter(Boolean))
-  const dedup = arr => arr.filter(s=>{ const c=s.properties['Client prénom']?.rich_text?.[0]?.plain_text||''; return !c||!clientsAvecVersement.has(c) })
-  const caMois  = dedup(sessM).reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const caSem   = dedup(sessW).reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versW.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const caJ     = dedup(sessJ).reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const nbSessM = sessM.reduce((a,s)=>a+getNbSess(s),0)
+  const cashRows = receipts(sessions)
+  const cashMonth = inMonth(cashRows, m)
+  const caMois = sum(cashMonth)
+  const caSem = sum(between(cashRows, ws, td))
+  const caJ = sum(between(cashRows, td, td))
+  const prevision = forecast(sessions, devis)
+
+  const nbSessM = sessionCount(cashMonth)
   const panier  = nbSessM>0 ? Math.round(caMois/nbSessM) : 0
 
-  const devisValides = devis.filter(d=>{
-    const st = d.properties.Statut?.select?.name||''
-    return st === '✅ Réservé' || st === '✅ Validé'
-  })
-  const caDevisPrev = devisValides.reduce((a,d)=>{
-    const prix = d.properties.Prix?.number||0
-    const ac   = d.properties.Acompte?.number||0
-    return a + Math.max(0, prix - ac)
-  }, 0)
-  const prevMois = sessPrevu.filter(s=>dateOf(s).startsWith(m))
-    .reduce((a,s)=>a+Math.max(0,(s.properties.Prix?.number||0)-(s.properties['Acompte reçu']?.number||0)),0)
-    + caDevisPrev
+  const prevMois = forecastSum(prevision.items.filter(x => x.date.startsWith(m)))
   const totalM  = caMois + prevMois
   const depMois  = depenses.filter(d=>dateOf(d).startsWith(m)).reduce((a,d)=>a+(d.properties.Montant?.number||0),0)
-  const r        = netReel(caMois)
+  const r        = financials(caMois, inMonth(depenses, m))
   const pctConf  = Math.round(totalM/OBJ_CONF*100)
 
   // ── VISION ANNUELLE
-  const caAnnee = sessConf.reduce((a,s)=>{const d=s.properties.Date?.date?.start||''; return d?a+(s.properties.Prix?.number||0):a},0)
+  const caAnnee = sum(cashRows.filter(s => MKEYS.includes(dateOf(s).slice(0,7))))
   const curMIdx = MKEYS.indexOf(m)
 
   const today_d  = new Date()
@@ -176,10 +162,9 @@ export default function Dashboard() {
     ? PM_MOIS.slice(0, curMIdx).reduce((a,[pm,j])=>a+pm*j/25, 0)
       + PM_MOIS[curMIdx][0] * PM_MOIS[curMIdx][1] / 25 * ratioM
     : 0
-  const caByM = {}
-  sessConf.forEach(s=>{const d=s.properties.Date?.date?.start||''; if(d){const mk=d.substring(0,7); caByM[mk]=(caByM[mk]||0)+(s.properties.Prix?.number||0)}})
-  const prevByM = {}
-  sessPrevu.forEach(s=>{const d=s.properties.Date?.date?.start||''; if(d){const mk=d.substring(0,7); prevByM[mk]=(prevByM[mk]||0)+(s.properties.Prix?.number||0)}})
+  const caByM = {}, prevByM = {}
+  cashRows.forEach(s => { const key = dateOf(s).slice(0,7); caByM[key] = (caByM[key] || 0) + s.properties.Prix.number })
+  prevision.items.forEach(x => { const key = x.date.slice(0,7); prevByM[key] = (prevByM[key] || 0) + x.amount })
 
   // ── ALERTES
   const rdvPassesNonValid = sessActifs.filter(isPrevu).filter(s=>(s.properties.Date?.date?.start||'').split('T')[0]<td)
@@ -191,7 +176,7 @@ export default function Dashboard() {
     ? {icon:'🎯',text:'Objectif confort atteint !',c:'var(--green)',bg:'var(--green-bg)'}
     : caMois>=OBJ_EQ
     ? {icon:'⚖️',text:`À l'équilibre · ${Math.round(caMois/OBJ_CONF*100)}% de l'objectif confort`,c:'var(--amber)',bg:'var(--amber-bg)'}
-    : {icon:'📍',text:`En retard · encore ${fmt(OBJ_EQ-caMois)} pour l'équilibre`,c:'var(--red)',bg:'var(--red-bg)'}
+    : {icon:'📍',text:`En retard · encore ${fmt(OBJ_EQ-caMois)} pour l'objectif minimum`,c:'var(--red)',bg:'var(--red-bg)'}
 
   // ── Jauges Jour + Semaine vs OBJ_EQ
   const OBJ_JOUR_EQ = Math.round(OBJ_EQ / daysInM)
@@ -218,6 +203,7 @@ export default function Dashboard() {
   // ── RENDER ──────────────────────────────────────────
   return (
     <div style={{background:'var(--bg)',minHeight:'100dvh',paddingBottom:'90px'}}>
+      <FinanceNotice sessions={sessions} error={loadError} />
 
       {/* BANDEAU ACOMPTES DU JOUR */}
       {versementsAujourdhui.length > 0 && (
@@ -407,8 +393,8 @@ export default function Dashboard() {
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'6px'}}>
                 {[
                   {l:'Sessions',v:nbSessM>0?String(nbSessM):'—',s:'ce mois',c:'var(--txt)'},
-                  {l:'Panier moyen',v:panier>0?panier+'€':'—',s:`${nbSessM} sess.`,c:'var(--txt)'},
-                  {l:'Net estimé',v:fmt(r.net),s:'après impôts',c:r.net>1500?'var(--green)':'var(--txt)'},
+                  {l:'Recettes / séance',v:panier>0?panier+'€':'—',s:`${nbSessM} sess.`,c:'var(--txt)'},
+                  {l:'Après provisions',v:fmt(r.net),s:'provisions estimées',c:r.net>1500?'var(--green)':'var(--txt)'},
                 ].map(x=>(
                   <div key={x.l} style={{textAlign:'center',padding:'7px 4px',background:'var(--bg)',borderRadius:'var(--r)'}}>
                     <div style={{fontSize:'8px',fontWeight:700,color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px',lineHeight:1.2}}>{x.l}</div>
@@ -434,7 +420,7 @@ export default function Dashboard() {
               <div style={{textAlign:'center',padding:'12px',background:'var(--bg)',borderRadius:'var(--r)'}}>
                 <div style={{fontSize:'9px',fontWeight:700,color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'5px'}}>Validés</div>
                 <div style={{fontFamily:'var(--font-mono)',fontSize:'32px',fontWeight:400,color:'var(--green)',lineHeight:1}}>{devisValidesCnt.length}</div>
-                <div style={{fontSize:'10px',color:'var(--txt3)',marginTop:'3px'}}>{fmt(caDevisPrev)} planifié</div>
+                <div style={{fontSize:'10px',color:'var(--txt3)',marginTop:'3px'}}>{fmt(forecastSum(prevision.items))} daté · {fmt(prevision.undated)} non daté</div>
               </div>
             </div>
             <div style={{marginBottom:'6px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
@@ -458,7 +444,7 @@ export default function Dashboard() {
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px'}}>
                 {[
                   {l:'IRPF',v:fmt(r.irpf),s:'20% bénéfice',c:'var(--amber)'},
-                  {l:'IVA nette',v:fmt(r.iva),s:'21% - déductible',c:'var(--amber)'},
+                  {l:'IVA nette',v:fmt(r.iva),s:'provision indicative',c:'var(--amber)'},
                   {l:'Total',v:fmt(r.irpf+r.iva),s:'à réserver',c:'var(--red)'},
                 ].map(x=>(
                   <div key={x.l} style={{textAlign:'center',padding:'10px 6px',background:'var(--bg)',borderRadius:'var(--r)'}}>

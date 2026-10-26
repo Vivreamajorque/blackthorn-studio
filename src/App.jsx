@@ -8,10 +8,6 @@ import Communication  from './pages/Communication'
 import Booking        from './pages/Booking'
 import Consent        from './pages/Consent'
 
-const PIN_AMELY = import.meta.env.VITE_APP_PIN  || '2026'
-const PIN_TONY  = import.meta.env.VITE_TONY_PIN || '1111'
-
-
 function UpdateBanner() {
   const [waiting, setWaiting] = React.useState(null)
   const [visible, setVisible] = React.useState(false)
@@ -76,18 +72,22 @@ function UpdateBanner() {
 
 function PinScreen({ onUnlock }) {
   const [digits, setDigits] = useState([])
-  const [shake,  setShake]  = useState(false)
+  const [shake, setShake] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
 
-  const tap = (n) => {
-    const next = [...digits, n]
-    if (next.length < 4) { setDigits(next); return }
-    const code = next.join('')
-    if (code === PIN_AMELY)     { onUnlock('amely') }
-    else if (code === PIN_TONY) { onUnlock('tony') }
-    else {
-      setShake(true)
-      setTimeout(() => { setShake(false); setDigits([]) }, 600)
-    }
+  const submitPin = async code => {
+    if (busy) return
+    setBusy(true); setError('')
+    try { await onUnlock(code) }
+    catch(e) { setError(e.message); setShake(true); setTimeout(()=>setShake(false),600); setDigits([]) }
+    finally { setBusy(false) }
+  }
+  const tap = n => {
+    if (busy) return
+    const next = [...digits,n]
+    setDigits(next)
+    if (next.length === 6) submitPin(next.join(''))
   }
 
   return (
@@ -105,12 +105,18 @@ function PinScreen({ onUnlock }) {
         marginBottom:'48px'
       }}/>
 
+      <label style={{color:'#C4A882',fontSize:12}}>Code d’accès (6 chiffres)</label>
+      <input aria-label="Code d’accès" type="password" name="pin" autoComplete="current-password" inputMode="numeric" maxLength={6} disabled={busy}
+        value={digits.join('')} onChange={e=>{const value=e.target.value.replace(/\D/g,'').slice(0,6);setDigits(value.split(''));if(value.length===6)submitPin(value)}}
+        style={{width:180,textAlign:'center',margin:'12px 0',fontSize:24,letterSpacing:12}} />
+      {error && <div role="alert" style={{color:'#ffb4a2',marginBottom:12}}>{error}</div>}
+      {busy && <div style={{color:'#C4A882'}}>Connexion…</div>}
       {/* Dots */}
       <div style={{
         display:'flex', gap:'18px', marginBottom:'44px',
         animation: shake ? 'pinShake .5s ease' : 'none'
       }}>
-        {[0,1,2,3].map(i => (
+        {[0,1,2,3,4,5].map(i => (
           <div key={i} style={{
             width:14, height:14, borderRadius:'50%',
             background: i < digits.length ? '#C4A882' : 'transparent',
@@ -168,14 +174,28 @@ function NavBar({ onLogout }) {
 }
 
 export default function App() {
-  const [role, setRole] = useState(() => sessionStorage.getItem('bt_role') || null)
-  const unlock = (r) => { sessionStorage.setItem('bt_role', r); setRole(r) }
-  const logout = () => { sessionStorage.removeItem('bt_role'); setRole(null) }
+  const [role, setRole] = useState(null)
+  const [checking, setChecking] = useState(true)
+  React.useEffect(()=>{
+    fetch('/api/auth',{cache:'no-store'}).then(r=>r.json()).then(d=>setRole(d.role || null)).catch(()=>setRole(null)).finally(()=>setChecking(false))
+    const expired=()=>setRole(null)
+    window.addEventListener('bt-auth-expired',expired)
+    return ()=>window.removeEventListener('bt-auth-expired',expired)
+  },[])
+  const unlock = async pin => {
+    const response = await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})})
+    const data = await response.json()
+    if (!response.ok || !data.role) throw new Error(data.error || 'Connexion impossible')
+    setRole(data.role)
+    sessionStorage.removeItem('bt_role')
+  }
+  const logout = async () => { await fetch('/api/auth',{method:'DELETE'}); setRole(null); sessionStorage.removeItem('bt_role') }
 
   // Routes publiques — pas de PIN requis
   if (window.location.pathname.startsWith('/booking/')) return <Booking />
   if (window.location.pathname.startsWith('/consent/')) return <Consent />
 
+  if (checking) return <div style={{padding:40}}>Chargement…</div>
   if (!role) return <PinScreen onUnlock={unlock} />
   if (role === 'tony') return <TonyDashboard onLogout={logout} />
 

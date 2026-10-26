@@ -383,17 +383,20 @@ export default function Consent() {
     try {
       // Générer le PDF
       const pdfData = generatePDF()
-      await fetch('/api/consent-submit', {
+      const response = await fetch('/api/consent-submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId,
+          access: new URLSearchParams(window.location.search).get('access'),
           lang,
           signature: sig,
           pdfData,
           data: { ...form, contras, autreDetail, photoOk: photo === true }
         })
       })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Enregistrement impossible')
       setDone(true)
       // Proposer téléchargement PDF au client
       const link = document.createElement('a')

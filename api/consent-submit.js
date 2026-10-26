@@ -1,3 +1,5 @@
+const { unsealData } = require('iron-session')
+const { sameOrigin } = require('../server/session.cjs')
 // api/consent-submit.js
 const https   = require('https')
 const NOTION_KEY  = process.env.NOTION_KEY
@@ -47,10 +49,13 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end()
   if (req.method !== 'POST') return res.status(405).end()
 
-  const { sessionId, data, signature, lang, pdfData } = req.body || {}
+  const { sessionId, access, data, signature, lang, pdfData } = req.body || {}
   if (!sessionId || !data) return res.status(400).json({ error: 'sessionId et data requis' })
 
+  if (!sameOrigin(req)) return res.status(403).end()
   try {
+    const permission=await unsealData(access || '',{password:process.env.SESSION_SECRET,ttl:24*3600})
+    if (permission.scope !== 'consent' || permission.sessionId !== sessionId) return res.status(403).json({error:'Lien expiré. Demandez un nouveau QR code au studio.'})
     const now = new Date().toLocaleString('fr-FR')
     const contraStr = Object.entries(data.contras || {})
       .filter(([,v]) => v === true).map(([k]) => k).join(', ') || 'Aucune'

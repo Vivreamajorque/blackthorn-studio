@@ -1,3 +1,4 @@
+const { requireSession } = require('../server/session.cjs')
 // api/sumup-history.js
 // DIAGNOSTIC — lecture seule. Liste les transactions SumUp des derniers jours
 // pour retrouver manuellement des paiements reçus mais jamais remontés dans
@@ -29,6 +30,7 @@ const sumupCall = (path) => new Promise((resolve, reject) => {
 })
 
 module.exports = async function handler(req, res) {
+  if (!await requireSession(req,res)) return
   res.setHeader('Access-Control-Allow-Origin', '*')
   if (!SUMUP_KEY || !MERCHANT_CODE) {
     return res.status(200).json({ ok: false, error: 'SUMUP_KEY ou SUMUP_MERCHANT_CODE manquante' })
