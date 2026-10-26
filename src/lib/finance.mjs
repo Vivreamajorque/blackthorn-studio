@@ -82,5 +82,5 @@ export function financials(cashTtc, expenses = []) {
   return { totalDep, caHt, ben, irpf, ivaColl, ivaRecup, ivaBalance, ivaNette, iva: ivaNette, cashBalance, net: money(cashBalance - irpf - ivaNette) }
 }
 export function dataWarnings(rows) {
-  return rows.filter(row => !isDeposit(row) && isConfirmed(row) && number(row, 'Acompte reçu') > 0 && number(row, 'Solde reçu') !== number(row, 'Prix'))
+  return rows.filter(row => !isDeposit(row) && isConfirmed(row) && number(row, 'Solde reçu') !== number(row, 'Prix'))
 }
