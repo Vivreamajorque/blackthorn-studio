@@ -16,7 +16,7 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   console.log('[SW] Activate', VERSION)
   e.waitUntil(
-    caches.keys().then(keys =>
+    self.skipWaiting().then(() => caches.keys()).then(keys =>
       Promise.all(
         keys.filter(k => k !== VERSION).map(k => {
           console.log('[SW] Suppression ancien cache:', k)
@@ -30,6 +30,8 @@ self.addEventListener('activate', e => {
 // FETCH : network-first pour index.html, cache-first pour assets
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url)
+  // Never cache authentication, private data or mutation requests.
+  if (url.pathname.startsWith('/api/') || e.request.method !== 'GET') return
 
   // Navigation : toujours réseau en premier (pour détecter les mises à jour)
   if (e.request.mode === 'navigate') {

@@ -1,77 +1,27 @@
-// api/sumup-checkout.js
-const SUMUP_KEY       = process.env.CLESUMUP || process.env.SUMUP_KEY
-const MERCHANT_CODE   = process.env.SUMUP_MERCHANT_CODE
-
-module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
-  if (req.method === 'OPTIONS') return res.status(200).end()
-  if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
-  if (!SUMUP_KEY) return res.status(500).json({ error: 'SUMUP_KEY manquante' })
-
-  const { amount, currency = 'EUR', description, reference } = req.body || {}
-  if (!amount || !description) return res.status(400).json({ error: 'amount et description requis' })
-
-  const https = require('https')
-
-  const cleanRef = (reference || `BT-${Date.now()}`)
-    .replace(/[^a-zA-Z0-9-]/g, '').substring(0, 90)
-
-  const payload = JSON.stringify({
-    checkout_reference: cleanRef,
-    amount:             Math.round(parseFloat(amount) * 100) / 100,
-    currency,
-    description:        String(description).substring(0, 100),
-    merchant_code:      MERCHANT_CODE,
-    // Hosted Checkout — SumUp retourne hosted_checkout_url directement utilisable
-    hosted_checkout: { enabled: true },
-    // notification_url = webhook automatique SumUp dès que paiement traité
-    notification_url: 'https://blackthorn-studio.vercel.app/api/sumup-webhook',
-    return_url: 'https://blackthorn-studio.vercel.app/booking-confirm',
-  })
-
-  console.log('[SumUp] Payload:', payload)
-
-  return new Promise((resolve) => {
-    const opts = {
-      hostname: 'api.sumup.com', port: 443,
-      path: '/v0.1/checkouts', method: 'POST',
-      headers: {
-        'Authorization':  `Bearer ${SUMUP_KEY}`,
-        'Content-Type':   'application/json',
-        'Content-Length': Buffer.byteLength(payload)
-      }
-    }
-
-    const r = https.request(opts, (resp) => {
-      let data = ''
-      resp.on('data', chunk => data += chunk)
-      resp.on('end', () => {
-        try {
-          const parsed = JSON.parse(data)
-          console.log('[SumUp] Status:', resp.statusCode, '| Response:', JSON.stringify(parsed).substring(0, 400))
-          if (resp.statusCode !== 200 && resp.statusCode !== 201) {
-            res.status(resp.statusCode).json({
-              error:   parsed.message || parsed.error_code || 'Erreur SumUp',
-              details: parsed
-            })
-          } else {
-            // Utiliser hosted_checkout_url si disponible, sinon fallback
-            const payUrl = parsed.hosted_checkout_url
-              || `https://pay.sumup.com/b2c/checkouts/${parsed.id}`
-            console.log('[SumUp] payUrl:', payUrl)
-            res.status(200).json({ checkoutId: parsed.id, payUrl, amount: parsed.amount })
-          }
-        } catch(e) {
-          res.status(500).json({ error: 'Parse error', raw: data.substring(0, 200) })
-        }
-        resolve()
-      })
+const { quoteForToken, notion } = require('../server/notion.cjs')
+const { sumup, getText, rich } = require('../server/payments.cjs')
+const { sameOrigin } = require('../server/session.cjs')
+module.exports = async (req,res) => {
+  res.setHeader('Cache-Control','private, no-store')
+  if (req.method !== 'POST') return res.status(405).end()
+  if (!sameOrigin(req)) return res.status(403).end()
+  try {
+    const {token,day,time}=req.body || {}
+    const quote=await quoteForToken(token)
+    if (!quote || quote.properties.Statut?.select?.name === '✅ Réservé') return res.status(400).json({error:'Devis indisponible'})
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day || '') || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time || '')) return res.status(400).json({error:'Créneau invalide'})
+    const amount=quote.properties.Acompte?.number || 0
+    if (!(amount > 0) || amount > (quote.properties.Prix?.number || 0)) return res.status(400).json({error:'Acompte invalide'})
+    const checkout=await sumup('checkouts','POST',{
+      checkout_reference:`BT-${token}-${Date.now()}`,amount,currency:'EUR',
+      description:`Acompte tatouage — ${getText(quote,'Client')} — ${day} ${time}`.slice(0,100),
+      merchant_code:process.env.SUMUP_MERCHANT_CODE,hosted_checkout:{enabled:true},
+      notification_url:'https://blackthorn-studio.vercel.app/api/sumup-webhook',
+      return_url:`https://blackthorn-studio.vercel.app/booking/${token}`
     })
-
-    r.on('error', (e) => { res.status(500).json({ error: e.message }); resolve() })
-    r.write(payload)
-    r.end()
-  })
+    // Preserve notes, and save the authoritative checkout before exposing payment.
+    const notes=getText(quote,'Notes').replace(/RDV:\s*\d{4}-\d{2}-\d{2}\s*à\s*\d{2}:\d{2}/g,'').replace(/CHECKOUT:[a-zA-Z0-9-]+/g,'')
+    await notion(`pages/${quote.id}`,'PATCH',{properties:{Notes:rich(`RDV: ${day} à ${time} · CHECKOUT:${checkout.id} · ${notes}`)}})
+    return res.status(200).json({checkoutId:checkout.id,payUrl:checkout.hosted_checkout_url || `https://pay.sumup.com/b2c/checkouts/${checkout.id}`,amount:checkout.amount})
+  } catch (_) { return res.status(502).json({error:'Paiement temporairement indisponible'}) }
 }

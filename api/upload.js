@@ -1,6 +1,8 @@
+const { requireSession } = require('../server/session.cjs')
 const https = require('https')
 
 module.exports = async function handler(req, res) {
+  if (!await requireSession(req,res)) return
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')

@@ -1,3 +1,5 @@
+import { receipts, inMonth, between, sum, sessionCount, forecast, forecastSum, financials, today, splitPayments, expenseVat } from '../lib/finance.mjs'
+import FinanceNotice from '../components/FinanceNotice'
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import Planning from './Planning'
 import Devis    from './Devis'
@@ -6,20 +8,13 @@ import { notion, parsePaiement, getNbSess } from '../lib/notion'
 const OBJ_EQ   = 3895   // équilibre (charges fixes couvertes)
 const OBJ_CONF = 7500   // objectif confort — cible principale Tony
 const PERSO    = 1500
-const FIXES    = 956
-const IVA_FL   = 150.47
 
-const netReel = (ca) => {
-  const m=ca*0.08, b=ca-FIXES-m
-  const irpf=Math.max(0,b*0.20), iva=Math.max(0,ca*0.21-IVA_FL-m*0.21)
-  return { net:Math.max(0,Math.round(b-irpf-iva)), irpf:Math.round(irpf), iva:Math.round(iva) }
-}
 
 const todayStr   = () => { const d=new Date(); const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}` }
 const thisMonth  = () => { const d=new Date(); const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'); return `${y}-${m}` }
 // Extrait les 10 premiers caractères d'une date Notion (ignore le timestamp UTC)
 const dateOf     = (s) => (s.properties.Date?.date?.start||'').substring(0,10)
-const fmt = (n) => { const a=Math.abs(Math.round(n)); return (n<0?'-':'')+(a>=1000?(a/1000).toFixed(1)+'k€':a+'€') }
+const fmt = n => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'}).format(n)
 
 const weekStart = () => {
   const d=new Date(); const day=d.getDay()
@@ -76,6 +71,7 @@ export default function TonyDashboard({ onLogout }) {
   const [depenses,     setDepenses]     = useState([])
   const [sessionsPrevu,setSessionsPrevu] = useState([])
   const [devis,        setDevis]         = useState([])
+  const [loadError, setLoadError] = useState('')
   const [loading,   setLoading]  = useState(true)
   const [toast,     setToast]    = useState('')
   const fileRef   = useRef(null)
@@ -84,7 +80,7 @@ export default function TonyDashboard({ onLogout }) {
   // Formulaires
   const [caForm,   setCaForm]   = useState({ ca:'', sessions:'1', paiement:'cash', natio:'🇫🇷 FR', source:'📸 Instagram', notes:'', date:todayStr(), avis:false })
   const [caSaving, setCaSaving] = useState(false)
-  const [depForm,  setDepForm]  = useState({ montant:'', fournisseur:'', categorie:'🖊️ Matériel tatouage', date:todayStr(), notes:'', iva_recuperable:true })
+  const [depForm,  setDepForm]  = useState({ montant:'', fournisseur:'', categorie:'🖊️ Matériel tatouage', date:todayStr(), notes:'', iva_recuperable:true, taux_iva:'21' })
   const [depSaving,setDepSaving]= useState(false)
   const [photo,    setPhoto]    = useState(null)
   const [photoUrl, setPhotoUrl] = useState(null)
@@ -129,13 +125,14 @@ export default function TonyDashboard({ onLogout }) {
   const showToast = (m) => { setToast(m); setTimeout(()=>setToast(''),2500) }
 
   const load = useCallback(async () => {
+    setLoadError('')
     try {
       const [s,d,sp,dv] = await Promise.all([notion.getSessions(), notion.getDepenses(), notion.getSessionsPrevu(), notion.getDevis()])
       if (s.results) setSessions(s.results)
       if (d.results) setDepenses(d.results)
       if (sp.results) setSessionsPrevu(sp.results)
       if (dv.results) setDevis(dv.results)
-    } catch(e) { console.error(e) }
+    } catch(e) { setLoadError(e.message || 'Données indisponibles') }
     setLoading(false)
   }, [])
 
@@ -147,7 +144,7 @@ export default function TonyDashboard({ onLogout }) {
   // d'eux est payé mais pas encore remonté, il est finalisé ici. Silencieux
   // et non bloquant — si ça matche quelque chose, on recharge les données.
   useEffect(() => {
-    fetch('/api/sumup-reconcile')
+    fetch('/api/sumup-reconcile',{method:'POST'})
       .then(r => r.json())
       .then(d => {
         const reconciled = (d?.results || []).filter(r => r.reconciled)
@@ -169,7 +166,7 @@ export default function TonyDashboard({ onLogout }) {
   })
   // Versements confirmés — seule source de vérité pour le CA encaissé
   const versements = sessions.filter(s=>(s.properties.Type?.select?.name||'')==='💰 Versement client' && (s.properties.Statut?.select?.name||'')==='✅ Confirmé')
-  const sessConf   = sessAll.filter(isConfirme)
+  const sessConf = receipts(sessions).filter(s=>s.properties.Type?.select?.name !== '💰 Versement client')
   const sessPrevu  = sessionsPrevu.filter(s=>{
     const t = s.properties.Type?.select?.name||''
     return !t.includes('Amely') && t !== '💰 Versement client'
@@ -184,16 +181,17 @@ export default function TonyDashboard({ onLogout }) {
   const versJ = versements.filter(s=>dateOf(s)===todayStr())
 
   // dedup : si un client a un [VERSEMENT] ce mois-ci, on ne compte pas sa session en double
-  const clientsAvecVersement = new Set(versM.map(s=>s.properties['Client prénom']?.rich_text?.[0]?.plain_text||'').filter(Boolean))
-  const dedup = arr => arr.filter(s=>{ const c=s.properties['Client prénom']?.rich_text?.[0]?.plain_text||''; return !c||!clientsAvecVersement.has(c) })
+  const cashRows = receipts(sessions)
+  const cashMonth = inMonth(cashRows, m)
+  const caMois = sum(cashMonth)
+  const caSem = sum(between(cashRows, ws, td))
+  const caJour = sum(between(cashRows, td, td))
+  const prevision = forecast(sessions, devis)
 
-  const caMois  = dedup(sessM).reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const caSem   = dedup(sessW).reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versW.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const caJour  = dedup(sessJ).reduce((a,s)=>a+(s.properties.Prix?.number||0),0) + versJ.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const totalSessM = sessM.reduce((a,s)=>a+getNbSess(s),0)
+  const totalSessM = sessionCount(cashMonth)
   const panier   = totalSessM>0 ? Math.round(caMois/totalSessM) : 0
 
-  const r = netReel(caMois)
+  const r = financials(caMois, inMonth(depenses, m))
   const OBJ_SEM = Math.round(OBJ_CONF/4.3)
   const colSem  = caSem>=OBJ_SEM?'#1A8C5A':caSem>=OBJ_SEM*0.6?'#D4820A':'#C0392B'
   const colMois = caMois>=OBJ_CONF?'var(--green)':caMois>=OBJ_EQ?'var(--amber)':'var(--red)'
@@ -202,27 +200,13 @@ export default function TonyDashboard({ onLogout }) {
     ? {icon:'🎯',text:'Objectif confort atteint !',c:'var(--green)'}
     : caMois>=OBJ_EQ
     ? {icon:'⚖️',text:`À l'équilibre — ${pctConfort}% de l'objectif confort`,c:'var(--amber)'}
-    : {icon:'📍',text:`En retard — encore ${fmt(OBJ_EQ-caMois)} pour l'équilibre`,c:'var(--red)'}
+    : {icon:'📍',text:`En retard — encore ${fmt(OBJ_EQ-caMois)} pour l'objectif minimum`,c:'var(--red)'}
 
   // CA prévisionnel (RDV planifiés)
   // Devis Validés (acompte payé, RDV à caler) = CA restant à encaisser
-  const devisValides  = devis.filter(d=>{
-    const st = d.properties.Statut?.select?.name||''
-    return st === '✅ Réservé' || st === '✅ Validé'
-  })
-  const caDevisPrev = devisValides.reduce((a,d)=>{
-    const prix    = d.properties.Prix?.number || 0
-    const acompte = d.properties.Acompte?.number || 0
-    return a + Math.max(0, prix - acompte)
-  }, 0)
-
-  const caPrevMois = sessPrevu
-    .filter(s=>dateOf(s).startsWith(m) || !(s.properties.Date?.date?.start))
-    .reduce((a,s)=>a+Math.max(0,(s.properties.Prix?.number||0)-(s.properties['Acompte reçu']?.number||0)),0)
-    + caDevisPrev
-  const caPrevSem  = sessPrevu
-    .filter(s=>dateOf(s)>=ws)
-    .reduce((a,s)=>a+Math.max(0,(s.properties.Prix?.number||0)-(s.properties['Acompte reçu']?.number||0)),0)
+  const caPrevMois = forecastSum(prevision.items.filter(x => x.date.startsWith(m)))
+  const weekEnd = new Date(ws + 'T12:00:00'); weekEnd.setDate(weekEnd.getDate() + 6)
+  const caPrevSem = forecastSum(prevision.items.filter(x => x.date >= ws && x.date <= weekEnd.toISOString().slice(0,10)))
 
   // Prochains RDV (7 jours)
   // RDV : inclure passés non validés + 30 jours à venir, triés par date
@@ -247,7 +231,7 @@ export default function TonyDashboard({ onLogout }) {
         acompte:0, solde:parseFloat(caForm.ca)||0,
         natio:caForm.natio, source:caForm.source, date:caForm.date, avis:!!caForm.avis,
         notes:`${caForm.sessions||1} session(s)${caForm.notes?' · '+caForm.notes:''}`,
-        style:caForm.notes, client:'', avis:false
+        style:caForm.notes, client:''
       })
       showToast(parseFloat(caForm.ca)>=156?'🔥 Belle session !':'✓ CA enregistré')
       setCaForm({ca:'',sessions:'1',paiement:'cash',natio:'🇫🇷 FR',source:'📸 Instagram',notes:'',date:todayStr(),avis:false})
@@ -322,7 +306,7 @@ export default function TonyDashboard({ onLogout }) {
     try {
       await notion.addDepense({...depForm,saisi_par:'Tony',photoUrl:photoUrl||null})
       showToast('✓ Dépense enregistrée')
-      setDepForm({montant:'',fournisseur:'',categorie:'🖊️ Matériel tatouage',date:todayStr(),notes:'',iva_recuperable:true})
+      setDepForm({montant:'',fournisseur:'',categorie:'🖊️ Matériel tatouage',date:todayStr(),notes:'',iva_recuperable:true, taux_iva:'21'})
       setPhoto(null); setPhotoUrl(null); setTab('home'); load()
     } catch(e) { showToast('Erreur') }
     setDepSaving(false)
@@ -625,6 +609,7 @@ export default function TonyDashboard({ onLogout }) {
           <input type="date" value={depForm.date} onChange={e=>setDepForm({...depForm,date:e.target.value})}/>
         </div>
       </div>
+      <div className="form-group"><label>Taux IVA de la facture</label><select value={depForm.taux_iva || '21'} onChange={e=>setDepForm({...depForm,taux_iva:e.target.value})}>{[0,4,10,21].map(rate=><option key={rate} value={rate}>{rate} %</option>)}</select></div>
       <div className="form-group" style={{marginBottom:'10px'}}>
         <label>Catégorie</label>
         <select value={depForm.categorie} onChange={e=>setDepForm({...depForm,categorie:e.target.value})}>
@@ -749,6 +734,7 @@ export default function TonyDashboard({ onLogout }) {
   // ── HOME ──────────────────────────────────────────
   return (
     <div style={{background:'var(--bg)',minHeight:'100dvh',paddingBottom:'88px'}}>
+      <FinanceNotice sessions={sessions} error={loadError} />
 
       {/* Confirmation RDV — bottom sheet */}
       {confirming&&(
@@ -1043,14 +1029,12 @@ export default function TonyDashboard({ onLogout }) {
           // Prévisionnel mois futurs
           const futMonths = (() => {
             const byMonth = {}
-            sessPrevu.forEach(s => {
-              const d = s.properties.Date?.date?.start || ''
-              if (!d) return
-              const mk = d.substring(0,7)
-              if (mk <= m) return // seulement futurs
-              if (!byMonth[mk]) byMonth[mk] = { ca:0, rdvs:[] }
-              byMonth[mk].ca += s.properties.Prix?.number || 0
-              byMonth[mk].rdvs.push(s)
+            prevision.items.forEach(item => {
+              const mk=item.date.slice(0,7)
+              if (mk <= m) return
+              if (!byMonth[mk]) byMonth[mk]={ca:0,rdvs:[]}
+              byMonth[mk].ca += item.amount
+              byMonth[mk].rdvs.push(sessions.find(s=>s.id===item.id) || {properties:{Date:{date:{start:item.date}}}})
             })
             return Object.entries(byMonth).sort(([a],[b])=>a.localeCompare(b)).slice(0,5)
           })()
@@ -1087,7 +1071,7 @@ export default function TonyDashboard({ onLogout }) {
                 <div style={{padding:'7px 10px',borderRadius:'var(--r)',background:depasse?'rgba(26,140,90,.08)':'rgba(192,57,43,.05)',borderLeft:`3px solid ${depasse?'#1A8C5A':restant<1000?'#D4820A':'#C0392B'}`}}>
                   {depasse
                     ? <span style={{fontSize:'12px',fontWeight:600,color:'var(--green)'}}>🎯 Objectif confort atteint — {fmt(totalPrevu-OBJ_CONF)} de marge !</span>
-                    : <span style={{fontSize:'12px',fontWeight:600,color:restant<1000?'var(--amber)':'var(--red)'}}>{totalPrevu>=OBJ_EQ?`⚖️ À l'équilibre — ${Math.round(totalPrevu/OBJ_CONF*100)}% de l'objectif confort`:`📍 En retard — encore ${fmt(OBJ_EQ-totalPrevu)} pour l'équilibre`}{caPrevMois>0?` (+${fmt(caPrevMois)} planifié)`:''}</span>
+                    : <span style={{fontSize:'12px',fontWeight:600,color:restant<1000?'var(--amber)':'var(--red)'}}>{totalPrevu>=OBJ_EQ?`⚖️ À l'équilibre — ${Math.round(totalPrevu/OBJ_CONF*100)}% de l'objectif confort`:`📍 En retard — encore ${fmt(OBJ_EQ-totalPrevu)} pour l'objectif minimum`}{caPrevMois>0?` (+${fmt(caPrevMois)} planifié)`:''}</span>
                   }
                 </div>
               </div>
@@ -1249,9 +1233,9 @@ export default function TonyDashboard({ onLogout }) {
         <div className="card" style={{marginBottom:'14px'}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px'}}>
             {[
-              {l:'Panier moyen',v:panier>0?panier+'€':'—',u:`${totalSessM} sess.`,c:panier>=200?'#1A8C5A':panier>=156?'#D4820A':'var(--txt)'},
+              {l:'Recettes / séance',v:panier>0?panier+'€':'—',u:`${totalSessM} sess.`,c:panier>=200?'#1A8C5A':panier>=156?'#D4820A':'var(--txt)'},
               {l:"Aujourd'hui",v:caJour>0?caJour+'€':'—',u:sessJ.length>0?sessJ.length+' sess.':'—',c:caJour>=156?'#1A8C5A':caJour>0?'#D4820A':'var(--txt3)'},
-              {l:'Net estimé',v:fmt(r.net),u:'après impôts',c:r.net>=PERSO?'#1A8C5A':'#C0392B'},
+              {l:'Après provisions',v:fmt(r.net),u:'provisions estimées',c:r.net>=PERSO?'#1A8C5A':'#C0392B'},
             ].map(x=>(
               <div key={x.l} style={{textAlign:'center',padding:'10px 4px',background:'var(--bg)',borderRadius:'var(--r)'}}>
                 <div style={{fontSize:'9px',color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px',lineHeight:1.3}}>{x.l}</div>
@@ -1268,10 +1252,8 @@ export default function TonyDashboard({ onLogout }) {
           const MOIS_S=['J','Jl','A','S','O','N','D','J','F','M','A','M']
           const MKEYS=['2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12','2027-01','2027-02','2027-03','2027-04','2027-05']
           const caByM={}
-          sessConf.forEach(s=>{const d=dateOf(s);if(d){const mk=d.substring(0,7);caByM[mk]=(caByM[mk]||0)+(s.properties.Prix?.number||0)}})
-          versements.forEach(s=>{const d=dateOf(s);if(d){const mk=d.substring(0,7);caByM[mk]=(caByM[mk]||0)+(s.properties.Prix?.number||0)}})
-          // Aussi ajouter le prévisionnel
-          sessPrevu.forEach(s=>{const d=s.properties.Date?.date?.start||'';if(d){const mk=d.substring(0,7);if(!caByM[mk+'_prev']) caByM[mk+'_prev']=0; caByM[mk+'_prev']+=(s.properties.Prix?.number||0)}})
+          cashRows.forEach(s=>{const mk=dateOf(s).slice(0,7);caByM[mk]=(caByM[mk]||0)+(s.properties.Prix?.number||0)})
+          prevision.items.forEach(x=>{const mk=x.date.slice(0,7)+'_prev';caByM[mk]=(caByM[mk]||0)+x.amount})
           const vals=MKEYS.map(k=>Math.round(caByM[k]||0))
           const valsP=MKEYS.map(k=>Math.round(caByM[k+'_prev']||0))
           const curIdx=MKEYS.indexOf(thisMonth())

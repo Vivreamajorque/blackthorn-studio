@@ -1,10 +1,12 @@
+import { receipts, inMonth, between, sum, sessionCount, forecast, forecastSum, financials, today, splitPayments, expenseVat } from '../lib/finance.mjs'
+import FinanceNotice from '../components/FinanceNotice'
 import React, { useState, useEffect, useCallback } from 'react'
 import { notion } from '../lib/notion'
 
-const fmt  = (n) => { const a=Math.abs(Math.round(n)); return (n<0?'-':'')+(a>=1000?(a/1000).toFixed(1)+'k€':a+'€') }
+const fmt = n => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'}).format(n)
 const fmtN = (n) => { if(!n&&n!==0) return '—'; if(n>=1000000) return (n/1000000).toFixed(1)+'M'; if(n>=1000) return (n/1000).toFixed(1)+'k'; return String(Math.round(n)) }
-const todayStr  = () => new Date().toISOString().split('T')[0]
-const thisMonth = () => new Date().toISOString().substring(0,7)
+const todayStr = today
+const thisMonth = () => today().slice(0,7)
 const getNbSess = (s) => { const t=s.properties.Notes?.rich_text?.[0]?.plain_text||''; const m=t.match(/^(\d+)/); return m?parseInt(m[1]):1 }
 const isConfirme = (s) => { const st=s.properties.Statut?.select?.name||''; return st===''||st==='✅ Confirmé' }
 
@@ -12,11 +14,13 @@ export default function Metriques() {
   const [sessions, setSessions] = useState([])
   const [depenses, setDepenses] = useState([])
   const [metriquesRS, setMetriquesRS] = useState([])
+  const [loadError, setLoadError] = useState('')
   const [loading, setLoading]   = useState(true)
   const [tab, setTab]           = useState('ca')
 
   const load = useCallback(async () => {
     setLoading(true)
+    setLoadError('')
     try {
       const [s, d, m] = await Promise.all([
         notion.getSessions(),
@@ -26,7 +30,7 @@ export default function Metriques() {
       if (s.results) setSessions(s.results)
       if (d.results) setDepenses(d.results)
       if (m.results) setMetriquesRS(m.results)
-    } catch(e) {}
+    } catch(e) { setLoadError(e.message || 'Données indisponibles') }
     setLoading(false)
   }, [])
   useEffect(() => { load() }, [load])
@@ -34,30 +38,31 @@ export default function Metriques() {
   const m  = thisMonth()
   const ws = (() => { const d=new Date(); d.setDate(d.getDate()+(d.getDay()===0?-6:1-d.getDay())); return d.toISOString().split('T')[0] })()
 
-  const sessConf = sessions.filter(s=>!(s.properties.Type?.select?.name||'').includes('Amely')).filter(isConfirme)
+  const sessConf = receipts(sessions)
   const sessM    = sessConf.filter(s=>(s.properties.Date?.date?.start||'').startsWith(m))
-  const sessW    = sessConf.filter(s=>(s.properties.Date?.date?.start||'')>=ws)
+  const sessW = between(sessConf, ws, today())
 
   // CA
   const caMois   = sessM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
   const caSem    = sessW.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const totalSessM = sessM.reduce((a,s)=>a+getNbSess(s),0)
+  const totalSessM = sessionCount(sessM)
   const panier   = totalSessM>0 ? Math.round(caMois/totalSessM) : 0
 
   // Répartition cash/carte
-  const caCash   = sessM.filter(s=>!(s.properties.Session?.title?.[0]?.plain_text||'').startsWith('[CARTE]')).reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const caCarte  = caMois - caCash
+  const caCash = splitPayments(sessM).cash
+  const caCarte = splitPayments(sessM).carte
+  const caAutres = splitPayments(sessM).virement + splitPayments(sessM).inconnu
 
   // Répartition nationalité
   const natCount = {}
-  sessConf.forEach(s => {
+  sessConf.filter(s=>s.properties.Type?.select?.name !== '💰 Versement client').forEach(s => {
     const n = s.properties.Nationalité?.select?.name||'Autre'
     natCount[n] = (natCount[n]||0) + (s.properties.Prix?.number||0)
   })
 
   // Répartition source
   const srcCount = {}
-  sessConf.forEach(s => {
+  sessConf.filter(s=>s.properties.Type?.select?.name !== '💰 Versement client').forEach(s => {
     const src = s.properties.Source?.select?.name||'—'
     if(src!=='—') srcCount[src] = (srcCount[src]||0) + 1
   })
@@ -67,7 +72,7 @@ export default function Metriques() {
 
   // Nb sessions par jour de la semaine
   const byDay = {0:0,1:0,2:0,3:0,4:0,5:0,6:0}
-  sessConf.forEach(s=>{
+  sessConf.filter(s=>s.properties.Type?.select?.name !== '💰 Versement client').forEach(s=>{
     const d=s.properties.Date?.date?.start||''
     if(d) byDay[new Date(d).getDay()]=(byDay[new Date(d).getDay()]||0)+1
   })
@@ -90,6 +95,7 @@ export default function Metriques() {
         <button onClick={load} style={{width:32,height:32,borderRadius:'50%',background:'var(--bg)',border:'1px solid var(--border2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'14px',color:'var(--txt3)',cursor:'pointer'}}>↻</button>
       </div>
 
+      <FinanceNotice sessions={sessions} error={loadError} />
       <div style={{padding:'16px'}}>
         {/* Tabs */}
         <div style={{display:'flex',gap:'6px',marginBottom:'18px',overflowX:'auto',paddingBottom:'2px'}}>
@@ -113,7 +119,7 @@ export default function Metriques() {
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'14px'}}>
               {[
                 {l:'CA semaine',v:fmt(caSem)},{l:'CA mois',v:fmt(caMois)},
-                {l:'Sessions mois',v:totalSessM},{l:'Panier moyen',v:panier>0?panier+'€':'—'},
+                {l:'Sessions mois',v:totalSessM},{l:'Recettes / séance',v:panier>0?panier+'€':'—'},
               ].map(x=>(
                 <div key={x.l} className="card" style={{textAlign:'center',padding:'12px'}}>
                   <div style={{fontSize:'9px',color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px'}}>{x.l}</div>
@@ -126,7 +132,7 @@ export default function Metriques() {
             <div className="card" style={{marginBottom:'12px',padding:'14px'}}>
               <div className="section-title" style={{marginBottom:'10px'}}>Répartition paiements — mois</div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
-                {[{l:'💵 Cash',v:caCash,c:'var(--green)'},{l:'💳 Carte',v:caCarte,c:'var(--blue)'}].map(x=>(
+                {[{l:'💵 Cash',v:caCash,c:'var(--green)'},{l:'💳 Carte',v:caCarte,c:'var(--blue)'},{l:'Virement / à préciser',v:caAutres,c:'var(--txt3)'}].map(x=>(
                   <div key={x.l} style={{textAlign:'center',padding:'10px',background:'var(--bg)',borderRadius:'var(--r)'}}>
                     <div style={{fontSize:'11px',fontWeight:600,color:x.c,marginBottom:'4px'}}>{x.l}</div>
                     <div style={{fontFamily:'var(--font-mono)',fontSize:'18px',fontWeight:500}}>{fmt(x.v)}</div>

@@ -1,3 +1,4 @@
+import QRCode from 'qrcode'
 import React, { useState, useEffect, useCallback } from 'react'
 import { notion } from '../lib/notion'
 
@@ -241,7 +242,18 @@ export default function Planning({ onBack, onEditRdv }) {
 
   // Ouvrir tous les créneaux libres de la semaine (9h-22h)
   const [openingWeek, setOpeningWeek] = useState(false)
-  const [qrPanel,     setQrPanel]     = useState(null) // session id pour QR code
+  const [qrPanel, setQrPanel] = useState(null)
+  const [qrImage,setQrImage] = useState('')
+  const [qrUrl,setQrUrl] = useState('')
+  const openConsent = async id => {
+    try {
+      const response=await fetch('/api/consent-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:id})})
+      const result=await response.json()
+      if (!response.ok) throw new Error(result.error || 'Lien indisponible')
+      const url=window.location.origin + '/consent/' + id + '?access=' + encodeURIComponent(result.access)
+      setQrUrl(url); setQrImage(await QRCode.toDataURL(url,{width:220,margin:2}));setQrPanel(id)
+    } catch(e) { alert(e.message) }
+  } // session id pour QR code
   const openAllWeek = async () => {
     setOpeningWeek(true)
     let count = 0
@@ -699,7 +711,7 @@ export default function Planning({ onBack, onEditRdv }) {
                       if (s.properties['Fiche signée']?.checkbox && pdfMatch?.[1]) {
                         window.open(pdfMatch[1].trim(), '_blank')
                       } else {
-                        setQrPanel(s.id)
+                        openConsent(s.id)
                       }
                     }} style={{
                       padding:'9px', borderRadius:'var(--r)', background: s.properties['Fiche signée']?.checkbox ? 'rgba(26,140,90,.1)' : 'var(--surface)',
@@ -723,7 +735,7 @@ export default function Planning({ onBack, onEditRdv }) {
                       if (s.properties['Fiche signée']?.checkbox && pdfMatch?.[1]) {
                         window.open(pdfMatch[1].trim(), '_blank')
                       } else {
-                        setQrPanel(s.id)
+                        openConsent(s.id)
                       }
                     }} style={{
                       flex:1, padding:'8px', borderRadius:'var(--r)',
@@ -755,12 +767,12 @@ export default function Planning({ onBack, onEditRdv }) {
             <div style={{ fontFamily:'var(--font-head)', fontSize:'16px', fontWeight:800, marginBottom:'6px' }}>📋 Fiche de consentement</div>
             <div style={{ fontSize:'12px', color:'var(--txt3)', marginBottom:'20px' }}>Le client scanne ce QR code avec son téléphone</div>
             <img
-              src={'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(window.location.origin + '/consent/' + qrPanel) + '&bgcolor=ffffff&color=1a1a1a&margin=2'}
+              src={qrImage}
               alt="QR Code"
               style={{ width:220, height:220, borderRadius:'12px', border:'2px solid var(--border)' }}
             />
             <div style={{ marginTop:'14px', fontSize:'11px', color:'var(--txt3)', fontFamily:'var(--font-mono)', wordBreak:'break-all', padding:'6px 10px', background:'var(--bg)', borderRadius:'8px' }}>
-              {window.location.origin}/consent/{qrPanel}
+              <a href={qrUrl} target="_blank" rel="noreferrer">Ouvrir la fiche de consentement</a>
             </div>
             <button onClick={() => setQrPanel(null)} style={{ marginTop:'16px', width:'100%', padding:'12px', background:'var(--txt)', color:'var(--bg)', border:'none', borderRadius:'50px', fontFamily:'var(--font-head)', fontWeight:700, fontSize:'13px', cursor:'pointer' }}>
               Fermer

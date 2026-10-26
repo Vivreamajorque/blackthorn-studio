@@ -1,3 +1,4 @@
+const { requireSession } = require('../server/session.cjs')
 const BREVO_KEY = process.env.BREVO_API_KEY
 
 const HTML = `<!DOCTYPE html>
@@ -44,6 +45,7 @@ const HTML = `<!DOCTYPE html>
 </body></html>`
 
 module.exports = async function handler(req, res) {
+  if (!await requireSession(req,res)) return
   if (req.method !== 'POST') return res.status(405).end()
   const { email, client, lang, date, style } = req.body
   if (!email) return res.status(400).json({ error: 'email requis' })

@@ -1,29 +1,14 @@
+import { receipts, inMonth, between, sum, sessionCount, forecast, forecastSum, financials, today, splitPayments, expenseVat } from '../lib/finance.mjs'
+import FinanceNotice from '../components/FinanceNotice'
 import React, { useState, useEffect, useCallback } from 'react'
 import { notion, parsePaiement } from '../lib/notion'
 
-const FIXES   = 956
-const IVA_FL  = 150.47
-const PERSO   = 1500
+const PERSO = 1500
 
-const calcFin = (ca) => {
-  const matos = ca * 0.08
-  const ben   = ca - FIXES - matos
-  const irpf  = Math.max(0, Math.round(ben * 0.20))
-  const ivaColl = Math.round(ca * 0.21)
-  const ivaRecup = Math.round(IVA_FL + matos * 0.21)
-  const ivaNette = Math.max(0, ivaColl - ivaRecup)
-  const net   = Math.max(0, Math.round(ben - irpf - ivaNette))
-  return { matos: Math.round(matos), ben: Math.round(ben), irpf, ivaColl, ivaRecup, ivaNette, net }
-}
-
-const fmt = (n, sign=false) => {
-  const a=Math.abs(Math.round(n))
-  const s=(n<0?'-':(sign&&n>0?'+':''))
-  return s+(a>=1000?(a/1000).toFixed(1)+'k€':a+'€')
-}
+const fmt = (n, sign=false) => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',signDisplay:sign?'exceptZero':'auto'}).format(n)
 
 const MOIS_LABELS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
-const thisMonth = () => new Date().toISOString().substring(0,7)
+const thisMonth = () => today().slice(0,7)
 
 // Ligne du tableau
 function Row({ label, value, sub, color='var(--txt)', bold, indent, right, bg }) {
@@ -53,48 +38,41 @@ function PayBadge({ isCash }) {
 export default function Comptabilite() {
   const [sessions,  setSessions]  = useState([])
   const [depenses,  setDepenses]  = useState([])
+  const [loadError, setLoadError] = useState('')
   const [loading,   setLoading]   = useState(true)
   const [tab,       setTab]       = useState('resume')
   const [moisSelect,setMoisSelect]= useState(thisMonth())
 
   const load = useCallback(async () => {
     setLoading(true)
+    setLoadError('')
     try {
       const [s,d] = await Promise.all([notion.getSessions(), notion.getDepenses()])
       if (s.results) setSessions(s.results)
       if (d.results) setDepenses(d.results)
-    } catch(e) {}
+    } catch(e) { setLoadError(e.message || 'Données indisponibles') }
     setLoading(false)
   }, [])
   useEffect(() => { load() }, [load])
 
   // Filtres par mois sélectionné
-  const sessM = sessions.filter(s=>{
-    const d      = s.properties.Date?.date?.start||''
-    const isAmely= (s.properties.Type?.select?.name||'').includes('Amely')
-    const st     = s.properties.Statut?.select?.name||''
-    const isConf = st==='' || st==='✅ Confirmé'   // exclure 🗓 Prévu, 👻 No-show, ❌ Annulé
-    return d.startsWith(moisSelect) && !isAmely && isConf
-  })
-  const depM = depenses.filter(d=>(d.properties.Date?.date?.start||'').startsWith(moisSelect))
-
-  // Calculs CA
-  const caMois    = sessM.reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const caCash    = sessM.filter(s=>parsePaiement(s)==='cash').reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const caCarte   = sessM.filter(s=>parsePaiement(s)!=='cash').reduce((a,s)=>a+(s.properties.Prix?.number||0),0)
-  const nbSess    = sessM.length
-
-  // Calculs charges
-  const totalDep  = depM.reduce((a,d)=>a+(d.properties.Montant?.number||0),0)
-  const totalIvaRecup = depM.filter(d=>d.properties['IVA récupérable']?.checkbox).reduce((a,d)=>a+(d.properties['Montant IVA']?.number||0),0)
-
-  // Financier
-  const fin = calcFin(caMois)
-
-  // IVA compte
+  const sessM = inMonth(receipts(sessions), moisSelect)
+  const depM = inMonth(depenses, moisSelect)
+  const caMois = sum(sessM)
+  const paiements = splitPayments(sessM)
+  const caCash = paiements.cash
+  const caCarte = paiements.carte
+  const caAutres = paiements.virement + paiements.inconnu
+  const nbSess = sessionCount(sessM)
+  const fin = financials(caMois, depM)
+  const totalDep = fin.totalDep
+  const totalIvaRecup = fin.ivaRecup
   const ivaCollectee = fin.ivaColl
-  const ivaRecuperee = fin.ivaRecup + totalIvaRecup
-  const ivaARegler   = Math.max(0, ivaCollectee - ivaRecuperee)
+  const ivaRecuperee = fin.ivaRecup
+  const ivaARegler = fin.ivaNette
+  const quarter = moisSelect.slice(0,4) + '-' + String(Math.floor((Number(moisSelect.slice(5))-1)/3)*3+1).padStart(2,'0')
+  const quarterMonths = Array.from({length:3},(_,i) => quarter.slice(0,5) + String(Number(quarter.slice(5))+i).padStart(2,'0'))
+  const quarterFin = financials(sum(receipts(sessions).filter(x=>quarterMonths.includes((x.properties.Date?.date?.start || '').slice(0,7)))),depenses.filter(x=>quarterMonths.includes((x.properties.Date?.date?.start || '').slice(0,7))))
 
   // Catégories dépenses
   const catDep = {}
@@ -123,6 +101,7 @@ export default function Comptabilite() {
   return (
     <div style={{ padding:'20px 16px 90px', background:'var(--bg)', minHeight:'100vh' }}>
 
+      <FinanceNotice sessions={sessions} error={loadError} />
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px' }}>
         <div style={{ fontFamily:'var(--font-head)', fontSize:'18px', fontWeight:800 }}>Comptabilité</div>
@@ -162,7 +141,7 @@ export default function Comptabilite() {
           <div className="card" style={{ textAlign:'center', padding:'20px', marginBottom:'16px',
             borderColor: fin.net>=PERSO?'rgba(26,140,90,.3)':'rgba(192,57,43,.3)',
             background: fin.net>=PERSO?'rgba(26,140,90,.03)':'rgba(192,57,43,.03)' }}>
-            <div style={{ fontSize:'11px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'6px' }}>Résultat net du mois</div>
+            <div style={{ fontSize:'11px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'6px' }}>Solde après provisions estimées</div>
             <div style={{ fontFamily:'var(--font-mono)', fontSize:'36px', fontWeight:500, color:fin.net>=PERSO?'#1A8C5A':'#C0392B' }}>
               {fmt(fin.net)}
             </div>
@@ -176,14 +155,15 @@ export default function Comptabilite() {
           {/* P&L complet */}
           <div className="card" style={{ marginBottom:'14px' }}>
             <div style={{ fontSize:'10px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', fontWeight:600, padding:'4px 0 8px' }}>ENTRÉES</div>
-            <Row label="CA total HT" value={fmt(caMois)} bold color={caMois>0?'#1A8C5A':'var(--txt3)'} />
+            <Row label="Encaissements TTC" value={fmt(caMois)} bold color={caMois>0?'#1A8C5A':'var(--txt3)'} />
             <Row label="↳ Cash" value={fmt(caCash)} indent sub={nbSess>0?`${Math.round(caCash/caMois*100||0)}%`:undefined} />
-            <Row label="↳ Carte / virement" value={fmt(caCarte)} indent sub={nbSess>0?`${Math.round(caCarte/caMois*100||0)}%`:undefined} />
+            <Row label="↳ Virement / mode à préciser" value={fmt(caAutres)} indent />
+            <Row label="↳ Carte" value={fmt(caCarte)} indent sub={nbSess>0?`${Math.round(caCarte/caMois*100||0)}%`:undefined} />
 
             <div style={{ fontSize:'10px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', fontWeight:600, padding:'12px 0 8px' }}>CHARGES OPÉRATIONNELLES</div>
-            <Row label="Loyer + RETA (fixes)" value={`-${fmt(FIXES)}`} />
-            <Row label="Matériel ~8% CA" value={`-${fmt(fin.matos)}`} />
-            <Row label="Bénéfice brut" value={fmt(fin.ben)} bold color={fin.ben>0?'var(--txt)':'#C0392B'} />
+            <Row label="Dépenses saisies TTC" value={`-${fmt(totalDep)}`} />
+            <Row label="Solde avant provisions" value={fmt(fin.cashBalance)} />
+            <Row label="Base estimée hors IVA" value={fmt(fin.ben)} bold color={fin.ben>0?'var(--txt)':'#C0392B'} />
 
             <div style={{ fontSize:'10px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', fontWeight:600, padding:'12px 0 8px' }}>IMPÔTS</div>
             <Row label="IRPF (20% bénéfice)" value={`-${fmt(fin.irpf)}`} color='#D4820A' sub="→ provision" />
@@ -192,7 +172,7 @@ export default function Comptabilite() {
             <Row label="IVA nette à reverser" value={`-${fmt(fin.ivaNette)}`} color='#D4820A' bold sub="→ provision" />
 
             <div style={{ fontSize:'10px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', fontWeight:600, padding:'12px 0 8px' }}>RÉSULTAT</div>
-            <Row label="Net disponible" value={fmt(fin.net)} bold color={fin.net>=PERSO?'#1A8C5A':'#C0392B'} />
+            <Row label="Après provisions estimées" value={fmt(fin.net)} bold color={fin.net>=PERSO?'#1A8C5A':'#C0392B'} />
             <Row label="Charges ménage" value="-1 500€" />
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 0 4px', borderTop:'1px solid var(--border)', marginTop:'4px' }}>
               <span style={{ fontSize:'14px', fontWeight:700 }}>Dispo libre</span>
@@ -208,7 +188,8 @@ export default function Comptabilite() {
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
               {[
                 { l:'💵 Cash', v:caCash, pct:caMois>0?Math.round(caCash/caMois*100):0, c:'#1A8C5A' },
-                { l:'💳 Carte', v:caCarte, pct:caMois>0?Math.round(caCarte/caMois*100):0, c:'#2980B9' }
+                { l:'💳 Carte', v:caCarte, pct:caMois>0?Math.round(caCarte/caMois*100):0, c:'#2980B9' },
+              { l:'Virement / à préciser',v:caAutres,pct:caMois>0?Math.round(caAutres/caMois*100):0,c:'var(--txt3)' }
               ].map(x=>(
                 <div key={x.l} style={{ textAlign:'center', padding:'10px', background:'var(--bg)', borderRadius:'var(--r)' }}>
                   <div style={{ fontSize:'11px', fontWeight:700, color:x.c, marginBottom:'4px' }}>{x.l}</div>
@@ -232,7 +213,7 @@ export default function Comptabilite() {
             {[
               { l:'Sessions', v:nbSess, unit:'' },
               { l:'CA total', v:fmt(caMois), unit:'' },
-              { l:'Panier moyen', v:nbSess>0?Math.round(caMois/nbSess)+'€':'—', unit:'' },
+              { l:'Recettes / séance', v:nbSess>0?Math.round(caMois/nbSess)+'€':'—', unit:'' },
             ].map(x=>(
               <div key={x.l} className="card" style={{ textAlign:'center', padding:'10px 6px' }}>
                 <div style={{ fontSize:'9px', color:'var(--txt3)', textTransform:'uppercase', marginBottom:'4px' }}>{x.l}</div>
@@ -305,7 +286,7 @@ export default function Comptabilite() {
           <div className="card" style={{ marginBottom:'14px', padding:'14px' }}>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', textAlign:'center' }}>
               {[
-                { l:'Total charges', v:fmt(totalDep+FIXES), c:'#C0392B' },
+                { l:'Total charges', v:fmt(totalDep), c:'#C0392B' },
                 { l:'Dépenses saisies', v:fmt(totalDep), c:'var(--txt)' },
                 { l:'IVA récup.', v:fmt(totalIvaRecup), c:'#1A8C5A' },
               ].map(x=>(
@@ -351,7 +332,7 @@ export default function Comptabilite() {
               const date= d.properties.Date?.date?.start||''
               const four= d.properties.Fournisseur?.rich_text?.[0]?.plain_text||''
               const ivaR= d.properties['IVA récupérable']?.checkbox
-              const ivaM= d.properties['Montant IVA']?.number||0
+              const ivaM = expenseVat(d)
               const par = d.properties['Saisi par']?.select?.name||''
               return (
                 <div key={d.id} className="card" style={{ marginBottom:'8px', padding:'12px 14px' }}>
@@ -383,10 +364,10 @@ export default function Comptabilite() {
           <div className="card" style={{ marginBottom:'14px' }}>
             <div style={{ fontSize:'10px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', fontWeight:600, marginBottom:'10px' }}>Tableau IVA</div>
             {[
-              { l:'IVA collectée (CA × 21%)', v:fmt(ivaCollectee), c:'#C0392B' },
-              { l:'IVA récupérable (loyer + charges)', v:`-${fmt(ivaRecuperee)}`, c:'#1A8C5A' },
+              { l:'IVA incluse dans les encaissements (21/121)', v:fmt(ivaCollectee), c:'#C0392B' },
+              { l:'IVA des dépenses saisies (taux à vérifier)', v:`-${fmt(ivaRecuperee)}`, c:'#1A8C5A' },
               { l:'IVA nette à reverser', v:fmt(ivaARegler), c:'#D4820A', bold:true },
-              { l:'IVA trimestrielle estimée (×3)', v:fmt(ivaARegler*3), c:'#D4820A', bold:true },
+              { l:'Provision IVA du trimestre enregistré', v:fmt(quarterFin.ivaNette), c:'#D4820A', bold:true },
             ].map(r=>(
               <div key={r.l} style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid var(--border)' }}>
                 <span style={{ fontSize:'12px', color:'var(--txt2)' }}>{r.l}</span>
@@ -397,11 +378,11 @@ export default function Comptabilite() {
 
           {/* IRPF */}
           <div className="card" style={{ marginBottom:'14px' }}>
-            <div style={{ fontSize:'10px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', fontWeight:600, marginBottom:'10px' }}>IRPF — Modelo 130</div>
+            <div style={{ fontSize:'10px', color:'var(--txt3)', textTransform:'uppercase', letterSpacing:'1px', fontWeight:600, marginBottom:'10px' }}>Provision IRPF indicative — hors déclaration</div>
             {[
               { l:'Bénéfice brut', v:fmt(fin.ben) },
               { l:'IRPF mensuel (20%)', v:fmt(fin.irpf), bold:true, c:'#D4820A' },
-              { l:'IRPF trimestriel (×3)', v:fmt(fin.irpf*3), bold:true, c:'#D4820A' },
+              { l:'Provision IRPF du trimestre enregistré', v:fmt(quarterFin.irpf), bold:true, c:'#D4820A' },
             ].map(r=>(
               <div key={r.l} style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid var(--border)' }}>
                 <span style={{ fontSize:'12px', color:'var(--txt2)' }}>{r.l}</span>

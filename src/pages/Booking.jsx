@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { notion } from '../lib/notion'
 
 const SUMUP_AFFILIATE = 'https://api.sumup.com/v0.1/checkout'
 // Note: SumUp paiement en ligne = via SumUp Checkout API ou lien Pay by Link
@@ -36,6 +35,8 @@ const getHeureRdv = (s) => {
 const getDureeRdv = (s) => {
   // Durée stockée en minutes dans Notes "2 session(s)" ou directement
   const notes = s.properties.Notes?.rich_text?.[0]?.plain_text || ''
+  const explicit = notes.match(/DUREE:(\d+)/)?.[1]
+  if (explicit) return Number(explicit)
   const durMatch = notes.match(/(\d+)h(\d*)/)
   if (durMatch) return parseInt(durMatch[1])*60 + (parseInt(durMatch[2])||0)
   // Par défaut 120min (2h) pour tout RDV sans durée précisée
@@ -211,12 +212,19 @@ export default function Booking() {
     else setLang('fr')
   }, [])
 
+  const bookingCall = async (action, params={}) => {
+    const response=await fetch('/api/booking?' + new URLSearchParams({token,action,...params}),{cache:'no-store'})
+    const data=await response.json()
+    if (!response.ok) throw new Error(data.error || 'Réservation indisponible')
+    return data
+  }
+
   // Charger le devis depuis le token
   useEffect(() => {
     if (!token) { setError('Token manquant'); setLoading(false); return }
     ;(async () => {
       try {
-        const r = await notion.getDevisByToken(token)
+        const r = await bookingCall('quote')
         if (!r.results?.length) {
           setError('Lien invalide ou expiré — token : ' + token)
           setLoading(false)
@@ -229,7 +237,7 @@ export default function Booking() {
         setDevis(d)
         // Charger sessions maintenant (bloquant — nécessaire pour le filtrage anti-chevauchement)
         try {
-          const s = await notion.getSessions()
+          const s = await bookingCall('availability')
           if (s.results) setSessions(s.results)
         } catch(e) { console.warn('sessions non chargées:', e) }
       } catch(e) {
@@ -255,7 +263,7 @@ export default function Booking() {
         const dateMin = addDays(todayStr(), w * 6 + 1)
         const dateMax = addDays(todayStr(), w * 6 + 6)
         try {
-          const r = await notion.getCreneauxRange(dateMin, dateMax)
+          const r = await bookingCall('slots', {from:dateMin,to:dateMax})
           if (r.results) all.push(...r.results)
         } catch(e) {}
       }
@@ -376,22 +384,13 @@ export default function Booking() {
   const finalizeBooking = async () => {
     if (!devis || !selectedDay || !selectedHr) return
     try {
-      const devisDuree = String(devis.properties['Durée']?.number || 120)
-      await notion.addAppointment({
-        client:     devis.properties['Client']?.rich_text?.[0]?.plain_text || 'Client',
-        style:      devis.properties['Description']?.rich_text?.[0]?.plain_text || '',
-        prixEstime: devis.properties['Prix']?.number || 0,
-        acompte:    devis.properties['Acompte']?.number || 0,
-        date:       selectedDay,
-        heure:      selectedHr,
-        duree:      devisDuree,
-        natio:      'Autre',
-        source:     '🔗 Lien réservation',
-        sessions:   1,
-      })
-      await notion.markDevisReserve(devis.id, selectedDay, selectedHr)
+      if ((devis.properties.Acompte?.number || 0) === 0) {
+        const response=await fetch('/api/booking',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'reserve',token,day:selectedDay,time:selectedHr})})
+        if (!response.ok) throw new Error('Réservation impossible')
+      }
+      // Paid bookings are finalized once on the server, never by this browser.
       try { sessionStorage.removeItem('bt_pending_checkout') } catch(_) {}
-    } catch(e) { console.error('finalizeBooking error:', e) }
+    } catch(e) { setError(e.message); return }
     setStep(4)
   }
 
@@ -672,6 +671,7 @@ export default function Booking() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                      token, day:selectedDay, time:selectedHr,
                       amount:      acompte,
                       description: `Acompte tatouage — ${client} — ${selectedDay} ${selectedHr}`,
                       reference:   `BT-${token}-${Date.now()}`
@@ -684,7 +684,7 @@ export default function Booking() {
                     // Écrire la date + le checkout id dans les Notes (pas de statut Réservé)
                     // → le webhook, sumup-check ET la réconciliation auto (Hub) pourront
                     // tous retrouver ce paiement, même si ce navigateur est fermé après paiement.
-                    try { await notion.saveCheckoutPending(devis.id, selectedDay, selectedHr, d.checkoutId || '') } catch(_) {}
+                    // Date and checkout reference have already been saved by the server.
                     // Sauvegarde locale — permet de reprendre la vérification si la page recharge
                     try { sessionStorage.setItem('bt_pending_checkout', JSON.stringify({
                       checkoutId: d.checkoutId, token, selectedDay, selectedHr
