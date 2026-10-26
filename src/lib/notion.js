@@ -87,15 +87,16 @@ export const notion = {
   },
 
   confirmAppointment: async (pageId, data) => {
-    let notesExist = '', existingTitle = ''
+    let notesExist = '', existingTitle = '', originalDate = ''
     try {
       const page = await call(`pages/${pageId}`, 'GET')
       notesExist = page?.properties?.Notes?.rich_text?.[0]?.plain_text || ''
       existingTitle = page?.properties?.Session?.title?.[0]?.plain_text || ''
+      originalDate = page?.properties?.Date?.date?.start || ''
       if (page.properties?.Statut?.select?.name === '✅ Confirmé') return page
     } catch(_) { throw new Error('Impossible de relire la séance avant confirmation') }
     const token = existingTitle.match(/SUMUP-([a-zA-Z0-9-]+)/)?.[1]
-    const newNotes = `${data.sessions || 1} session(s) · ${notesExist.replace(/^\d+\s*session\(s?\)\s*·?\s*/, '')}${token ? ' · DEVIS_TOKEN:' + token : ''}`.slice(0,1900)
+    const newNotes = `${data.sessions || 1} session(s) · ${token ? 'DEVIS_TOKEN:' + token + ' · ' : ''}${originalDate ? 'RDV_INITIAL:' + originalDate + ' · ' : ''}${notesExist.replace(/^\d+\s*session\(s?\)\s*·?\s*/, '')}`.slice(0,1900)
 
     const prixTotal = parseFloat(data.prix) || 0
     const acompte   = parseFloat(data.acompte) || 0
@@ -109,6 +110,7 @@ export const notion = {
         Prix:           { number: solde },
         'Acompte reçu': { number: acompte },
         'Solde reçu':   { number: solde },
+        Date:           { date: { start: data.date || today() } },
         Statut:         { select: { name: '✅ Confirmé' } },
         Notes:          { rich_text: [{ text: { content: newNotes } }] },
       }

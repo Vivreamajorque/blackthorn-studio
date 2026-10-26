@@ -267,7 +267,7 @@ export default function TonyDashboard({ onLogout }) {
       await notion.confirmAppointment(confirming.id, {
         prix:parseFloat(confForm.prix), paiement:confForm.paiement,
         acompte:parseFloat(confForm.acompte)||0,
-        date:confirming.properties.Date?.date?.start||td,
+        date:confForm.date || td,
         sessions:confForm.sessions,
         client:confirming.properties['Client prénom']?.rich_text?.[0]?.plain_text||'Client',
         style:confirming.properties['Style / Type']?.rich_text?.[0]?.plain_text||'',
@@ -744,6 +744,7 @@ export default function TonyDashboard({ onLogout }) {
             <div style={{fontSize:'12px',color:'var(--txt3)',marginBottom:'16px'}}>
               {confirming.properties['Client prénom']?.rich_text?.[0]?.plain_text||'Client'} · {confirming.properties.Date?.date?.start||''}
             </div>
+            <div className="form-group"><label>Date d’encaissement du solde</label><input type="date" value={confForm.date || td} onChange={e=>setConfForm({...confForm,date:e.target.value})}/></div>
             <div style={{marginBottom:'12px'}}>
               <label style={{fontSize:'11px',fontWeight:600,color:'var(--txt3)',textTransform:'uppercase',letterSpacing:'.8px',display:'block',marginBottom:'6px'}}>Prix total (€)</label>
               <input type="number" inputMode="decimal" value={confForm.prix} onChange={e=>setConfForm({...confForm,prix:e.target.value})}

@@ -206,7 +206,7 @@ export default function Planning({ onBack, onEditRdv }) {
       await notion.confirmAppointment(panelData.id, {
         prix: prixTotal, paiement: confForm.paiement,
         acompte: acompteRecu, solde,
-        date: getDateOnly(panelData), sessions: 1
+        date: confForm.date || todayStr(), sessions: 1
       })
 
       // Envoyer email aftercare si email client disponible dans les Notes
@@ -460,6 +460,7 @@ export default function Planning({ onBack, onEditRdv }) {
                   </div>
                 </div>
 
+                <div className="form-group"><label>Date d’encaissement du solde</label><input type="date" value={confForm.date || todayStr()} onChange={e=>setConfForm({...confForm,date:e.target.value})}/></div>
                 {/* Bloc acompte — mis en avant si acompte reçu */}
                 {hasAcompte && (
                   <div style={{ background:'rgba(26,140,90,.06)', border:'1.5px solid rgba(26,140,90,.25)', borderRadius:'var(--r)', padding:'14px 16px', marginBottom:'14px' }}>
