@@ -1,5 +1,8 @@
 import React, { useState } from 'react'
 import { PersonalData, StudioData } from './GestoriaData'
+import GestoriaGuide from './GestoriaGuide'
+import { filingDeadline, formatDate } from '../lib/gestoria-calendar.mjs'
+import { useGestoriaWorkspace } from '../lib/gestoria-workspace'
 
 const ENTITIES = [
   { id: 'independent', name: 'Mon activité', subtitle: 'Prestations et accompagnement' },
@@ -26,6 +29,11 @@ const TASKS = [
   {
     id: 'sales', title: 'Rassembler les recettes',
     detail: 'Regrouper les factures émises et rapprocher dates, montants et encaissements du compte professionnel ou du terminal de paiement.',
+  },
+  {
+    id: 'malt', title: 'Rassembler les factures Malt', entity: 'independent',
+    detail: 'Dans tes missions Malt, récupère les factures de projet et de frais. Compare ensuite les versements avec Revolut Pro.',
+    url: 'https://help.malt.com/hc/fr/articles/29540886429586-Comment-fonctionnent-la-facturation-et-le-paiement', link: 'Aide Malt',
   },
   {
     id: 'expenses', title: 'Rassembler les dépenses',
@@ -74,6 +82,8 @@ const YEARS = [2025, 2026]
 const QUARTERS = [1, 2, 3, 4]
 const FILING_ROWS = QUARTERS.flatMap(quarter => FORMS.map(form => ({
   key: 'T' + quarter + ':' + form.id,
+  quarter,
+  model: form.id,
   title: 'T' + quarter + ' · Modelo ' + form.id,
   detail: form.detail,
 })))
@@ -96,8 +106,8 @@ function isValidStatuses(value, keys, statuses) {
     Object.entries(value).every(([key, status]) => keys.includes(key) && typeof status === 'string' && Object.hasOwn(statuses, status))
 }
 
-function StatusSelect({ title, status, options, onChange }) {
-  return <select aria-label={title} value={status || 'unknown'} onChange={event => onChange(event.target.value)}
+function StatusSelect({ title, status, options, onChange, disabled }) {
+  return <select aria-label={title} disabled={disabled} value={status || 'unknown'} onChange={event => onChange(event.target.value)}
     style={{ padding: 8, maxWidth: '100%' }}>
     {Object.entries(options).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
   </select>
@@ -106,21 +116,28 @@ function StatusSelect({ title, status, options, onChange }) {
 export default function MiGestoria() {
   const [entity, setEntity] = useState('independent')
   const [year, setYear] = useState(2026)
-  const [records, setRecords] = useState({})
-  const [personalImports, setPersonalImports] = useState({})
+  const [tab, setTab] = useState('guide')
+  const [bank, setBank] = useState([])
+  const { data, loadState, saving, feedback: saveFeedback, save, reload } = useGestoriaWorkspace()
+  const canSave = loadState === 'ready' && !saving
   const [formFilter, setFormFilter] = useState('all')
   const [feedback, setFeedback] = useState(null)
   const scope = entity + ':' + year
   const current = ENTITIES.find(item => item.id === entity)
-  const record = records[scope] || { tasks: {}, filings: {} }
-  const completed = TASKS.filter(task => ['complete', 'not_applicable'].includes(record.tasks[task.id])).length
+  const record = data.records[scope] || { tasks: {}, filings: {}, notices: [] }
+  const filings = FILING_ROWS.map(row => ({ ...row, ...filingDeadline(year, row.quarter, row.model), status: record.filings[row.key] || 'unknown' }))
+  const tasks = TASKS.filter(task => !task.entity || task.entity === entity)
+  const completed = tasks.filter(task => ['complete', 'not_applicable'].includes(record.tasks[task.id])).length
   const fileBase = 'mi-gestoria-' + entity + '-' + year
 
+  function updateRecord(changes) {
+    return save(current => ({
+      ...current, records: { ...current.records, [scope]: { ...record, ...changes } },
+    }))
+  }
+
   function setStatus(group, key, status) {
-    setRecords(previous => {
-      const currentRecord = previous[scope] || { tasks: {}, filings: {} }
-      return { ...previous, [scope]: { ...currentRecord, [group]: { ...currentRecord[group], [key]: status } } }
-    })
+    return updateRecord({ [group]: { ...record[group], [key]: status } })
   }
 
   async function restoreBackup(event) {
@@ -134,14 +151,11 @@ export default function MiGestoria() {
       if (data?.version !== 1 || data.entity !== entity || data.year !== year ||
           !isValidStatuses(data.tasks, TASKS.map(task => task.id), TASK_STATUS) ||
           !isValidStatuses(data.filings, FILING_ROWS.map(row => row.key), FILING_STATUS)) throw new Error()
-      setRecords(previous => ({
-        ...previous,
-        [scope]: {
-          tasks: { ...data.tasks, ...previous[scope]?.tasks },
-          filings: { ...data.filings, ...previous[scope]?.filings },
-        },
-      }))
-      setFeedback({ scope, text: 'Sauvegarde chargée pour ' + current.name + ' · ' + year + '. Les choix saisis dans cet onglet sont prioritaires.' })
+      const saved = await updateRecord({
+        tasks: { ...data.tasks, ...record.tasks },
+        filings: { ...data.filings, ...record.filings },
+      })
+      if (saved) setFeedback({ scope, text: 'Sauvegarde chargée pour ' + current.name + ' · ' + year + '. Les statuts du dossier sont prioritaires.' })
     } catch {
       setFeedback({ scope, text: 'Sauvegarde illisible ou incompatible. Vérifie que le fichier correspond au dossier et à l’année affichés.' })
     }
@@ -149,7 +163,7 @@ export default function MiGestoria() {
 
   function exportChecklist() {
     const lines = ['Mi Gestoría — suivi préparatoire', current.name + ' · ' + year, '', 'Démarches et pièces']
-    for (const task of TASKS) lines.push(task.title + ' · ' + TASK_STATUS[record.tasks[task.id] || 'unknown'])
+    for (const task of tasks) lines.push(task.title + ' · ' + TASK_STATUS[record.tasks[task.id] || 'unknown'])
     lines.push('', 'Déclarations trimestrielles à vérifier')
     for (const row of FILING_ROWS) lines.push(row.title + ' · ' + FILING_STATUS[record.filings[row.key] || 'unknown'])
     download(fileBase + '.txt', lines.join('\n'), 'text/plain;charset=utf-8')
@@ -159,14 +173,6 @@ export default function MiGestoria() {
     <a href="/" style={muted}>← Retour au Hub</a>
     <h1 style={{ margin: '12px 0 4px' }}>Mi Gestoría</h1>
     <p style={muted}>Suivi de la régularisation · Deux dossiers distincts</p>
-
-    <section style={{ ...card, borderColor: '#a76b35' }}>
-      <strong>Suivi préparatoire</strong>
-      <p style={{ ...muted, marginBottom: 0 }}>
-        Les statuts sont saisis manuellement. Conserve les PDF justificatifs dans ton dossier privé.
-        Télécharge une sauvegarde avant de fermer la page pour pouvoir reprendre ta liste.
-      </p>
-    </section>
 
     <section style={card}>
       <label htmlFor="gestoria-entity" style={{ display: 'block', marginBottom: 8, fontWeight: 700 }}>Dossier</label>
@@ -180,20 +186,39 @@ export default function MiGestoria() {
       </select></label>
     </section>
 
-    {entity === 'blackthorn' ? <StudioData key={year} year={year} /> :
-      <PersonalData year={year} imports={personalImports}
-        onImport={(kind, rows) => setPersonalImports(previous => ({ ...previous, [kind]: rows }))} />}
+    <nav aria-label="Sections de Mi Gestoría" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+      {[['guide', 'À faire'], ['finance', 'Compta'], ['tasks', 'Démarches']].map(([id, label]) =>
+        <button key={id} aria-pressed={tab === id} style={{ ...buttonStyle, fontWeight: tab === id ? 700 : 400 }}
+          onClick={() => setTab(id)}>{label}</button>)}
+    </nav>
+    {loadState === 'loading' && <p role="status">Chargement de ton dossier privé…</p>}
+    {loadState === 'error' && <div role="alert">
+      <p>Le dossier privé n’a pas pu être chargé.</p>
+      <button onClick={reload}>Réessayer</button>
+    </div>}
+    {saveFeedback && <div role={saveFeedback.error ? 'alert' : 'status'}>
+      <p>{saveFeedback.text}</p>
+      {saveFeedback.error && <button disabled={saving} onClick={reload}>Recharger le dossier</button>}
+    </div>}
+    {tab === 'guide' && loadState === 'ready' &&
+      <GestoriaGuide key={scope} year={year} notices={record.notices} filings={filings}
+        tasks={tasks.map(task => ({ ...task, status: record.tasks[task.id] }))}
+        canSave={canSave} onNotices={notices => updateRecord({ notices })} onTasks={() => setTab('tasks')} />}
+    {tab === 'finance' && (entity === 'blackthorn' ? <StudioData key={year} year={year} /> :
+      loadState === 'ready' && <PersonalData key={scope} year={year} entries={data.entries} canSave={canSave}
+        onEntries={entries => save(current => ({ ...current, entries }))} bank={bank} onBank={setBank} />)}
+    {tab === 'tasks' && loadState === 'ready' && <>
 
     <section style={card}>
       <h2 style={{ fontSize: 18, marginTop: 0 }}>Démarches et pièces</h2>
-      <p style={muted}>{completed} sur {TASKS.length} vérifiées, terminées ou non concernées.</p>
-      {TASKS.map(task => <div key={task.id} style={rowStyle}>
+      <p style={muted}>{completed} sur {tasks.length} vérifiées, terminées ou non concernées.</p>
+      {tasks.map(task => <div key={task.id} style={rowStyle}>
         <div style={{ flex: '1 1 260px' }}>
           <strong>{task.title}</strong>
           <div style={muted}>{task.detail}</div>
           {task.url && <a style={muted} href={task.url} target="_blank" rel="noopener noreferrer">{task.link} ↗</a>}
         </div>
-        <StatusSelect title={task.title} status={record.tasks[task.id]} options={TASK_STATUS}
+        <StatusSelect title={task.title} status={record.tasks[task.id]} options={TASK_STATUS} disabled={!canSave}
           onChange={status => setStatus('tasks', task.id, status)} />
       </div>)}
     </section>
@@ -206,9 +231,9 @@ export default function MiGestoria() {
         {FORMS.map(form => <option key={form.id} value={form.id}>Modelo {form.id}</option>)}
       </select></label>
       <div style={{ marginTop: 12 }}>
-        {FILING_ROWS.filter(row => formFilter === 'all' || row.key.endsWith(':' + formFilter)).map(row => <div key={row.key} style={rowStyle}>
-          <div><strong>{row.title}</strong><div style={muted}>{row.detail}</div></div>
-          <StatusSelect title={'Statut ' + row.title} status={record.filings[row.key]} options={FILING_STATUS}
+        {filings.filter(row => formFilter === 'all' || row.key.endsWith(':' + formFilter)).map(row => <div key={row.key} style={rowStyle}>
+          <div><strong>{row.title}</strong><div style={muted}>{row.detail} · {formatDate(row.date)}{row.indicative && ' (date à confirmer)'}</div></div>
+          <StatusSelect title={'Statut ' + row.title} status={record.filings[row.key]} options={FILING_STATUS} disabled={!canSave}
             onChange={status => setStatus('filings', row.key, status)} />
         </div>)}
       </div>
@@ -216,17 +241,18 @@ export default function MiGestoria() {
 
     <section style={card}>
       <h2 style={{ fontSize: 18, marginTop: 0 }}>Exporter ou reprendre</h2>
-      <p style={muted}>Chaque export concerne uniquement le dossier et l’année affichés. Le fichier de sauvegarde contient les statuts.</p>
+      <p style={muted}>Chaque export concerne uniquement le dossier et l’année affichés. Les statuts sont enregistrés dans ton dossier. Cette copie facultative contient les statuts des démarches et déclarations.</p>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         <button onClick={exportChecklist} style={buttonStyle}>Exporter la checklist</button>
-        <button onClick={() => download(fileBase + '.json', JSON.stringify({ version: 1, entity, year, ...record }, null, 2), 'application/json')}
+        <button onClick={() => download(fileBase + '.json', JSON.stringify({ version: 1, entity, year, tasks: record.tasks, filings: record.filings }, null, 2), 'application/json')}
           style={buttonStyle}>Télécharger la sauvegarde</button>
       </div>
       <label style={{ display: 'block', marginTop: 12 }}>
         Reprendre une sauvegarde
-        <input type="file" accept=".json,application/json" onChange={restoreBackup} style={{ display: 'block', marginTop: 6, maxWidth: '100%' }} />
+        <input type="file" accept=".json,application/json" disabled={!canSave} onChange={restoreBackup} style={{ display: 'block', marginTop: 6, maxWidth: '100%' }} />
       </label>
       {feedback?.scope === scope && <p role="status" style={muted}>{feedback.text}</p>}
     </section>
+    </>}
   </main>
 }

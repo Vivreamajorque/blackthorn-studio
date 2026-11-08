@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { todayInSpain } from '../lib/gestoria-calendar.mjs'
 import { parseGestoriaCsv } from '../lib/gestoria-import.mjs'
 
 const card = { background: 'var(--card, #fff)', border: '1px solid var(--border, #ddd)', borderRadius: 14, padding: 16, marginBottom: 16 }
@@ -74,54 +75,116 @@ export function StudioData({ year }) {
   </section>
 }
 
-export function PersonalData({ year, imports, onImport }) {
-  const [message, setMessage] = useState({})
-  const fields = [
-    { kind: 'invoices', title: 'Factures émises', totalLabel: 'Montant facturé', sample: 'date;description;montant;devise;reference' },
-    { kind: 'expenses', title: 'Factures reçues', totalLabel: 'Montant des factures reçues', sample: 'date;description;montant;devise;reference' },
-    { kind: 'bank', title: 'Mouvements Revolut Pro', sample: 'date;description;montant;devise' },
-  ]
+const sources = { direct: 'Direct ou autre', malt: 'Malt', livementor: 'LiveMentor' }
+const payments = { unknown: 'Paiement à vérifier', pending: 'En attente', paid: 'Payé' }
 
-  async function readFile(event, kind) {
-    const input = event.currentTarget
-    const file = input.files?.[0]
-    input.value = ''
+export function PersonalData({ year, entries, canSave, onEntries, bank, onBank }) {
+  const [draft, setDraft] = useState(null)
+  const [sourceFilter, setSourceFilter] = useState('all')
+  const today = todayInSpain()
+  const rows = entries.filter(row => row.date.startsWith(year + '-') &&
+    (sourceFilter === 'all' || (row.source || 'direct') === sourceFilter)).sort((a, b) => b.date.localeCompare(a.date))
+  const invoices = rows.filter(row => row.kind === 'invoice')
+  const expenses = rows.filter(row => row.kind === 'expense')
+  const sum = items => items.reduce((value, row) => value + row.amountCents, 0) / 100
+
+  function start(kind) {
+    setDraft({ id: crypto.randomUUID(), kind, source: sourceFilter === 'all' ? 'direct' : sourceFilter, date: today.startsWith(year + '-') ? today : year + '-01-01',
+      label: '', reference: '', amount: '', payment: 'unknown' })
+  }
+
+  async function submit(event) {
+    event.preventDefault()
+    const { amount, ...fields } = draft
+    const row = { ...fields, label: draft.label.trim(),
+      reference: draft.reference.trim(), amountCents: Math.round(Number(amount) * 100) }
+    if (await onEntries([...entries.filter(entry => entry.id !== row.id), row])) setDraft(null)
+  }
+
+  return <>
+    <section style={card}>
+      <h2>Compta de mon activité</h2>
+      <label>Origine <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}>
+        <option value="all">Toutes</option>
+        {Object.entries(sources).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+      </select></label>
+      {sourceFilter === 'malt' && <p style={muted}>
+        Ajoute la facture de mission et, séparément, la facture de frais Malt si elle existe.
+        Rapproche le versement bancaire avec la mission.{' '}
+        <a href="https://help.malt.com/hc/fr/articles/29540886429586-Comment-fonctionnent-la-facturation-et-le-paiement"
+          target="_blank" rel="noopener noreferrer">Aide Malt ↗</a>
+      </p>}
+      <Amounts values={[
+        ['Factures émises', sum(invoices)],
+        ['Factures marquées payées', sum(invoices.filter(row => row.payment === 'paid'))],
+        ['Factures reçues', sum(expenses)],
+      ]} />
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button disabled={!canSave || entries.length >= 1000} onClick={() => start('invoice')}>Ajouter une facture émise</button>
+        <button disabled={!canSave || entries.length >= 1000} onClick={() => start('expense')}>Ajouter une dépense</button>
+      </div>
+      {draft && <form onSubmit={submit} style={{ display: 'grid', gap: 12, padding: '14px 0', maxWidth: 520 }}>
+        <h3>{draft.kind === 'invoice' ? 'Facture émise' : 'Dépense'}</h3>
+        <label>Origine <select value={draft.source} onChange={e => setDraft({ ...draft, source: e.target.value })}>
+          {Object.entries(sources).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select></label>
+        <label>Client ou fournisseur <input maxLength={160} required value={draft.label}
+          onChange={e => setDraft({ ...draft, label: e.target.value })} /></label>
+        <label>Date <input type="date" min={year + '-01-01'} max={year + '-12-31'} required value={draft.date}
+          onChange={e => setDraft({ ...draft, date: e.target.value })} /></label>
+        <label>Montant total en € <input type="number" step="0.01" min="-100000000" max="100000000" required value={draft.amount}
+          onChange={e => setDraft({ ...draft, amount: e.target.value })} /></label>
+        <label>Référence <input maxLength={100} value={draft.reference}
+          onChange={e => setDraft({ ...draft, reference: e.target.value })} /></label>
+        <label>Suivi du paiement <select value={draft.payment}
+          onChange={e => setDraft({ ...draft, payment: e.target.value })}>
+          {Object.entries(payments).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select></label>
+        <div>
+          <button disabled={!canSave || !draft.label.trim()}>Enregistrer</button>{' '}
+          <button type="button" onClick={() => setDraft(null)}>Annuler</button>
+        </div>
+      </form>}
+      {rows.length === 0 && <p>Aucune facture ni dépense enregistrée pour {year}.</p>}
+      {rows.map(({ amountCents, ...row }) => <div key={row.id}
+        style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border, #ddd)' }}>
+        <strong>{row.label} · {euro.format(amountCents / 100)}</strong>
+        <p style={muted}>{dateLabel(row.date)} · {row.kind === 'invoice' ? 'Facture émise' : 'Dépense'} · {payments[row.payment]} · {sources[row.source || 'direct']}
+          {row.reference && ' · ' + row.reference}</p>
+        <button disabled={!canSave} onClick={() => setDraft({ ...row, source: row.source || 'direct', amount: String(amountCents / 100) })}>Modifier</button>{' '}
+        <button disabled={!canSave} onClick={async () => {
+          if (window.confirm('Retirer cette ligne de ton dossier ?') &&
+              await onEntries(entries.filter(entry => entry.id !== row.id)) && draft?.id === row.id) setDraft(null)
+        }}>Retirer</button>
+      </div>)}
+    </section>
+    <BankPreview year={year} bank={bank} onBank={onBank} />
+  </>
+}
+
+function BankPreview({ year, bank, onBank }) {
+  const [message, setMessage] = useState('')
+  const rows = bank.filter(row => row.date.startsWith(year + '-'))
+  async function readFile(event) {
+    const file = event.currentTarget.files?.[0]
+    event.currentTarget.value = ''
     if (!file) return
     try {
       if (file.size > 2000000) throw new Error('Limite de 2 Mo par fichier CSV.')
-      const result = parseGestoriaCsv(await file.text(), kind)
-      onImport(kind, result.rows)
+      const result = parseGestoriaCsv(await file.text(), 'bank')
+      onBank(result.rows)
       const skipped = result.skipped.state + result.skipped.currency
-      setMessage(previous => ({ ...previous, [kind]: result.rows.length + ' ligne(s) chargée(s).' +
-        (skipped ? ' ' + skipped + ' ligne(s) ignorée(s) car hors EUR ou non terminée(s).' : '') }))
+      setMessage(result.rows.length + ' mouvements chargés.' + (skipped ? ' ' + skipped + ' ignorés (hors EUR ou non terminés).' : ''))
     } catch (error) {
-      setMessage(previous => ({ ...previous, [kind]: error.message || 'Import impossible.' }))
+      setMessage(error.message || 'Import impossible.')
     }
   }
 
-  return <section style={card}>
-    <h2 style={{ fontSize: 18, marginTop: 0 }}>Mon activité · Factures et Revolut Pro</h2>
-    <p style={muted}>Les fichiers sont lus dans cet onglet. Un nouvel import remplace le précédent du même type. Conserve tes fichiers pour reprendre après fermeture.</p>
-    {fields.map(field => {
-      const rows = (imports[field.kind] || []).filter(row => row.date.startsWith(year + '-'))
-      const amounts = field.kind === 'bank'
-        ? [['Entrées sur le compte', total(rows.filter(row => row.amount > 0))], ['Sorties du compte', -total(rows.filter(row => row.amount < 0))]]
-        : [[field.totalLabel, total(rows)]]
-      return <div key={field.kind} style={{ marginTop: 18 }}>
-        <h3 style={{ fontSize: 15, marginBottom: 5 }}>{field.title}</h3>
-        <p style={muted}>{field.kind === 'bank'
-          ? 'Les virements internes et remboursements restent des mouvements à rapprocher.'
-          : 'Le total des factures est présenté séparément des mouvements bancaires.'}</p>
-        <label>Importer un CSV · {field.title}
-          <input type="file" accept=".csv,text/csv" onChange={event => readFile(event, field.kind)}
-            style={{ display: 'block', marginTop: 6, maxWidth: '100%' }} />
-        </label>
-        <p style={muted}>Colonnes CSV <code>{field.sample}</code>. Pour les dates, privilégie AAAA-MM-JJ.</p>
-        {message[field.kind] && <p role="status">{message[field.kind]}</p>}
-        {rows.length
-          ? <><Amounts values={amounts} /><Movements title={field.title} rows={rows} /></>
-          : <p style={muted}>Aucune ligne chargée pour {year}.</p>}
-      </div>
-    })}
-  </section>
+  return <details style={card}>
+    <summary>Comparer avec un relevé Revolut Pro · facultatif</summary>
+    <p style={muted}>Aperçu temporaire du relevé dans cet onglet, séparé de ta compta.</p>
+    <label>Importer un relevé CSV <input type="file" accept=".csv,text/csv" onChange={readFile} /></label>
+    {message && <p role="status">{message}</p>}
+    <Movements title="Mouvements du relevé" rows={rows} />
+  </details>
 }
