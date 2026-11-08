@@ -7,6 +7,7 @@ import Comptabilite   from './pages/Comptabilite'
 import Communication  from './pages/Communication'
 import Booking        from './pages/Booking'
 import Consent        from './pages/Consent'
+import MiGestoria     from './pages/MiGestoria'
 
 const PIN_AMELY = import.meta.env.VITE_APP_PIN  || '2026'
 const PIN_TONY  = import.meta.env.VITE_TONY_PIN || '1111'
@@ -157,6 +158,9 @@ function NavBar({ onLogout }) {
       <NavLink to="/compta" className={({isActive})=>`nav-item${isActive?' active':''}`}>
         <span className="nav-icon">⊞</span>Compta
       </NavLink>
+      <NavLink to="/mi-gestoria" className={({isActive})=>`nav-item${isActive?' active':''}`}>
+        <span className="nav-icon">▤</span>Fiscal
+      </NavLink>
       <NavLink to="/communication" className={({isActive})=>`nav-item${isActive?' active':''}`}>
         <span className="nav-icon">◉</span>Comm.
       </NavLink>
@@ -186,6 +190,7 @@ export default function App() {
           <Route path="/metriques" element={<Metriques />} />
           <Route path="/compta"    element={<Comptabilite />} />
           <Route path="/communication" element={<Communication />} />
+          <Route path="/mi-gestoria" element={<MiGestoria />} />
       </Routes>
       <NavBar onLogout={logout}/>
     </div>
