@@ -55,6 +55,12 @@ function validWorkspace(data) {
 async function readWorkspace(blob, path) {
   const result = await blob.get(path, { access: 'private', useCache: false })
   if (!result) {
+    const previous = await blob.get('mi-gestoria/preview/v1/workspace.json', { access: 'private', useCache: false })
+    if (previous) {
+      const data = await new Response(previous.stream).json()
+      if (!validWorkspace(data)) throw new Error('Invalid previous workspace')
+      return { revision: null, data }
+    }
     const seed = process.env.GESTORIA_INITIAL_WORKSPACE
     const data = seed ? JSON.parse(seed) : empty
     if (!validWorkspace(data)) throw new Error('Invalid initial workspace')
@@ -74,7 +80,6 @@ module.exports = async function handler(req, res) {
   try {
     const user = await requireSession(req, res)
     if (!user) return
-    if (user.role !== 'amely') return res.status(403).json({ error: 'Accès réservé au compte propriétaire.' })
     if (req.method === 'PUT' && (!req.headers.origin ||
         !/^application\/json(?:;|$)/i.test(req.headers['content-type'] || ''))) {
       return res.status(403).json({ error: 'Origine de la sauvegarde non autorisée.' })
@@ -84,8 +89,7 @@ module.exports = async function handler(req, res) {
         !validWorkspace(data))) return res.status(400).json({ error: 'Saisie invalide ou limite de 1 000 écritures atteinte.' })
 
     const blob = await import('@vercel/blob')
-    const environment = process.env.VERCEL_ENV === 'production' ? 'production' : 'preview'
-    const path = 'mi-gestoria/' + environment + '/v1/workspace.json'
+    const path = 'mi-gestoria/personal/v1/workspace.json'
     const current = await readWorkspace(blob, path)
     if (req.method === 'GET') return res.status(200).json(current)
     if (current.revision !== revision) return res.status(409).json(current)

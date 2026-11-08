@@ -4,7 +4,7 @@ const path = '/api/gestoria-workspace'
 const empty = { entries: [], records: {} }
 
 function checkSession(response) {
-  if (response.status === 401) window.dispatchEvent(new Event('bt-auth-expired'))
+  if (response.status === 401) window.dispatchEvent(new Event('gestoria-auth-expired'))
 }
 
 export function useGestoriaWorkspace() {

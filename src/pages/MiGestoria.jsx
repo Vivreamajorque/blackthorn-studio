@@ -170,7 +170,6 @@ export default function MiGestoria() {
   }
 
   return <main style={{ padding: '24px 16px 100px', maxWidth: 900, margin: '0 auto', color: 'var(--txt, #222)' }}>
-    <a href="/" style={muted}>← Retour au Hub</a>
     <h1 style={{ margin: '12px 0 4px' }}>Mi Gestoría</h1>
     <p style={muted}>Suivi de la régularisation · Deux dossiers distincts</p>
 

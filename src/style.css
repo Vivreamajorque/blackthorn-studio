@@ -1,0 +1,57 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #172b26;
+  background: #f5f5ef;
+  --txt: #172b26;
+  --txt2: #51635d;
+  --card: #fff;
+  --border: #d9e2db;
+  line-height: 1.5;
+}
+body { margin: 0; }
+button, input, select { font: inherit; }
+input, select {
+  border: 1px solid #9cac9e;
+  border-radius: 6px;
+  padding: .4em .55em;
+  color: inherit;
+  background: #fff;
+  box-sizing: border-box;
+  max-width: 100%;
+}
+button {
+  border: 1px solid #9eb2a3;
+  border-radius: 8px;
+  padding: .45em .8em;
+  color: inherit;
+  background: #fff;
+  cursor: pointer;
+}
+button:hover:not(:disabled), button[aria-pressed="true"] { background: #dbebe0; }
+button:disabled { opacity: .55; cursor: default; }
+a { color: #275b47; }
+:focus-visible { outline: 2px solid #21765b; outline-offset: 2px; }
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: .7rem max(1rem, calc((100% - 900px) / 2));
+  border-bottom: 1px solid var(--border);
+  background: white;
+}
+.login {
+  box-sizing: border-box;
+  width: min(92vw, 34rem);
+  margin: clamp(2rem, 12vh, 7rem) auto;
+  padding: clamp(1.2rem, 5vw, 2.5rem);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: white;
+}
+.login h1 { margin: .15rem 0; }
+.login .eyebrow { color: #51635d; margin: 0; font-size: .85rem; }
+.login form { display: grid; gap: .75rem; }
+.login input { display: block; width: 100%; margin-top: .35rem; }
+.login button[type="submit"], .login button:first-of-type { background: #245846; color: white; }
+.auth-feedback { margin-inline: auto; max-width: 900px; }

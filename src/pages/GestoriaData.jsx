@@ -43,7 +43,7 @@ export function StudioData({ year }) {
     const load = async () => {
       try {
         const response = await fetch('/api/gestoria-studio?year=' + year, { cache: 'no-store', signal: controller.signal })
-        if (response.status === 401 && !controller.signal.aborted) window.dispatchEvent(new Event('bt-auth-expired'))
+        if (response.status === 401 && !controller.signal.aborted) window.dispatchEvent(new Event('gestoria-auth-expired'))
         if (!response.ok) throw new Error()
         const data = await response.json()
         if (!controller.signal.aborted) setState({ status: 'ready', data })

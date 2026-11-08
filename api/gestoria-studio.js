@@ -10,7 +10,6 @@ module.exports = async (req, res) => {
   try {
     const user = await requireSession(req, res)
     if (!user) return
-    if (user.role !== 'amely') return res.status(403).json({ error: 'Accès réservé au compte propriétaire' })
     const year = req.query.year
     if (!['2025', '2026'].includes(year)) return res.status(400).json({ error: 'Année non prise en charge' })
 
