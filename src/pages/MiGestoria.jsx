@@ -4,8 +4,8 @@ import React, { useMemo, useState } from 'react'
 // Aucune donnée n'est sauvegardée ni envoyée à un service externe.
 // Ne pas utiliser pour déposer des déclarations ou calculer une dette fiscale.
 const ENTITIES = [
-  { id: 'blackthorn', name: 'Blackthorn Tattoo', subtitle: 'Dossier fiscal de Tony' },
-  { id: 'independent', name: 'Mon activité', subtitle: 'Dossier fiscal indépendant' }
+  { id: 'blackthorn', name: 'Blackthorn Tattoo', subtitle: 'Anthony Machado · Tatouage · Campos · Modelo 036 retrouvé (11/06/2025)', source: 'https://drive.google.com/file/d/1g5_6KL41NOp2hBPEu7oGfePYXTqsoxyJ/view' },
+  { id: 'independent', name: 'Mon activité', subtitle: 'Amely Attias · Prestations de services numériques et accompagnement · Modelo 036 retrouvé (11/06/2025)', source: 'https://drive.google.com/file/d/1Z6_6wAevfI6_imBjcnYLLZkQo_ePz9ia/view' }
 ]
 const FORMS = [
   { id: '303', label: 'Modelo 303', detail: 'IVA trimestrielle' },
@@ -71,6 +71,8 @@ export default function MiGestoria() {
         {ENTITIES.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
       </select>
       <p style={muted}>{current.subtitle}</p>
+      <p style={muted}><a href={current.source} target="_blank" rel="noopener noreferrer">Consulter le Modelo 036 dans Google Drive ↗</a></p>
+      <p style={muted}>Activité et régime fiscal exacts à confirmer avec les documents officiels les plus récents.</p>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <label>Année <select value={year} onChange={e => setYear(Number(e.target.value))}>
           {years.map(y => <option key={y} value={y}>{y}</option>)}
