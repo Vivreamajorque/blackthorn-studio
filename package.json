@@ -2,12 +2,20 @@
   "name": "mi-gestoria",
   "version": "1.0.0",
   "private": true,
-  "scripts": { "dev": "vite", "build": "vite build" },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
   "dependencies": {
     "@vercel/blob": "^2.4.1",
     "iron-session": "8.0.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
-  "devDependencies": { "vite": "^5.0.0" }
+  "devDependencies": {
+    "vite": "^5.0.0"
+  },
+  "engines": {
+    "node": "24.x"
+  }
 }
