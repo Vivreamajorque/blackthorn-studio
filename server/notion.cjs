@@ -1,7 +1,8 @@
 const DBS = {
   sessions: 'd5c3846e-3d3c-4eae-ade8-2e7efa3c896f',
   devis: 'b6d33466-c5db-4046-be2f-a242c8686a97',
-  creneaux: 'adf23a19-e7d1-44c0-9f8a-8374d93a7983'
+  creneaux: 'adf23a19-e7d1-44c0-9f8a-8374d93a7983',
+  expenses: '323d80c7-6418-4b25-a4c6-70cea0fd20a1'
 }
 async function notion(path, method='GET', body) {
   const response = await fetch(`https://api.notion.com/v1/${path}`, {
