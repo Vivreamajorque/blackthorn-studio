@@ -27,15 +27,15 @@ async function saveAccess(blob, revision, state) {
   }
 }
 
-async function emailLink(email, token) {
+async function emailLink(sender, recipient, token) {
   const link = new URL('/', appOrigin())
   link.hash = new URLSearchParams({ connexion: token }).toString()
   const response = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: { 'api-key': process.env.BREVO_API_KEY, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      sender: { name: 'Mi Gestoría', email },
-      to: [{ email }],
+      sender: { name: 'Mi Gestoría', email: sender },
+      to: [{ email: recipient }],
       subject: 'Connexion à Mi Gestoría',
       textContent: 'Ouvre ce lien pour accéder à ton dossier privé Mi Gestoría. Il expire dans 15 minutes et ne fonctionne qu’une fois.\n\n' + link.href,
     }),
@@ -47,9 +47,10 @@ async function emailLink(email, token) {
 async function requestLink(res, email) {
   const owner = process.env.GESTORIA_OWNER_EMAIL
   if (!owner) throw new Error('Owner unavailable')
-  if (typeof email !== 'string' || email.trim().toLowerCase() !== owner.toLowerCase()) {
-    return res.status(200).json({ requested: true })
-  }
+  const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : ''
+  const recipient = [owner, process.env.GESTORIA_ALTERNATE_EMAIL]
+    .find(address => address && address.toLowerCase() === normalizedEmail)
+  if (!recipient) return res.status(200).json({ requested: true })
   const blob = await import('@vercel/blob')
   const { revision, state } = await readAccess(blob)
   const now = Date.now()
@@ -59,7 +60,7 @@ async function requestLink(res, email) {
   }
   const token = randomBytes(32).toString('base64url')
   const saved = await saveAccess(blob, revision, { sent: [...sent, now], expires: now + lifetime, tokenHash: hash(token) })
-  if (saved) await emailLink(owner, token)
+  if (saved) await emailLink(owner, recipient, token)
   return res.status(200).json({ requested: true })
 }
 
