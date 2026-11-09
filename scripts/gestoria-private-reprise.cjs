@@ -75,6 +75,11 @@ async function main() {
 
 main().catch(error => {
   console.error('MG_REPRISE_FAILED ' + step + ' ' + (error?.name || 'Error'))
+  if (step === 'save-ledger') {
+    const message = String(error?.message || '').replace(/https?:\/\/[^\s]+/g, '[url]')
+      .replace(/[a-zA-Z0-9_\-]{20,}/g, '[identifier]').replace(/\s+/g, ' ').slice(0, 180)
+    console.error('MG_REPRISE_SAVE_REASON ' + message)
+  }
   if (step === 'environment') console.error('MG_REPRISE_SCOPE ' + JSON.stringify({
     preview: process.env.VERCEL_ENV === 'preview',
     branch: process.env.VERCEL_GIT_COMMIT_REF === 'feature/mi-gestoria-amely',
