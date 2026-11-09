@@ -91,8 +91,10 @@ module.exports = async function handler(req, res) {
     const blob = await import('@vercel/blob')
     const path = 'mi-gestoria/personal/v1/workspace.json'
     const current = await readWorkspace(blob, path)
-    if (req.method === 'GET') return res.status(200).json(current)
-    if (current.revision !== revision) return res.status(409).json(current)
+    const personalStart = process.env.GESTORIA_PERSONAL_START
+    if (personalStart && !validDate(personalStart)) throw new Error('Invalid activity start')
+    if (req.method === 'GET') return res.status(200).json({ ...current, personalStart })
+    if (current.revision !== revision) return res.status(409).json({ ...current, personalStart })
 
     try {
       const saved = await blob.put(path, JSON.stringify(data), {
@@ -102,11 +104,11 @@ module.exports = async function handler(req, res) {
         allowOverwrite: revision !== null,
         ...(revision !== null && { ifMatch: revision }),
       })
-      return res.status(200).json({ revision: saved.etag, data })
+      return res.status(200).json({ revision: saved.etag, data, personalStart })
     } catch (error) {
       if (revision !== null && !(error instanceof blob.BlobPreconditionFailedError)) throw error
       const latest = await readWorkspace(blob, path)
-      if (latest.revision !== revision) return res.status(409).json(latest)
+      if (latest.revision !== revision) return res.status(409).json({ ...latest, personalStart })
       throw error
     }
   } catch {

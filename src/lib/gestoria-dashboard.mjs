@@ -1,17 +1,21 @@
-import { daysUntil, filingDeadline } from './gestoria-calendar.mjs'
+import { daysUntil, filingDeadline, inActivityYear } from './gestoria-calendar.mjs'
 
 export const isComplete = status => ['complete', 'not_applicable'].includes(status)
 const isFilingOpen = status => !['filed', 'not_applicable'].includes(status)
 const isFilingFlagged = status => ['missing', 'to_prepare'].includes(status)
+
+const quarterEnds = ['03-31', '06-30', '09-30', '12-31']
 
 export function dossierFor(data, entity, year, tasks, filings) {
   const record = data.records[entity.id + ':' + year] || { tasks: {}, filings: {}, notices: [] }
   return {
     ...entity,
     record,
+    notices: record.notices.filter(notice => !notice.date || !entity.startDate || notice.date >= entity.startDate),
     tasks: tasks.filter(task => !task.entity || task.entity === entity.id)
       .map(task => ({ ...task, status: record.tasks[task.id] || 'unknown' })),
-    filings: filings.map(filing => ({
+    filings: filings.filter(filing => !entity.startDate ||
+      year + '-' + quarterEnds[filing.quarter - 1] >= entity.startDate).map(filing => ({
       ...filing,
       ...filingDeadline(year, filing.quarter, filing.model),
       status: record.filings[filing.key] || 'unknown',
@@ -28,7 +32,7 @@ export function overviewAgenda(dossiers, today) {
   }
   for (const dossier of dossiers) {
     const entity = dossier.id
-    for (const notice of dossier.record.notices) {
+    for (const notice of dossier.notices) {
       if (notice.done) continue
       track({
         ...notice, key: entity + ':notice:' + notice.id, entity, entityName: dossier.name,
@@ -58,11 +62,11 @@ export function overviewAgenda(dossiers, today) {
   return { priorities, upcoming }
 }
 
-export function ledgerSummary(rows, year, studio) {
+export function ledgerSummary(rows, year, studio, startDate) {
   const months = Array.from({ length: 12 }, () => ({ income: 0, expenses: 0 }))
   let pending = 0
   for (const row of rows) {
-    if (!row.date.startsWith(year + '-')) continue
+    if (!inActivityYear(row.date, year, startDate)) continue
     const month = months[Number(row.date.slice(5, 7)) - 1]
     if (!month) continue
     const cents = studio ? Math.round(row.amount * 100) : row.amountCents

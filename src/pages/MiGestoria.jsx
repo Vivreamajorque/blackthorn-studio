@@ -116,19 +116,23 @@ function StatusSelect({ title, status, options, onChange, disabled }) {
 }
 
 export default function MiGestoria() {
-  const [entity, setEntity] = useState('independent')
+  const [selectedEntity, setEntity] = useState('independent')
   const [year, setYear] = useState(2026)
   const [tab, setTab] = useState('overview')
   const studio = useStudioLedger(year)
   const [bank, setBank] = useState([])
-  const { data, loadState, saving, feedback: saveFeedback, save, reload } = useGestoriaWorkspace()
+  const { data, personalStart, loadState, saving, feedback: saveFeedback, save, reload } = useGestoriaWorkspace()
   const canSave = loadState === 'ready' && !saving
   const [formFilter, setFormFilter] = useState('all')
   const [feedback, setFeedback] = useState(null)
+  const dossiers = ENTITIES
+    .map(item => item.id === 'independent' ? { ...item, startDate: personalStart } : item)
+    .filter(item => !item.startDate || item.startDate <= year + '-12-31')
+    .map(item => dossierFor(data, item, year, TASKS, FILING_ROWS))
+  const current = dossiers.find(item => item.id === selectedEntity) || dossiers[0]
+  const entity = current.id
   const scope = entity + ':' + year
-  const dossiers = ENTITIES.map(item => dossierFor(data, item, year, TASKS, FILING_ROWS))
-  const current = dossiers.find(item => item.id === entity)
-  const { record, filings, tasks } = current
+  const { record, notices, filings, tasks } = current
   const completed = tasks.filter(task => isComplete(task.status)).length
   const fileBase = 'mi-gestoria-' + entity + '-' + year
 
@@ -171,11 +175,18 @@ export default function MiGestoria() {
     }
   }
 
+  function exportBackup() {
+    const savedFilings = Object.fromEntries(filings.filter(row => row.key in record.filings)
+      .map(row => [row.key, row.status]))
+    const backup = { version: 1, entity, year, tasks: record.tasks, filings: savedFilings }
+    download(fileBase + '.json', JSON.stringify(backup, null, 2), 'application/json')
+  }
+
   function exportChecklist() {
     const lines = ['Mi Gestoría — suivi préparatoire', current.name + ' · ' + year, '', 'Démarches et pièces']
     for (const task of tasks) lines.push(task.title + ' · ' + TASK_STATUS[record.tasks[task.id] || 'unknown'])
     lines.push('', 'Déclarations trimestrielles à vérifier')
-    for (const row of FILING_ROWS) lines.push(row.title + ' · ' + FILING_STATUS[record.filings[row.key] || 'unknown'])
+    for (const row of filings) lines.push(row.title + ' · ' + FILING_STATUS[row.status])
     download(fileBase + '.txt', lines.join('\n'), 'text/plain;charset=utf-8')
   }
 
@@ -187,7 +198,7 @@ export default function MiGestoria() {
       </nav>
       <div className="mg-toolbar-filters">
         {tab !== 'overview' && <label>Dossier <select value={entity} onChange={event => { setEntity(event.target.value); setFeedback(null) }}>
-          {ENTITIES.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+          {dossiers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select></label>}
         <label>Exercice <select value={year} onChange={event => { setYear(Number(event.target.value)); setFeedback(null) }}>
           {YEARS.map(item => <option key={item} value={item}>{item}</option>)}
@@ -196,10 +207,10 @@ export default function MiGestoria() {
     </div>
     {tab !== 'overview' && <div className="mg-detail-heading">
       <h1>{current.name}</h1>
-      <p>{current.subtitle} · Exercice {year}</p>
+      <p>{current.subtitle} · Exercice {year}{current.startDate && ' · Suivi depuis le ' + formatDate(current.startDate)}</p>
     </div>}
     {tab === 'overview' && loadState === 'ready' && <GestoriaDashboard
-      year={year} dossiers={dossiers} entries={data.entries} studio={studio} onOpen={openDossier} />}
+      year={year} dossiers={dossiers} personalStart={personalStart} entries={data.entries} studio={studio} onOpen={openDossier} />}
     {loadState === 'loading' && <p role="status">Chargement de ton dossier privé…</p>}
     {loadState === 'error' && <div role="alert">
       <p>Le dossier privé n’a pas pu être chargé.</p>
@@ -210,11 +221,13 @@ export default function MiGestoria() {
       {saveFeedback.error && <button disabled={saving} onClick={reload}>Recharger le dossier</button>}
     </div>}
     {tab === 'guide' && loadState === 'ready' &&
-      <GestoriaGuide key={scope} year={year} notices={record.notices} filings={filings}
+      <GestoriaGuide key={scope} year={year} startDate={current.startDate} notices={notices} filings={filings}
         tasks={tasks}
-        canSave={canSave} onNotices={notices => updateRecord({ notices })} onTasks={() => setTab('tasks')} />}
+        canSave={canSave} canAddNotice={record.notices.length < 50} onNotices={updated => updateRecord({
+          notices: [...record.notices.filter(notice => !notices.includes(notice)), ...updated],
+        })} onTasks={() => setTab('tasks')} />}
     {tab === 'finance' && (entity === 'blackthorn' ? <StudioData ledger={studio} /> :
-      loadState === 'ready' && <PersonalData key={scope} year={year} entries={data.entries} canSave={canSave}
+      loadState === 'ready' && <PersonalData key={scope} year={year} startDate={current.startDate} entries={data.entries} canSave={canSave}
         onEntries={entries => save(current => ({ ...current, entries }))} bank={bank} onBank={setBank} />)}
     {tab === 'tasks' && loadState === 'ready' && <>
 
@@ -253,7 +266,7 @@ export default function MiGestoria() {
       <p style={muted}>Chaque export concerne uniquement le dossier et l’année affichés. Les statuts sont enregistrés dans ton dossier. Cette copie facultative contient les statuts des démarches et déclarations.</p>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         <button onClick={exportChecklist} style={buttonStyle}>Exporter la checklist</button>
-        <button onClick={() => download(fileBase + '.json', JSON.stringify({ version: 1, entity, year, tasks: record.tasks, filings: record.filings }, null, 2), 'application/json')}
+        <button onClick={exportBackup}
           style={buttonStyle}>Télécharger la sauvegarde</button>
       </div>
       <label style={{ display: 'block', marginTop: 12 }}>

@@ -72,5 +72,5 @@ export function useGestoriaWorkspace() {
     setRequest(previous => previous + 1)
   }
 
-  return { data: workspace?.data || empty, loadState, saving, feedback, save, reload }
+  return { data: workspace?.data || empty, personalStart: workspace?.personalStart, loadState, saving, feedback, save, reload }
 }

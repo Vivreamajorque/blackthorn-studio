@@ -12,7 +12,7 @@ function countdown(date, today) {
   return 'Dans ' + days + ' j'
 }
 
-export default function GestoriaGuide({ year, notices, filings, tasks, canSave, onNotices, onTasks }) {
+export default function GestoriaGuide({ year, startDate, notices, filings, tasks, canSave, canAddNotice, onNotices, onTasks }) {
   const [draft, setDraft] = useState(null)
   const today = todayInSpain()
   const openNotices = notices.filter(notice => !notice.done)
@@ -65,10 +65,10 @@ export default function GestoriaGuide({ year, notices, filings, tasks, canSave, 
         </div>)}
       {draft ? <form onSubmit={submit} style={line}>
         <label>Intitulé <input required maxLength={140} value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} /></label>{' '}
-        <label>Date limite <input type="date" value={draft.date} onChange={e => setDraft({ ...draft, date: e.target.value })} /></label>{' '}
+        <label>Date limite <input type="date" min={startDate} value={draft.date} onChange={e => setDraft({ ...draft, date: e.target.value })} /></label>{' '}
         <button disabled={!canSave || !draft.title.trim()}>Enregistrer</button>{' '}
         <button type="button" onClick={() => setDraft(null)}>Annuler</button>
-      </form> : <button disabled={!canSave || notices.length >= 50}
+      </form> : <button disabled={!canSave || !canAddNotice}
         onClick={() => setDraft({ id: crypto.randomUUID(), title: '', date: '', done: false })}>Ajouter un courrier ou une date</button>}
     </section>
     <section style={box}>

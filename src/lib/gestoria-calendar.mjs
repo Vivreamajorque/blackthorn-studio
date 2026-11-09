@@ -27,3 +27,7 @@ export function daysUntil(date, today) {
 export function formatDate(date) {
   return date.split('-').reverse().join('/')
 }
+
+export function inActivityYear(date, year, startDate) {
+  return date.startsWith(year + '-') && (!startDate || date >= startDate)
+}

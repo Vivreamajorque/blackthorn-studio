@@ -8,7 +8,6 @@ const longDate = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeZone:
 const monthFormat = new Intl.DateTimeFormat('fr-FR', { month: 'short', timeZone: 'UTC' })
 const money = cents => euro.format(cents / 100)
 const months = Array.from({ length: 12 }, (_, i) => monthFormat.format(new Date(Date.UTC(2000, i, 1))))
-const titles = { independent: 'Mon activité', blackthorn: 'Blackthorn Tattoo' }
 const ledgers = {
   independent: { income: 'Facturé', expenses: 'Dépenses saisies', source: 'Factures et dépenses ajoutées dans Mi Gestoría' },
   blackthorn: { income: 'Encaissé', expenses: 'Dépenses saisies', source: 'Données du Hub Blackthorn en lecture seule' },
@@ -72,12 +71,13 @@ function ActivityCard({ dossier, ledger, studioStatus, warnings, reload, onOpen 
   </article>
 }
 
-function MonthlyChart({ ledger, activity }) {
+function MonthlyChart({ ledger, activity, startMonth = 0 }) {
   const caption = ledgers[activity]
   if (!ledger || !ledger.months.some(month => month.income !== 0 || month.expenses !== 0)) {
     return <p className="mg-muted">{ledger ? 'Aucun mouvement à afficher sur cet exercice.' : 'Données du Hub en attente.'}</p>
   }
-  const values = ledger.months.flatMap(month => [month.income, month.expenses])
+  const visibleMonths = ledger.months.slice(startMonth)
+  const values = visibleMonths.flatMap(month => [month.income, month.expenses])
   const min = Math.min(0, ...values)
   const max = Math.max(0, ...values)
   const position = value => ((value - min) / (max - min)) * 100
@@ -85,37 +85,41 @@ function MonthlyChart({ ledger, activity }) {
   const bar = value => ({ bottom: Math.min(zero, position(value)) + '%', height: Math.abs(position(value) - zero) + '%' })
   return <>
     <div className="mg-legend"><span>{caption.income}</span><span>{caption.expenses}</span></div>
-    <div className="mg-chart" aria-hidden="true">
-      {ledger.months.map((month, i) => <div className="mg-chart-month" key={i}>
+    <div className="mg-chart" aria-hidden="true" style={{ gridTemplateColumns: `repeat(${visibleMonths.length}, minmax(0, 1fr))` }}>
+      {visibleMonths.map((month, i) => <div className="mg-chart-month" key={i}>
         <div className="mg-plot">
           <i className="mg-baseline" style={{ bottom: zero + '%' }} />
           <i className="mg-bar income" style={bar(month.income)} />
           <i className="mg-bar expenses" style={bar(month.expenses)} />
         </div>
-        <span>{months[i]}</span>
+        <span>{months[i + startMonth]}</span>
       </div>)}
     </div>
     <details className="mg-chart-details">
       <summary>Voir les montants par mois</summary>
       <table>
         <thead><tr><th scope="col">Mois</th><th scope="col">{caption.income}</th><th scope="col">{caption.expenses}</th></tr></thead>
-        <tbody>{ledger.months.map((month, i) => <tr key={i}>
-          <th scope="row">{months[i]}</th><td>{money(month.income)}</td><td>{money(month.expenses)}</td>
+        <tbody>{visibleMonths.map((month, i) => <tr key={i}>
+          <th scope="row">{months[i + startMonth]}</th><td>{money(month.income)}</td><td>{money(month.expenses)}</td>
         </tr>)}</tbody>
       </table>
     </details>
   </>
 }
 
-export default function GestoriaDashboard({ year, dossiers, entries, studio, onOpen }) {
+export default function GestoriaDashboard({ year, dossiers, personalStart, entries, studio, onOpen }) {
   const [horizon, setHorizon] = useState(90)
-  const [activity, setActivity] = useState('independent')
+  const [selectedActivity, setActivity] = useState('independent')
+  const personal = dossiers.find(dossier => dossier.id === 'independent')
+  const activity = dossiers.find(dossier => dossier.id === selectedActivity)?.id || dossiers[0].id
+  const startMonth = activity === 'independent' && personalStart?.startsWith(year + '-')
+    ? Number(personalStart.slice(5, 7)) - 1 : 0
   const today = todayInSpain()
   const { priorities, upcoming } = overviewAgenda(dossiers, today)
   const visible = upcoming.filter(item => !horizon || item.days <= horizon)
   const next = upcoming.find(item => item.status !== 'unknown' && !item.indicative)
   const summaries = {
-    independent: ledgerSummary(entries, year, false),
+    independent: personal ? ledgerSummary(entries, year, false, personalStart) : null,
     blackthorn: studio.data ? ledgerSummary([
       ...studio.data.receipts,
       ...studio.data.expenses.map(row => ({ ...row, kind: 'expense' })),
@@ -127,7 +131,10 @@ export default function GestoriaDashboard({ year, dossiers, entries, studio, onO
       <div>
         <p className="mg-eyebrow"><span /> VUE D’ENSEMBLE · EXERCICE {year}</p>
         <h1 id="mg-home-title">Ton bureau de gestion</h1>
-        <p className="mg-hero-description">Tes chiffres, tes échéances et les démarches à avancer pour tes deux activités.</p>
+        <p className="mg-hero-description">{personal
+          ? (personalStart ? 'Mon activité est suivie à partir du ' + formatDate(personalStart) + '. Blackthorn a son propre suivi.'
+            : 'Tes chiffres, tes échéances et les démarches à avancer pour tes deux activités.')
+          : 'Cet exercice affiche le suivi de Blackthorn Tattoo.'}</p>
       </div>
       <div className="mg-hero-next">
         <span className="mg-hero-label">Prochaine échéance confirmée</span>
@@ -154,7 +161,7 @@ export default function GestoriaDashboard({ year, dossiers, entries, studio, onO
           {priorities.map(item => <DeadlineRow key={item.key} item={item} onOpen={onOpen} />)}
         </ul> : <p className="mg-empty">Aucune priorité signalée pour {year}.</p>}
         <div className="mg-card-actions">
-          <button type="button" onClick={() => onOpen('independent', 'guide')}>Suivre mes courriers <span aria-hidden="true">→</span></button>
+          {personal && <button type="button" onClick={() => onOpen('independent', 'guide')}>Suivre mes courriers <span aria-hidden="true">→</span></button>}
           <button type="button" onClick={() => onOpen('blackthorn', 'guide')}>Courriers du studio</button>
         </div>
       </section>
@@ -175,7 +182,7 @@ export default function GestoriaDashboard({ year, dossiers, entries, studio, onO
     </div>
 
     <section aria-labelledby="mg-activities">
-      <div className="mg-block-heading"><p className="mg-section-label">EXERCICE {year}</p><h2 id="mg-activities">Tes deux activités</h2></div>
+      <div className="mg-block-heading"><p className="mg-section-label">EXERCICE {year}</p><h2 id="mg-activities">{personal ? 'Tes deux activités' : 'Activité suivie'}</h2></div>
       <div className="mg-activity-grid">
         {dossiers.map(dossier => <ActivityCard key={dossier.id} dossier={dossier} ledger={summaries[dossier.id]}
           studioStatus={studio.status} warnings={studio.data?.reconciliationWarnings} reload={studio.reload} onOpen={onOpen} />)}
@@ -186,10 +193,10 @@ export default function GestoriaDashboard({ year, dossiers, entries, studio, onO
       <div className="mg-panel-heading">
         <div><p className="mg-section-label">MONTANTS ENREGISTRÉS</p><h2 id="mg-evolution">Évolution mensuelle</h2></div>
         <div className="mg-switch" role="group" aria-label="Activité affichée dans le graphique">
-          {Object.entries(titles).map(([id, label]) => <button type="button" key={id} aria-pressed={id === activity} onClick={() => setActivity(id)}>{label}</button>)}
+          {dossiers.map(({ id, name }) => <button type="button" key={id} aria-pressed={id === activity} onClick={() => setActivity(id)}>{name}</button>)}
         </div>
       </div>
-      <MonthlyChart ledger={summaries[activity]} activity={activity} />
+      <MonthlyChart ledger={summaries[activity]} activity={activity} startMonth={startMonth} />
     </section>
   </div>
 }

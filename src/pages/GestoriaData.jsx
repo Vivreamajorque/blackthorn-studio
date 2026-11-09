@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { todayInSpain } from '../lib/gestoria-calendar.mjs'
+import { inActivityYear, todayInSpain } from '../lib/gestoria-calendar.mjs'
 import { parseGestoriaCsv } from '../lib/gestoria-import.mjs'
 
 const card = { background: 'var(--card, #fff)', border: '1px solid var(--border, #ddd)', borderRadius: 14, padding: 16, marginBottom: 16 }
@@ -84,23 +84,25 @@ export function StudioData({ ledger }) {
 const sources = { direct: 'Direct ou autre', malt: 'Malt', livementor: 'LiveMentor' }
 const payments = { unknown: 'Paiement à vérifier', pending: 'En attente', paid: 'Payé' }
 
-export function PersonalData({ year, entries, canSave, onEntries, bank, onBank }) {
+export function PersonalData({ year, startDate, entries, canSave, onEntries, bank, onBank }) {
   const [draft, setDraft] = useState(null)
   const [sourceFilter, setSourceFilter] = useState('all')
   const today = todayInSpain()
-  const rows = entries.filter(row => row.date.startsWith(year + '-') &&
+  const minDate = startDate?.startsWith(year + '-') ? startDate : year + '-01-01'
+  const rows = entries.filter(row => inActivityYear(row.date, year, startDate) &&
     (sourceFilter === 'all' || (row.source || 'direct') === sourceFilter)).sort((a, b) => b.date.localeCompare(a.date))
   const invoices = rows.filter(row => row.kind === 'invoice')
   const expenses = rows.filter(row => row.kind === 'expense')
   const sum = items => items.reduce((value, row) => value + row.amountCents, 0) / 100
 
   function start(kind) {
-    setDraft({ id: crypto.randomUUID(), kind, source: sourceFilter === 'all' ? 'direct' : sourceFilter, date: today.startsWith(year + '-') ? today : year + '-01-01',
+    setDraft({ id: crypto.randomUUID(), kind, source: sourceFilter === 'all' ? 'direct' : sourceFilter, date: inActivityYear(today, year, startDate) ? today : minDate,
       label: '', reference: '', amount: '', payment: 'unknown' })
   }
 
   async function submit(event) {
     event.preventDefault()
+    if (!inActivityYear(draft.date, year, startDate)) return
     const { amount, ...fields } = draft
     const row = { ...fields, label: draft.label.trim(),
       reference: draft.reference.trim(), amountCents: Math.round(Number(amount) * 100) }
@@ -136,7 +138,7 @@ export function PersonalData({ year, entries, canSave, onEntries, bank, onBank }
         </select></label>
         <label>Client ou fournisseur <input maxLength={160} required value={draft.label}
           onChange={e => setDraft({ ...draft, label: e.target.value })} /></label>
-        <label>Date <input type="date" min={year + '-01-01'} max={year + '-12-31'} required value={draft.date}
+        <label>Date <input type="date" min={minDate} max={year + '-12-31'} required value={draft.date}
           onChange={e => setDraft({ ...draft, date: e.target.value })} /></label>
         <label>Montant total en € <input type="number" step="0.01" min="-100000000" max="100000000" required value={draft.amount}
           onChange={e => setDraft({ ...draft, amount: e.target.value })} /></label>
@@ -164,13 +166,13 @@ export function PersonalData({ year, entries, canSave, onEntries, bank, onBank }
         }}>Retirer</button>
       </div>)}
     </section>
-    <BankPreview year={year} bank={bank} onBank={onBank} />
+    <BankPreview year={year} startDate={startDate} bank={bank} onBank={onBank} />
   </>
 }
 
-function BankPreview({ year, bank, onBank }) {
+function BankPreview({ year, startDate, bank, onBank }) {
   const [message, setMessage] = useState('')
-  const rows = bank.filter(row => row.date.startsWith(year + '-'))
+  const rows = bank.filter(row => inActivityYear(row.date, year, startDate))
   async function readFile(event) {
     const file = event.currentTarget.files?.[0]
     event.currentTarget.value = ''
