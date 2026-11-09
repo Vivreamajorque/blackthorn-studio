@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
+    "build": "node scripts/gestoria-private-reprise.cjs && vite build"
   },
   "dependencies": {
     "@vercel/blob": "^2.4.1",

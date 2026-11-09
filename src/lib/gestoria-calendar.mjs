@@ -4,12 +4,20 @@ const calendar = {
 }
 
 export function filingDeadline(year, quarter, model) {
-  if (quarter < 4) return { date: calendar[year][quarter - 1], indicative: false }
+  if (quarter < 4 && calendar[year]) return { date: calendar[year][quarter - 1], indicative: false }
+  if (quarter < 4) return { date: businessDay(year, quarter * 3, 20), indicative: true }
   const lateJanuary = ['303', '130', '349', '390'].includes(model)
   if (year === 2025) return { date: lateJanuary ? '2026-01-30' : '2026-01-20', indicative: false }
   return lateJanuary
-    ? { date: '2027-02-01', indicative: model !== '303' }
-    : { date: '2027-01-20', indicative: true }
+    ? { date: businessDay(year + 1, 0, 30), indicative: year !== 2026 || model !== '303' }
+    : { date: businessDay(year + 1, 0, 20), indicative: true }
+}
+
+function businessDay(year, month, day) {
+  const date = new Date(Date.UTC(year, month, day))
+  const weekday = date.getUTCDay()
+  date.setUTCDate(day + (weekday === 0 ? 1 : weekday === 6 ? 2 : 0))
+  return date.toISOString().slice(0, 10)
 }
 
 export function monthEnd(year, month) {

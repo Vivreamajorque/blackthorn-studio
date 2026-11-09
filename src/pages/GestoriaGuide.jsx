@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { debtUrl } from '../lib/gestoria-models.mjs'
 import { daysUntil, formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
 
 const box = { background: 'var(--card, #fff)', border: '1px solid var(--border, #ddd)', borderRadius: 14, padding: 16, marginBottom: 16 }
@@ -35,8 +36,10 @@ export default function GestoriaGuide({ year, startDate, notices, filings, tasks
 
   async function submit(event) {
     event.preventDefault()
+    const { amount, kind, ...fields } = draft
     const saved = await onNotices([...notices.filter(notice => notice.id !== draft.id), {
-      ...draft, title: draft.title.trim(),
+      ...fields, title: draft.title.trim(),
+      ...(kind === 'debt' && { kind, ...(amount && { amountCents: Math.round(Number(amount) * 100) }) }),
     }])
     if (saved) setDraft(null)
   }
@@ -57,15 +60,23 @@ export default function GestoriaGuide({ year, startDate, notices, filings, tasks
       {notices.length === 0 && <p>Aucune date ou courrier suivi pour ce dossier.</p>}
       {[...notices].sort((a, b) => Number(a.done) - Number(b.done) || a.date.localeCompare(b.date)).map(notice =>
         <div style={line} key={notice.id}>
-          <strong>{notice.title}</strong>
+          <strong>{notice.title}{notice.kind === 'debt' && notice.amountCents != null &&
+          ' · ' + new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(notice.amountCents / 100)}</strong>
           <p>{notice.done ? 'Traité' : notice.date ? formatDate(notice.date) + ' · ' + countdown(notice.date, today) : 'Date limite à vérifier'}</p>
-          <button disabled={!canSave} onClick={() => setDraft(notice)}>Modifier</button>{' '}
+          <button disabled={!canSave} onClick={() => {
+          const { amountCents, ...fields } = notice
+          setDraft({ ...fields, amount: amountCents == null ? '' : String(amountCents / 100) })
+        }}>Modifier</button>{' '}
           <button disabled={!canSave} onClick={() => onNotices(notices.map(item =>
             item.id === notice.id ? { ...item, done: !item.done } : item))}>{notice.done ? 'Rouvrir' : 'Marquer traité'}</button>
         </div>)}
       {draft ? <form onSubmit={submit} style={line}>
+        <label>Type <select value={draft.kind || ''} onChange={e => setDraft({ ...draft, kind: e.target.value })}>
+          <option value="">Courrier ou date</option><option value="debt">Dette constatée dans Importass</option></select></label>{' '}
         <label>Intitulé <input required maxLength={140} value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} /></label>{' '}
         <label>Date limite <input type="date" min={startDate} value={draft.date} onChange={e => setDraft({ ...draft, date: e.target.value })} /></label>{' '}
+        {draft.kind === 'debt' && <label>Montant officiel en € <input type="number" min="0" max="100000000" step="0.01"
+          value={draft.amount || ''} onChange={e => setDraft({ ...draft, amount: e.target.value })} /></label>}{' '}
         <button disabled={!canSave || !draft.title.trim()}>Enregistrer</button>{' '}
         <button type="button" onClick={() => setDraft(null)}>Annuler</button>
       </form> : <button disabled={!canSave || !canAddNotice}
@@ -84,6 +95,7 @@ export default function GestoriaGuide({ year, startDate, notices, filings, tasks
         {item.status === 'unknown' && ' · obligation à vérifier'}
       </p>)}
       <button onClick={onTasks}>Voir toutes les obligations</button>{' '}
+      <a href={debtUrl} target="_blank" rel="noopener noreferrer">Consulter les dettes dans Importass ↗</a>{' '}
       <a href={sources} target="_blank" rel="noopener noreferrer">Calendrier officiel AEAT ↗</a>
     </section>
   </>

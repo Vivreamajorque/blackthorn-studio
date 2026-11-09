@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { PersonalData, StudioData, useStudioLedger } from './GestoriaData'
+import { GestoriaPayments, ModelPreparation } from './GestoriaModels'
 import GestoriaGuide from './GestoriaGuide'
 import GestoriaDashboard from './GestoriaDashboard'
 import { formatDate } from '../lib/gestoria-calendar.mjs'
@@ -90,7 +91,7 @@ const FILING_STATUS = {
   not_applicable: 'Non applicable après vérification',
 }
 
-const YEARS = [2025, 2026]
+const YEARS = [2025, 2026, 2027]
 const QUARTERS = [1, 2, 3, 4]
 const FILING_ROWS = [
   ...QUARTERS.flatMap(quarter => FORMS.map(form => ({
@@ -240,7 +241,7 @@ export default function MiGestoria() {
   return <main className="mg-shell">
     <div className="mg-toolbar">
       <nav className="mg-main-nav" aria-label="Sections de Mi Gestoría">
-        {[['overview', 'Vue d’ensemble'], ['guide', 'Courriers'], ['finance', 'Compta'], ['tasks', 'Démarches']].map(([id, label]) =>
+        {[['overview', 'Vue d’ensemble'], ['guide', 'Courriers'], ['finance', 'Compta'], ['payments', 'Prévisions'], ['tasks', 'Démarches']].map(([id, label]) =>
           <button type="button" key={id} aria-pressed={tab === id} onClick={() => {
             setTab(id)
             if (id === 'tasks') setFormFilter('all')
@@ -281,6 +282,8 @@ export default function MiGestoria() {
     {tab === 'finance' && (entity === 'blackthorn' ? <StudioData ledger={studio} /> :
       loadState === 'ready' && <PersonalData key={scope} year={year} startDate={current.startDate} entries={data.entries} canSave={canSave}
         onEntries={entries => save(current => ({ ...current, entries }))} bank={bank} onBank={setBank} />)}
+    {tab === 'payments' && loadState === 'ready' &&
+      <GestoriaPayments year={year} dossier={current} data={data} onOpen={openDossier} />}
     {tab === 'tasks' && loadState === 'ready' && <>
 
     {formFilter === 'all' && <section style={card}>
@@ -308,6 +311,8 @@ export default function MiGestoria() {
         {filings.filter(row => formFilter === 'all' || row.key.endsWith(':' + formFilter)).map(row => <div key={row.key} style={rowStyle}>
           <div><strong>{row.title}</strong><div style={muted}>{row.detail}
             {row.date && ' · ' + formatDate(row.date)}{row.indicative && ' · date à confirmer'}</div>
+            <ModelPreparation key={'prep:' + scope + ':' + row.key} row={row} year={year} entries={data.entries}
+              startDate={current.startDate} settings={data.irpf?.[year]} personal={entity === 'independent'} onFinance={() => setTab('finance')} />
             <FilingDetails key={scope + ':' + row.key} row={row} canSave={canSave} onSave={saveFilingDetails} />
           </div>
           <StatusSelect title={'Statut ' + row.title} status={record.filings[row.key]} options={row.model === 'RETA' ? RETA_STATUS : FILING_STATUS}

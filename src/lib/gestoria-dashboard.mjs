@@ -76,6 +76,7 @@ export function ledgerSummary(rows, year, studio, startDate) {
     if (!inActivityYear(row.date, year, startDate)) continue
     const month = months[Number(row.date.slice(5, 7)) - 1]
     if (!month) continue
+    if (!studio && row.currency && row.currency !== 'EUR') continue
     const cents = studio ? Math.round(row.amount * 100) : row.amountCents
     if (row.kind === 'expense') month.expenses += cents
     else {

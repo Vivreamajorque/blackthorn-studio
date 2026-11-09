@@ -1,6 +1,6 @@
 import { inActivityYear } from './gestoria-calendar.mjs'
 
-const noFiling = { box07: 0, box15: 0, box16: 0, box19: 0 }
+const noFiling = { box07: 0, box15: 0, box16: 0, box19: 0, fields: {} }
 const emptyMonth = () => ({ income: 0, expenses: 0, withheld: 0, entries: 0 })
 
 function minoracion(net) {
@@ -14,10 +14,15 @@ function minoracion(net) {
 function estimate({ income, expenses, withheld }, previous, credit, deduction) {
   const profit = income - expenses
   const allowance = Math.min(200000, Math.max(0, Math.round(profit * 0.05)))
-  const box07 = Math.max(0, Math.round((profit - allowance) * 0.20)) - previous - withheld
+  const taxable = profit - allowance
+  const box04 = Math.max(0, Math.round(taxable * 0.20))
+  const box07 = box04 - previous - withheld
   const box14 = Math.max(0, box07) - deduction
   const box15 = Math.min(Math.max(0, box14), credit)
-  return { box07, box15, box16: 0, box19: box14 - box15 }
+  return { box07, box15, box16: 0, box19: box14 - box15, fields: {
+    '01': income, '02': expenses + allowance, '03': taxable, '04': box04, '05': previous,
+    '06': withheld, '07': box07, '13': deduction, '15': box15, '19': box14 - box15,
+  } }
 }
 
 export function irpfForecast(rows, { year, startDate, today, settings = {} }) {
@@ -65,7 +70,7 @@ export function irpfForecast(rows, { year, startDate, today, settings = {} }) {
     if (i % 3 !== 2) continue
 
     const filed = settings.filed?.[quarter]
-    quarters.push({ quarter, due: totals.entries ? due : null, filed })
+    quarters.push({ quarter, due: totals.entries ? due : null, filed, fields: estimated.fields })
     const boxes = filed || estimated
     previous += Math.max(0, boxes.box07) - boxes.box16
     credit = Math.max(0, credit - boxes.box15) + Math.max(0, -boxes.box19)

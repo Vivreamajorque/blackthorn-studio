@@ -209,3 +209,6 @@
 @media (max-width: 760px) {
   .mg-control-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.mg-preparation { margin: 8px 0 12px; padding: 10px 12px; border-left: 2px solid var(--mg-line); }
+.mg-preparation .mg-card-actions { gap: 12px; }

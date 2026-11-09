@@ -2,7 +2,7 @@ const { requireSession } = require('../server/session.cjs')
 
 const empty = { entries: [], records: {} }
 const entryKeys = ['id', 'kind', 'date', 'label', 'reference', 'amountCents', 'payment']
-const optionalEntryKeys = ['source', 'taxDate', 'paymentDate', 'taxAmountCents', 'withholdingCents']
+const optionalEntryKeys = ['source', 'taxDate', 'paymentDate', 'taxAmountCents', 'withholdingCents', 'currency', 'vat', 'attachment']
 const taskStatuses = ['unknown', 'in_progress', 'blocked', 'complete', 'not_applicable']
 const filingKey = /^(?:T[1-4]:(?:303|130|115|111|349)|A:(?:390|100)|M(?:0[1-9]|1[0-2]):RETA)$/
 const filingStatuses = ['unknown', 'missing', 'to_prepare', 'filed', 'not_applicable']
@@ -20,8 +20,13 @@ function validDate(date) {
 function validEntry(entry) {
   if (!isObject(entry) || Object.keys(entry).some(key => !entryKeys.includes(key) && !optionalEntryKeys.includes(key)) ||
       !entryKeys.every(key => Object.hasOwn(entry, key))) return false
-  const { id, kind, date, label, reference, amountCents, payment, source, taxDate, paymentDate, taxAmountCents, withholdingCents } = entry
-  return (source === undefined || ['direct', 'malt', 'livementor'].includes(source)) && validDate(date) && /^(2025|2026)-/.test(date) &&
+  const { id, kind, date, label, reference, amountCents, payment, source, taxDate, paymentDate, taxAmountCents, withholdingCents, currency, vat, attachment } = entry
+  return (source === undefined || ['direct', 'malt', 'livementor'].includes(source)) && validDate(date) && /^(2025|2026|2027)-/.test(date) &&
+    (currency === undefined || ['EUR', 'USD'].includes(currency)) &&
+    (vat === undefined || validVat(vat, kind)) &&
+    (attachment === undefined || (isObject(attachment) && Object.keys(attachment).length === 3 &&
+      /^[a-f0-9-]{36}$/.test(attachment.id) && typeof attachment.name === 'string' && attachment.name.length <= 160 &&
+      ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(attachment.mime))) &&
     (taxDate === undefined || validDate(taxDate)) &&
     (paymentDate === undefined || (payment === 'paid' && validDate(paymentDate))) &&
     (taxAmountCents === undefined || validAmount(taxAmountCents)) &&
@@ -37,9 +42,22 @@ function validAmount(value) {
   return Number.isSafeInteger(value) && Math.abs(value) <= 1e10
 }
 
+function validVat(vat, kind) {
+  if (!isObject(vat) || Object.keys(vat).some(key => !['category', 'date', 'baseCents', 'quotaCents', 'deductibleCents', 'rate', 'country', 'id'].includes(key))) return false
+  const { category, date, baseCents, quotaCents, deductibleCents, rate, country, id } = vat
+  const allowed = kind === 'invoice' ? ['sale_es', 'sale_eu', 'sale_other'] : ['buy_es', 'buy_eu', 'buy_reverse']
+  if (category === 'excluded') return Object.keys(vat).length === 1
+  return allowed.includes(category) && validDate(date) && validAmount(baseCents) && validAmount(quotaCents) &&
+    validAmount(deductibleCents) && Math.abs(deductibleCents) <= Math.abs(quotaCents) &&
+    (!deductibleCents || Math.sign(deductibleCents) === Math.sign(quotaCents)) &&
+    (category !== 'sale_es' || [0, 4, 10, 21].includes(rate)) &&
+    (country === undefined || /^(AT|BE|BG|CY|CZ|DE|DK|EE|EL|FI|FR|HR|HU|IE|IT|LT|LU|LV|MT|NL|PL|PT|RO|SE|SI|SK)$/.test(country)) &&
+    (id === undefined || /^[A-Z0-9]{2,20}$/.test(id))
+}
+
 function validIrpf(value) {
   return isObject(value) && Object.entries(value).every(([year, settings]) =>
-    /^20(25|26)$/.test(year) && isObject(settings) &&
+    /^20(25|26|27)$/.test(year) && isObject(settings) &&
     Object.keys(settings).every(key => ['basis', 'priorNetCents', 'filed'].includes(key)) &&
     ['cash', 'accrual'].includes(settings.basis) &&
     (settings.priorNetCents === undefined || validAmount(settings.priorNetCents)) &&
@@ -57,7 +75,10 @@ function validStatuses(values, keyPattern, statuses) {
 
 function validNotices(notices) {
   return Array.isArray(notices) && notices.length <= 50 &&
-    notices.every(notice => isObject(notice) && Object.keys(notice).length === 4 &&
+    notices.every(notice => isObject(notice) &&
+      Object.keys(notice).every(key => ['id', 'title', 'date', 'done', 'kind', 'amountCents'].includes(key)) &&
+      (notice.kind === undefined || notice.kind === 'debt') &&
+      (notice.amountCents === undefined || (notice.kind === 'debt' && validAmount(notice.amountCents) && notice.amountCents >= 0)) &&
       typeof notice.id === 'string' && /^[\w-]{1,64}$/.test(notice.id) &&
       typeof notice.title === 'string' && notice.title.trim().length > 0 && notice.title.length <= 140 &&
       (notice.date === '' || validDate(notice.date)) && typeof notice.done === 'boolean') &&
@@ -78,7 +99,7 @@ function validWorkspace(data) {
     Array.isArray(data.entries) && data.entries.length <= 1000 && data.entries.every(validEntry) &&
     new Set(data.entries.map(entry => entry.id)).size === data.entries.length &&
     Object.entries(data.records).every(([key, record]) =>
-      /^(independent|blackthorn):20(25|26)$/.test(key) && isObject(record) &&
+      /^(independent|blackthorn):20(25|26|27)$/.test(key) && isObject(record) &&
       Object.keys(record).every(field => ['tasks', 'filings', 'notices', 'filingDetails'].includes(field)) &&
       (record.filingDetails === undefined || validFilingDetails(record.filingDetails)) &&
       validNotices(record.notices) &&
