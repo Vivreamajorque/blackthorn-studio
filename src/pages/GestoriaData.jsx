@@ -122,7 +122,7 @@ export function PersonalData({ year, startDate, entries, canSave, onEntries, ban
     const date = inActivityYear(today, year, startDate) ? today : minDate
     setFileMessage('')
     setDraft({ id: crypto.randomUUID(), kind, source: sourceFilter === 'all' ? 'direct' : sourceFilter, date,
-      label: '', reference: '', amount: '', currency: 'EUR', payment: 'unknown', taxAmount: '', taxDate: '', paymentDate: '', withholding: '',
+      label: '', reference: '', amount: '', currency: 'EUR', payment: 'unknown', taxAmount: '', taxDate: '', paymentDate: '', expectedPaymentDate: '', withholding: '',
       ...values, vatDraft: editVat(undefined, values.date || date) })
   }
 
@@ -130,7 +130,7 @@ export function PersonalData({ year, startDate, entries, canSave, onEntries, ban
     event.preventDefault()
     if (!inActivityYear(draft.date, year, startDate)) return
     if (uploading) return
-    const { amount, taxAmount, taxDate, paymentDate, withholding, vatDraft, file, ...fields } = draft
+    const { amount, taxAmount, taxDate, paymentDate, expectedPaymentDate, withholding, vatDraft, file, ...fields } = draft
     const vat = saveVat(vatDraft)
     let attachment = fields.attachment
     setFileMessage('')
@@ -145,6 +145,7 @@ export function PersonalData({ year, startDate, entries, canSave, onEntries, ban
       ...(taxAmount !== '' && { taxAmountCents: Math.round(Number(taxAmount) * 100) }),
       ...(taxDate && { taxDate }),
       ...(fields.payment === 'paid' && paymentDate && { paymentDate }),
+      ...(fields.payment !== 'paid' && expectedPaymentDate && { expectedPaymentDate }),
         ...(fields.kind === 'invoice' && withholding !== '' && { withholdingCents: Math.round(Number(withholding) * 100) }),
         ...(attachment && { attachment }),
         ...(vat && { vat }),
@@ -243,6 +244,9 @@ export function PersonalData({ year, startDate, entries, canSave, onEntries, ban
         {draft.payment === 'paid' && <label>{draft.kind === 'invoice' ? 'Date d’encaissement' : 'Date de paiement'}
           <input type="date" value={draft.paymentDate} onChange={e => setDraft({ ...draft, paymentDate: e.target.value })} />
         </label>}
+        {draft.payment !== 'paid' && <label>{draft.kind === 'invoice' ? 'Encaissement prévu, si connu' : 'Paiement prévu, si connu'}
+          <input type="date" value={draft.expectedPaymentDate} onChange={e => setDraft({ ...draft, expectedPaymentDate: e.target.value })} />
+        </label>}
         <fieldset className="mg-tax-settings">
           <legend>Calcul de l’IRPF</legend>
           <label>{draft.kind === 'invoice' ? 'Revenu hors TVA en €' : 'Part déductible à l’IRPF en €'}
@@ -280,6 +284,7 @@ export function PersonalData({ year, startDate, entries, canSave, onEntries, ban
         <p style={muted}>{dateLabel(row.date)} · {row.kind === 'invoice' ? 'Facture émise' : 'Dépense'} · {payments[row.payment]} · {sources[row.source || 'direct']}
           {row.reference && ' · ' + row.reference}
           {row.paymentDate && ' · Payé le ' + dateLabel(row.paymentDate)}
+          {row.expectedPaymentDate && ' · Prévu le ' + dateLabel(row.expectedPaymentDate)}
           {' · IRPF ' + (taxAmountCents == null ? 'à vérifier' : euro.format(taxAmountCents / 100))}</p>
         {row.attachment && <p><a href={'/api/gestoria-file?id=' + row.attachment.id + '&name=' + encodeURIComponent(row.attachment.name)}
           target="_blank" rel="noopener noreferrer">Voir le justificatif ↗</a></p>}
@@ -287,7 +292,7 @@ export function PersonalData({ year, startDate, entries, canSave, onEntries, ban
           currency: row.currency || 'EUR', vatDraft: editVat(vat, row.date),
           taxAmount: taxAmountCents == null ? '' : String(taxAmountCents / 100),
           withholding: withholdingCents == null ? '' : String(withholdingCents / 100),
-          taxDate: row.taxDate || '', paymentDate: row.paymentDate || '' })}>Modifier</button>{' '}
+          taxDate: row.taxDate || '', paymentDate: row.paymentDate || '', expectedPaymentDate: row.expectedPaymentDate || '' })}>Modifier</button>{' '}
         <button disabled={!canSave || uploading} onClick={async () => {
           if (window.confirm('Retirer cette ligne de ton dossier ?') &&
               await onEntries(entries.filter(entry => entry.id !== row.id)) && draft?.id === row.id) setDraft(null)

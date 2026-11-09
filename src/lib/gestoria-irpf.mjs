@@ -25,6 +25,11 @@ function estimate({ income, expenses, withheld }, previous, credit, deduction) {
   } }
 }
 
+export function forecastPayments(entries, today) {
+  return entries.map(row => !row.paymentDate && row.expectedPaymentDate >= today
+    ? { ...row, paymentDate: row.expectedPaymentDate } : row)
+}
+
 export function irpfForecast(rows, { year, startDate, today, settings = {} }) {
   const months = Array.from({ length: 12 }, emptyMonth)
   const excluded = { missingAmount: 0, missingDate: 0, awaitingPayment: 0 }

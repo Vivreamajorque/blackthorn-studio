@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
-import { irpfForecast } from '../lib/gestoria-irpf.mjs'
+import { forecastPayments, irpfForecast } from '../lib/gestoria-irpf.mjs'
 import { debtUrl, models, vatSummary } from '../lib/gestoria-models.mjs'
 
 const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
@@ -70,7 +70,10 @@ export function GestoriaPayments({ year, dossier, data, onOpen }) {
   const { id, startDate, filings, notices } = dossier
   const today = todayInSpain()
   const personal = id === 'independent'
-  const irpf = personal ? irpfForecast(data.entries, { year, startDate, today, settings: data.irpf?.[year] }) : null
+  const settings = data.irpf?.[year]
+  const irpf = personal ? irpfForecast(data.entries, { year, startDate, today, settings }) : null
+  const projected = personal ? irpfForecast(forecastPayments(data.entries, today),
+    { year, startDate, today: year + '-12-31', settings }) : null
   const historical = Object.entries(data.records).filter(([key]) => key.startsWith(id + ':') && Number(key.slice(-4)) <= year)
     .flatMap(([key, record]) => Object.entries(record.filingDetails || {}).map(([period, evidence]) => ({
       key: key + ':' + period, period, evidence, filed: record.filings[period] === 'filed',
@@ -82,8 +85,10 @@ export function GestoriaPayments({ year, dossier, data, onOpen }) {
     let caption = 'Montant à vérifier'
     if (amount != null) caption = row.status === 'filed' && row.model === 'RETA' ? 'Prélevé' : 'Montant saisi · paiement à rapprocher'
     else if (row.model === '130' && irpf && row.status !== 'filed') {
-      amount = irpf.quarters[row.quarter - 1]?.due
-      caption = 'Estimation IRPF'
+      const actual = irpf.quarters[row.quarter - 1]?.due
+      const projection = row.date >= today ? projected.quarters[row.quarter - 1]?.due : null
+      amount = projection ?? actual
+      caption = projection != null && projection !== actual ? 'Projection IRPF · dates prévues incluses' : 'Estimation IRPF'
     } else if (row.model === '303' && personal && row.status !== 'filed') {
       const vat = vatSummary(data.entries, { year, startDate, today, quarter: row.quarter })
       amount = vat.balance == null ? null : Math.max(0, vat.balance)
@@ -99,7 +104,7 @@ export function GestoriaPayments({ year, dossier, data, onOpen }) {
   return <>
     <section className="mg-panel">
       <div className="mg-panel-heading"><div><p className="mg-section-label">TRÉSORERIE</p><h2>Ce que je dois prévoir</h2></div></div>
-      <p className="mg-muted">Les estimations reprennent les écritures qualifiées à ce jour. Les dates indicatives et les échéances passées restent à vérifier. Le statut du dépôt et le paiement se rapprochent séparément.</p>
+      <p className="mg-muted">Les projections IRPF incluent les encaissements et paiements prévus que tu renseignes dans Compta. Les dates indicatives et les échéances passées restent à vérifier. Le statut du dépôt et le paiement se rapprochent séparément.</p>
       <div className="mg-tax-table"><table>
         <thead><tr><th>Échéance</th><th>Obligation</th><th>Montant</th><th>Origine</th></tr></thead>
         <tbody>{rows.map(row => <tr key={row.key}>

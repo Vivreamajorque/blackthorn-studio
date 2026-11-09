@@ -2,7 +2,7 @@ const { requireSession } = require('../server/session.cjs')
 
 const empty = { entries: [], records: {} }
 const entryKeys = ['id', 'kind', 'date', 'label', 'reference', 'amountCents', 'payment']
-const optionalEntryKeys = ['source', 'taxDate', 'paymentDate', 'taxAmountCents', 'withholdingCents', 'currency', 'vat', 'attachment']
+const optionalEntryKeys = ['source', 'taxDate', 'paymentDate', 'taxAmountCents', 'withholdingCents', 'currency', 'vat', 'attachment', 'expectedPaymentDate']
 const taskStatuses = ['unknown', 'in_progress', 'blocked', 'complete', 'not_applicable']
 const filingKey = /^(?:T[1-4]:(?:303|130|115|111|349)|A:(?:390|100)|M(?:0[1-9]|1[0-2]):RETA)$/
 const filingStatuses = ['unknown', 'missing', 'to_prepare', 'filed', 'not_applicable']
@@ -20,7 +20,7 @@ function validDate(date) {
 function validEntry(entry) {
   if (!isObject(entry) || Object.keys(entry).some(key => !entryKeys.includes(key) && !optionalEntryKeys.includes(key)) ||
       !entryKeys.every(key => Object.hasOwn(entry, key))) return false
-  const { id, kind, date, label, reference, amountCents, payment, source, taxDate, paymentDate, taxAmountCents, withholdingCents, currency, vat, attachment } = entry
+  const { id, kind, date, label, reference, amountCents, payment, source, taxDate, paymentDate, taxAmountCents, withholdingCents, currency, vat, attachment, expectedPaymentDate } = entry
   return (source === undefined || ['direct', 'malt', 'livementor'].includes(source)) && validDate(date) && /^(2025|2026|2027)-/.test(date) &&
     (currency === undefined || ['EUR', 'USD'].includes(currency)) &&
     (vat === undefined || validVat(vat, kind)) &&
@@ -29,6 +29,7 @@ function validEntry(entry) {
       ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(attachment.mime))) &&
     (taxDate === undefined || validDate(taxDate)) &&
     (paymentDate === undefined || (payment === 'paid' && validDate(paymentDate))) &&
+    (expectedPaymentDate === undefined || (payment !== 'paid' && validDate(expectedPaymentDate))) &&
     (taxAmountCents === undefined || validAmount(taxAmountCents)) &&
     (withholdingCents === undefined || (kind === 'invoice' && validAmount(withholdingCents))) &&
     typeof id === 'string' && /^[\w-]{1,64}$/.test(id) &&
