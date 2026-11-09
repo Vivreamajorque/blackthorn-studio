@@ -184,3 +184,15 @@
   .mg-main-nav button { padding: 5px 7px; font-size: .83rem; }
   .mg-deadline-aside > span:last-child { display: none; }
 }
+
+.mg-tax-table { overflow-x: auto; margin: 12px 0; }
+.mg-tax-table table { width: 100%; border-collapse: collapse; }
+.mg-tax-table th, .mg-tax-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border, #ddd); }
+.mg-tax-table td { white-space: nowrap; }
+.mg-tax-settings { display: grid; gap: 10px; margin: 12px 0; }
+.mg-tax-settings label:not(:has([type="checkbox"])) { display: grid; gap: 4px; }
+.mg-tax-settings input, .mg-tax-settings select { max-width: 100%; }
+.mg-tax-settings button { justify-self: start; }
+.mg-tax-filing { padding: 8px 0; }
+.mg-tax-boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; margin-top: 8px; }
+.mg-tax-boxes input { width: 100%; }

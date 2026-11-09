@@ -210,7 +210,9 @@ export default function MiGestoria() {
       <p>{current.subtitle} · Exercice {year}{current.startDate && ' · Suivi depuis le ' + formatDate(current.startDate)}</p>
     </div>}
     {tab === 'overview' && loadState === 'ready' && <GestoriaDashboard
-      year={year} dossiers={dossiers} personalStart={personalStart} entries={data.entries} studio={studio} onOpen={openDossier} />}
+      year={year} dossiers={dossiers} personalStart={personalStart} entries={data.entries} studio={studio} onOpen={openDossier}
+      irpf={data.irpf?.[year]} canSave={canSave}
+      onIrpf={settings => save(current => ({ ...current, irpf: { ...current.irpf, [year]: settings } }))} />}
     {loadState === 'loading' && <p role="status">Chargement de ton dossier privé…</p>}
     {loadState === 'error' && <div role="alert">
       <p>Le dossier privé n’a pas pu être chargé.</p>

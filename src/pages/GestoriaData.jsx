@@ -97,15 +97,20 @@ export function PersonalData({ year, startDate, entries, canSave, onEntries, ban
 
   function start(kind) {
     setDraft({ id: crypto.randomUUID(), kind, source: sourceFilter === 'all' ? 'direct' : sourceFilter, date: inActivityYear(today, year, startDate) ? today : minDate,
-      label: '', reference: '', amount: '', payment: 'unknown' })
+      label: '', reference: '', amount: '', payment: 'unknown', taxAmount: '', taxDate: '', paymentDate: '', withholding: '' })
   }
 
   async function submit(event) {
     event.preventDefault()
     if (!inActivityYear(draft.date, year, startDate)) return
-    const { amount, ...fields } = draft
-    const row = { ...fields, label: draft.label.trim(),
-      reference: draft.reference.trim(), amountCents: Math.round(Number(amount) * 100) }
+    const { amount, taxAmount, taxDate, paymentDate, withholding, ...fields } = draft
+    const row = { ...fields, label: draft.label.trim(), reference: draft.reference.trim(),
+      amountCents: Math.round(Number(amount) * 100),
+      ...(taxAmount !== '' && { taxAmountCents: Math.round(Number(taxAmount) * 100) }),
+      ...(taxDate && { taxDate }),
+      ...(fields.payment === 'paid' && paymentDate && { paymentDate }),
+      ...(fields.kind === 'invoice' && withholding !== '' && { withholdingCents: Math.round(Number(withholding) * 100) }),
+    }
     if (await onEntries([...entries.filter(entry => entry.id !== row.id), row])) setDraft(null)
   }
 
@@ -148,18 +153,43 @@ export function PersonalData({ year, startDate, entries, canSave, onEntries, ban
           onChange={e => setDraft({ ...draft, payment: e.target.value })}>
           {Object.entries(payments).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select></label>
+        {draft.payment === 'paid' && <label>{draft.kind === 'invoice' ? 'Date d’encaissement' : 'Date de paiement'}
+          <input type="date" value={draft.paymentDate} onChange={e => setDraft({ ...draft, paymentDate: e.target.value })} />
+        </label>}
+        <fieldset className="mg-tax-settings">
+          <legend>Calcul de l’IRPF</legend>
+          <label>{draft.kind === 'invoice' ? 'Revenu hors TVA en €' : 'Part déductible à l’IRPF en €'}
+            <input type="number" step="0.01" min="-100000000" max="100000000" value={draft.taxAmount}
+              onChange={e => setDraft({ ...draft, taxAmount: e.target.value })} />
+          </label>
+          <button type="button" disabled={draft.amount === ''}
+            onClick={() => setDraft({ ...draft, taxAmount: draft.amount })}>Reprendre le montant saisi</button>
+          <span style={muted}>Laisse le montant fiscal vide s’il reste à vérifier. Indique 0 si la ligne est exclue de l’IRPF.</span>
+          <label>Date de rattachement si différente de la date de facture
+            <input type="date" value={draft.taxDate} onChange={e => setDraft({ ...draft, taxDate: e.target.value })} />
+          </label>
+          {draft.kind === 'invoice' && <label>Retenue d’IRPF espagnole en €, si applicable
+            <input type="number" step="0.01" min="-100000000" max="100000000" value={draft.withholding}
+              onChange={e => setDraft({ ...draft, withholding: e.target.value })} />
+          </label>}
+        </fieldset>
         <div>
           <button disabled={!canSave || !draft.label.trim()}>Enregistrer</button>{' '}
           <button type="button" onClick={() => setDraft(null)}>Annuler</button>
         </div>
       </form>}
       {rows.length === 0 && <p>Aucune facture ni dépense enregistrée pour {year}.</p>}
-      {rows.map(({ amountCents, ...row }) => <div key={row.id}
+      {rows.map(({ amountCents, taxAmountCents, withholdingCents, ...row }) => <div key={row.id}
         style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border, #ddd)' }}>
         <strong>{row.label} · {euro.format(amountCents / 100)}</strong>
         <p style={muted}>{dateLabel(row.date)} · {row.kind === 'invoice' ? 'Facture émise' : 'Dépense'} · {payments[row.payment]} · {sources[row.source || 'direct']}
-          {row.reference && ' · ' + row.reference}</p>
-        <button disabled={!canSave} onClick={() => setDraft({ ...row, source: row.source || 'direct', amount: String(amountCents / 100) })}>Modifier</button>{' '}
+          {row.reference && ' · ' + row.reference}
+          {row.paymentDate && ' · Payé le ' + dateLabel(row.paymentDate)}
+          {' · IRPF ' + (taxAmountCents == null ? 'à vérifier' : euro.format(taxAmountCents / 100))}</p>
+        <button disabled={!canSave} onClick={() => setDraft({ ...row, source: row.source || 'direct', amount: String(amountCents / 100),
+          taxAmount: taxAmountCents == null ? '' : String(taxAmountCents / 100),
+          withholding: withholdingCents == null ? '' : String(withholdingCents / 100),
+          taxDate: row.taxDate || '', paymentDate: row.paymentDate || '' })}>Modifier</button>{' '}
         <button disabled={!canSave} onClick={async () => {
           if (window.confirm('Retirer cette ligne de ton dossier ?') &&
               await onEntries(entries.filter(entry => entry.id !== row.id)) && draft?.id === row.id) setDraft(null)

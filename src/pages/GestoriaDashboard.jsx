@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { overviewAgenda, isComplete, ledgerSummary } from '../lib/gestoria-dashboard.mjs'
 import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
+import GestoriaIrpf from './GestoriaIrpf'
 import './gestoria-dashboard.css'
 
 const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
@@ -107,7 +108,7 @@ function MonthlyChart({ ledger, activity, startMonth = 0 }) {
   </>
 }
 
-export default function GestoriaDashboard({ year, dossiers, personalStart, entries, studio, onOpen }) {
+export default function GestoriaDashboard({ year, dossiers, personalStart, entries, studio, onOpen, irpf, canSave, onIrpf }) {
   const [horizon, setHorizon] = useState(90)
   const [selectedActivity, setActivity] = useState('independent')
   const personal = dossiers.find(dossier => dossier.id === 'independent')
@@ -188,6 +189,9 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
           studioStatus={studio.status} warnings={studio.data?.reconciliationWarnings} reload={studio.reload} onOpen={onOpen} />)}
       </div>
     </section>
+
+    {personal && <GestoriaIrpf key={year} year={year} startDate={personalStart} entries={entries} filings={personal.filings}
+      settings={irpf} canSave={canSave} onSave={onIrpf} onFinance={() => onOpen('independent', 'finance')} />}
 
     <section className="mg-panel mg-evolution" aria-labelledby="mg-evolution">
       <div className="mg-panel-heading">
