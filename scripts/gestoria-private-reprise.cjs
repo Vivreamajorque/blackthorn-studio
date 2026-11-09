@@ -1,24 +1,31 @@
 const fs = require('node:fs')
 const { createRequire } = require('node:module')
 
+let step = 'environment'
+
 async function main() {
   const manifest = process.env.GESTORIA_LEDGER_REPRISE
   if (!manifest) return
   if (process.env.VERCEL_ENV !== 'preview' ||
       process.env.VERCEL_GIT_COMMIT_REF !== 'feature/mi-gestoria-amely' ||
       process.env.GESTORIA_URL !== 'https://mi-gestoria-amely.vercel.app') throw new Error('Unexpected import environment')
+  step = 'load-validator'
   const apiPath = require.resolve('../api/gestoria-workspace.js')
   const api = { exports: {} }
   const { validWorkspace, readWorkspace } = new Function('require', 'module', 'exports',
     fs.readFileSync(apiPath, 'utf8') + '\nreturn { validWorkspace, readWorkspace }')(createRequire(apiPath), api, api.exports)
+  step = 'validate-incoming'
   const incoming = JSON.parse(manifest)
   const key = entry => entry.reference.trim().toUpperCase()
   if (!validWorkspace({ entries: incoming, records: {} }) || incoming.some(entry => !key(entry)) ||
       new Set(incoming.map(key)).size !== incoming.length) throw new Error('Invalid private manifest')
+  step = 'blob-module'
   const blob = await import('@vercel/blob')
   const path = 'mi-gestoria/personal/v1/workspace.json'
   for (let attempt = 0; attempt < 4; attempt++) {
+    step = 'read-ledger'
     const current = await readWorkspace(blob, path)
+    step = 'merge-ledger'
     const entries = [...current.data.entries]
     let added = 0
     let enriched = 0
@@ -44,6 +51,7 @@ async function main() {
     if (!validWorkspace(data)) throw new Error('Invalid merged workspace')
     if (added || enriched) {
       try {
+        step = 'save-ledger'
         await blob.put(path, JSON.stringify(data), {
           access: 'private', addRandomSuffix: false, contentType: 'application/json',
           allowOverwrite: current.revision !== null,
@@ -55,6 +63,7 @@ async function main() {
         throw error
       }
     }
+    step = 'verify-ledger'
     const verified = await readWorkspace(blob, path)
     const present = incoming.filter(row => verified.data.entries.some(saved => key(saved) === key(row) && saved.kind === row.kind))
     if (present.length !== incoming.length || !verified.revision) throw new Error('Private ledger readback failed')
@@ -64,7 +73,12 @@ async function main() {
   throw new Error('Concurrent changes prevented a safe import')
 }
 
-main().catch(() => {
-  console.error('MG_REPRISE_FAILED')
+main().catch(error => {
+  console.error('MG_REPRISE_FAILED ' + step + ' ' + (error?.name || 'Error'))
+  if (step === 'environment') console.error('MG_REPRISE_SCOPE ' + JSON.stringify({
+    preview: process.env.VERCEL_ENV === 'preview',
+    branch: process.env.VERCEL_GIT_COMMIT_REF === 'feature/mi-gestoria-amely',
+    url: process.env.GESTORIA_URL === 'https://mi-gestoria-amely.vercel.app',
+  }))
   process.exitCode = 1
 })
