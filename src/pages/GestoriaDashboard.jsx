@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { overviewAgenda, isComplete, ledgerSummary } from '../lib/gestoria-dashboard.mjs'
 import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
+import GestoriaControl from './GestoriaControl'
 import GestoriaIrpf from './GestoriaIrpf'
 import './gestoria-dashboard.css'
 
@@ -18,13 +19,17 @@ const horizons = [{ id: 30, title: '30 jours' }, { id: 90, title: '90 jours' }, 
 function deadlineLabel(item) {
   if (item.kind === 'task') return 'Démarche bloquée'
   if (!item.date) return 'Date à vérifier'
-  if (item.days < 0) return item.kind === 'notice' ? 'Date passée' : 'Dépôt à vérifier'
+  if (item.days < 0) {
+    if (item.kind === 'notice') return 'Date passée'
+    if (item.kind === 'contribution') return 'Prélèvement à vérifier'
+    return item.status === 'unknown' ? 'Applicabilité à vérifier' : 'Dépôt à vérifier'
+  }
   if (item.days === 0) return 'Aujourd’hui'
   return 'J − ' + item.days
 }
 
 function deadlineTone(item) {
-  if (item.days !== null && item.days <= 0) return 'critical'
+  if (item.days !== null && item.days <= 0 && item.status !== 'unknown') return 'critical'
   if (!item.date || item.days <= 7 || item.status === 'unknown') return 'warning'
   return 'calm'
 }
@@ -150,6 +155,8 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
         </>}
       </div>
     </section>
+
+    {personal && <GestoriaControl dossier={personal} entries={entries} year={year} today={today} irpf={irpf} onOpen={onOpen} />}
 
     <div className="mg-agenda-grid">
       <section className="mg-panel" aria-labelledby="mg-priorities">

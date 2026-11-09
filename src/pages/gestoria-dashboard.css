@@ -196,3 +196,16 @@
 .mg-tax-filing { padding: 8px 0; }
 .mg-tax-boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; margin-top: 8px; }
 .mg-tax-boxes input { width: 100%; }
+
+.mg-control-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+.mg-control-card { display: grid; gap: 8px; justify-items: start; min-width: 0; padding: 12px; text-align: left; border: 1px solid var(--mg-line); background: #f7faf6; }
+.mg-control-card strong { font-size: .9rem; }
+.mg-control-card > span:last-child, .mg-filing-evidence { font-size: .8rem; color: var(--mg-muted); }
+.mg-filing-evidence { margin-top: 7px; }
+.mg-filing-evidence summary { cursor: pointer; }
+.mg-filing-evidence form { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.mg-filing-evidence label { display: grid; gap: 4px; }
+.mg-filing-evidence input { width: min(100%, 13rem); }
+@media (max-width: 760px) {
+  .mg-control-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

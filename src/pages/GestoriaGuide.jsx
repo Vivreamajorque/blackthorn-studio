@@ -73,8 +73,8 @@ export default function GestoriaGuide({ year, startDate, notices, filings, tasks
     </section>
     <section style={box}>
       <h2>Échéances fiscales</h2>
-      <p>Dates générales de dépôt pour les modèles trimestriels suivis. Le paiement par prélèvement a son propre calendrier.</p>
-      {confirmed.filter(item => item.date < today).map(item => <p key={item.key}>
+      <p>Dates générales des déclarations et prélèvements suivis. Le paiement par prélèvement a son propre calendrier.</p>
+      {confirmed.filter(item => item.date && item.date < today).map(item => <p key={item.key}>
         <strong>{item.title}</strong> · {formatDate(item.date)} · Date passée, dépôt à vérifier
       </p>)}
       {!upcoming.length && <p>Aucune date future pour cet exercice parmi les modèles suivis.</p>}
@@ -83,7 +83,7 @@ export default function GestoriaGuide({ year, startDate, notices, filings, tasks
         {item.indicative && ' · date à confirmer'}
         {item.status === 'unknown' && ' · obligation à vérifier'}
       </p>)}
-      <button onClick={onTasks}>Voir tous les trimestres</button>{' '}
+      <button onClick={onTasks}>Voir toutes les obligations</button>{' '}
       <a href={sources} target="_blank" rel="noopener noreferrer">Calendrier officiel AEAT ↗</a>
     </section>
   </>

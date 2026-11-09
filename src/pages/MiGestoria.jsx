@@ -60,9 +60,19 @@ const TASKS = [
 const FORMS = [
   { id: '303', detail: 'Autoliquidation d’IVA, si obligation trimestrielle confirmée' },
   { id: '130', detail: 'Acomptes IRPF en estimation directe, si applicable' },
+  { id: '349', detail: 'Opérations intracommunautaires. Vérifier si la périodicité est trimestrielle ou mensuelle.' },
   { id: '115', detail: 'Retenues sur loyer professionnel, si applicable' },
   { id: '111', detail: 'Retenues sur salaires ou honoraires, si applicable' },
 ]
+
+const EXTRA_FORMS = [
+  { id: '390', title: 'Modelo 390 · Récapitulatif annuel de TVA', detail: 'Vérifier si tu dois le déposer ou si tu es dispensée.' },
+  { id: '100', title: 'Modelo 100 · Renta annuelle', detail: 'Vérifier les revenus, la situation familiale et les acomptes IRPF.' },
+  { id: 'RETA', title: 'Cotisations Seguridad Social', detail: 'Prélèvement habituel le dernier jour ouvrable du mois. Vérifier le montant et le reçu dans Importass.' },
+]
+const MODELS = [...FORMS, ...EXTRA_FORMS]
+const monthName = new Intl.DateTimeFormat('fr-FR', { month: 'long', timeZone: 'UTC' })
+const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
 
 const TASK_STATUS = {
   unknown: 'À vérifier',
@@ -82,13 +92,23 @@ const FILING_STATUS = {
 
 const YEARS = [2025, 2026]
 const QUARTERS = [1, 2, 3, 4]
-const FILING_ROWS = QUARTERS.flatMap(quarter => FORMS.map(form => ({
-  key: 'T' + quarter + ':' + form.id,
-  quarter,
-  model: form.id,
-  title: 'T' + quarter + ' · Modelo ' + form.id,
-  detail: form.detail,
-})))
+const FILING_ROWS = [
+  ...QUARTERS.flatMap(quarter => FORMS.map(form => ({
+    key: 'T' + quarter + ':' + form.id, quarter, model: form.id,
+    title: 'T' + quarter + ' · Modelo ' + form.id, detail: form.detail,
+  }))),
+  ...EXTRA_FORMS.filter(form => form.id !== 'RETA').map(({ id, title, detail }) => ({
+    key: 'A:' + id, model: id, title, detail,
+  })),
+  ...Array.from({ length: 12 }, (_, i) => ({
+    key: 'M' + String(i + 1).padStart(2, '0') + ':RETA', model: 'RETA', month: i + 1,
+    title: 'Cotisation · ' + monthName.format(new Date(Date.UTC(2026, i, 1))),
+    detail: EXTRA_FORMS.find(form => form.id === 'RETA').detail,
+  })),
+]
+const RETA_STATUS = { ...FILING_STATUS, missing: 'Prélèvement à vérifier', to_prepare: 'À prévoir',
+  filed: 'Payée, à rapprocher du reçu' }
+
 const card = { background: 'var(--card, #fff)', border: '1px solid var(--border, #ddd)', borderRadius: 14, padding: 16, marginBottom: 16 }
 const muted = { color: 'var(--txt2, #777)', fontSize: 13 }
 const rowStyle = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '12px 0', borderTop: '1px solid var(--border, #ddd)' }
@@ -113,6 +133,29 @@ function StatusSelect({ title, status, options, onChange, disabled }) {
     style={{ padding: 8, maxWidth: '100%' }}>
     {Object.entries(options).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
   </select>
+}
+
+function FilingDetails({ row, canSave, onSave }) {
+  const [reference, setReference] = useState(row.evidence?.reference || '')
+  const [amount, setAmount] = useState(row.evidence?.amountCents == null ? '' : String(row.evidence.amountCents / 100))
+  async function submit(event) {
+    event.preventDefault()
+    await onSave(row.key, {
+      reference: reference.trim(),
+      ...(amount !== '' && { amountCents: Math.round(Number(amount) * 100) }),
+    })
+  }
+  return <details className="mg-filing-evidence">
+    <summary>{row.evidence?.reference ? 'Référence enregistrée' : 'Ajouter la référence du justificatif'}
+      {row.evidence?.amountCents != null && ' · ' + euro.format(row.evidence.amountCents / 100)}</summary>
+    <form onSubmit={submit}>
+      <label>Référence du reçu <input maxLength={120} value={reference} onChange={e => setReference(e.target.value)} /></label>
+      <label>{row.model === 'RETA' ? 'Montant prélevé' : 'Solde déclaré en €'}
+        <input type="number" step="0.01" min="-100000000" max="100000000" value={amount} onChange={e => setAmount(e.target.value)} />
+      </label>
+      <button type="submit" disabled={!canSave}>Enregistrer</button>
+    </form>
+  </details>
 }
 
 export default function MiGestoria() {
@@ -154,6 +197,10 @@ export default function MiGestoria() {
     return updateRecord({ [group]: { ...record[group], [key]: status } })
   }
 
+  function saveFilingDetails(key, details) {
+    return updateRecord({ filingDetails: { ...record.filingDetails, [key]: details } })
+  }
+
   async function restoreBackup(event) {
     const input = event.currentTarget
     const file = input.files[0]
@@ -185,7 +232,7 @@ export default function MiGestoria() {
   function exportChecklist() {
     const lines = ['Mi Gestoría — suivi préparatoire', current.name + ' · ' + year, '', 'Démarches et pièces']
     for (const task of tasks) lines.push(task.title + ' · ' + TASK_STATUS[record.tasks[task.id] || 'unknown'])
-    lines.push('', 'Déclarations trimestrielles à vérifier')
+    lines.push('', 'Déclarations et cotisations à vérifier')
     for (const row of filings) lines.push(row.title + ' · ' + FILING_STATUS[row.status])
     download(fileBase + '.txt', lines.join('\n'), 'text/plain;charset=utf-8')
   }
@@ -194,7 +241,10 @@ export default function MiGestoria() {
     <div className="mg-toolbar">
       <nav className="mg-main-nav" aria-label="Sections de Mi Gestoría">
         {[['overview', 'Vue d’ensemble'], ['guide', 'Courriers'], ['finance', 'Compta'], ['tasks', 'Démarches']].map(([id, label]) =>
-          <button type="button" key={id} aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</button>)}
+          <button type="button" key={id} aria-pressed={tab === id} onClick={() => {
+            setTab(id)
+            if (id === 'tasks') setFormFilter('all')
+          }}>{label}</button>)}
       </nav>
       <div className="mg-toolbar-filters">
         {tab !== 'overview' && <label>Dossier <select value={entity} onChange={event => { setEntity(event.target.value); setFeedback(null) }}>
@@ -233,7 +283,7 @@ export default function MiGestoria() {
         onEntries={entries => save(current => ({ ...current, entries }))} bank={bank} onBank={setBank} />)}
     {tab === 'tasks' && loadState === 'ready' && <>
 
-    <section style={card}>
+    {formFilter === 'all' && <section style={card}>
       <h2 style={{ fontSize: 18, marginTop: 0 }}>Démarches et pièces</h2>
       <p style={muted}>{completed} sur {tasks.length} vérifiées, terminées ou non concernées.</p>
       {tasks.map(task => <div key={task.id} style={rowStyle}>
@@ -245,20 +295,23 @@ export default function MiGestoria() {
         <StatusSelect title={task.title} status={record.tasks[task.id]} options={TASK_STATUS} disabled={!canSave}
           onChange={status => setStatus('tasks', task.id, status)} />
       </div>)}
-    </section>
+    </section>}
 
     <section style={card}>
-      <h2 style={{ fontSize: 18, marginTop: 0 }}>Déclarations trimestrielles</h2>
-      <p style={muted}>Les lignes sont des points de contrôle. Vérifie l’obligation et la période sur Hacienda avant de conclure à un retard.</p>
+      <h2 style={{ fontSize: 18, marginTop: 0 }}>Déclarations et cotisations</h2>
+      <p style={muted}>Vérifie les obligations sur Hacienda et les prélèvements dans Importass. Enregistre le statut et la référence de chaque justificatif.</p>
       <label>Filtrer par modèle <select value={formFilter} onChange={event => setFormFilter(event.target.value)}>
         <option value="all">Tous</option>
-        {FORMS.map(form => <option key={form.id} value={form.id}>Modelo {form.id}</option>)}
+        {MODELS.map(form => <option key={form.id} value={form.id}>{form.title || 'Modelo ' + form.id}</option>)}
       </select></label>
       <div style={{ marginTop: 12 }}>
         {filings.filter(row => formFilter === 'all' || row.key.endsWith(':' + formFilter)).map(row => <div key={row.key} style={rowStyle}>
-          <div><strong>{row.title}</strong><div style={muted}>{row.detail} · {formatDate(row.date)}{row.indicative && ' (date à confirmer)'}</div></div>
-          <StatusSelect title={'Statut ' + row.title} status={record.filings[row.key]} options={FILING_STATUS} disabled={!canSave}
-            onChange={status => setStatus('filings', row.key, status)} />
+          <div><strong>{row.title}</strong><div style={muted}>{row.detail}
+            {row.date && ' · ' + formatDate(row.date)}{row.indicative && ' · date à confirmer'}</div>
+            <FilingDetails key={scope + ':' + row.key} row={row} canSave={canSave} onSave={saveFilingDetails} />
+          </div>
+          <StatusSelect title={'Statut ' + row.title} status={record.filings[row.key]} options={row.model === 'RETA' ? RETA_STATUS : FILING_STATUS}
+            disabled={!canSave} onChange={status => setStatus('filings', row.key, status)} />
         </div>)}
       </div>
     </section>

@@ -4,6 +4,7 @@ const empty = { entries: [], records: {} }
 const entryKeys = ['id', 'kind', 'date', 'label', 'reference', 'amountCents', 'payment']
 const optionalEntryKeys = ['source', 'taxDate', 'paymentDate', 'taxAmountCents', 'withholdingCents']
 const taskStatuses = ['unknown', 'in_progress', 'blocked', 'complete', 'not_applicable']
+const filingKey = /^(?:T[1-4]:(?:303|130|115|111|349)|A:(?:390|100)|M(?:0[1-9]|1[0-2]):RETA)$/
 const filingStatuses = ['unknown', 'missing', 'to_prepare', 'filed', 'not_applicable']
 
 function isObject(value) {
@@ -63,6 +64,14 @@ function validNotices(notices) {
     new Set(notices.map(notice => notice.id)).size === notices.length
 }
 
+function validFilingDetails(details) {
+  return isObject(details) && Object.entries(details).every(([key, item]) =>
+    filingKey.test(key) && isObject(item) &&
+    Object.keys(item).every(field => ['reference', 'amountCents'].includes(field)) &&
+    typeof item.reference === 'string' && item.reference.length <= 120 &&
+    (item.amountCents === undefined || validAmount(item.amountCents)))
+}
+
 function validWorkspace(data) {
   return isObject(data) && Object.keys(data).every(key => ['entries', 'records', 'irpf'].includes(key)) &&
     (data.irpf === undefined || validIrpf(data.irpf)) && isObject(data.records) &&
@@ -70,9 +79,11 @@ function validWorkspace(data) {
     new Set(data.entries.map(entry => entry.id)).size === data.entries.length &&
     Object.entries(data.records).every(([key, record]) =>
       /^(independent|blackthorn):20(25|26)$/.test(key) && isObject(record) &&
-      Object.keys(record).length === 3 && validNotices(record.notices) &&
+      Object.keys(record).every(field => ['tasks', 'filings', 'notices', 'filingDetails'].includes(field)) &&
+      (record.filingDetails === undefined || validFilingDetails(record.filingDetails)) &&
+      validNotices(record.notices) &&
       validStatuses(record.tasks, /^(census|residence|reta|sales|malt|expenses|filings|roi|annual)$/, taskStatuses) &&
-      validStatuses(record.filings, /^T[1-4]:(303|130|115|111)$/, filingStatuses))
+      validStatuses(record.filings, filingKey, filingStatuses))
 }
 
 async function readWorkspace(blob, path) {

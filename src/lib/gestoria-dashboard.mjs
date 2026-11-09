@@ -1,13 +1,16 @@
-import { daysUntil, filingDeadline, inActivityYear } from './gestoria-calendar.mjs'
+import { daysUntil, inActivityYear, monthEnd, trackedFilingDeadline } from './gestoria-calendar.mjs'
 
 export const isComplete = status => ['complete', 'not_applicable'].includes(status)
 const isFilingOpen = status => !['filed', 'not_applicable'].includes(status)
 const isFilingFlagged = status => ['missing', 'to_prepare'].includes(status)
 
-const quarterEnds = ['03-31', '06-30', '09-30', '12-31']
+const commonReviewModels = ['303', '130', '349', '390', '100']
+export const needsFilingReview = (row, today) => row.status === 'unknown' &&
+  commonReviewModels.includes(row.model) && (!row.date || row.date < today)
 
 export function dossierFor(data, entity, year, tasks, filings) {
   const record = data.records[entity.id + ':' + year] || { tasks: {}, filings: {}, notices: [] }
+  const filingDetails = record.filingDetails || {}
   return {
     ...entity,
     record,
@@ -15,10 +18,11 @@ export function dossierFor(data, entity, year, tasks, filings) {
     tasks: tasks.filter(task => !task.entity || task.entity === entity.id)
       .map(task => ({ ...task, status: record.tasks[task.id] || 'unknown' })),
     filings: filings.filter(filing => !entity.startDate ||
-      year + '-' + quarterEnds[filing.quarter - 1] >= entity.startDate).map(filing => ({
+      monthEnd(year, filing.month || (filing.quarter ? filing.quarter * 3 : 12)) >= entity.startDate).map(filing => ({
       ...filing,
-      ...filingDeadline(year, filing.quarter, filing.model),
+      ...trackedFilingDeadline(year, filing),
       status: record.filings[filing.key] || 'unknown',
+      evidence: filingDetails[filing.key],
     })),
   }
 }
@@ -28,7 +32,7 @@ export function overviewAgenda(dossiers, today) {
   const upcoming = []
   const track = item => {
     if (!item.date || item.days < 0 || item.days <= 7) priorities.push(item)
-    if (item.date && item.days >= 0) upcoming.push(item)
+    if (item.date && item.days !== null && item.days >= 0) upcoming.push(item)
   }
   for (const dossier of dossiers) {
     const entity = dossier.id
@@ -41,12 +45,14 @@ export function overviewAgenda(dossiers, today) {
     }
     for (const filing of dossier.filings) {
       if (!isFilingOpen(filing.status)) continue
+      const reviewOnly = needsFilingReview(filing, today)
       const item = {
-        ...filing, key: entity + ':filing:' + filing.key, entity, entityName: dossier.name,
-        tab: 'tasks', kind: 'filing', days: daysUntil(filing.date, today),
+        ...filing, reviewOnly, key: entity + ':filing:' + filing.key, entity, entityName: dossier.name,
+        tab: 'tasks', kind: filing.model === 'RETA' ? 'contribution' : 'filing',
+        days: filing.date ? daysUntil(filing.date, today) : null,
       }
-      if (isFilingFlagged(filing.status)) track(item)
-      else if (item.days >= 0) upcoming.push(item)
+      if (isFilingFlagged(filing.status) || reviewOnly) track(item)
+      else if (item.days !== null && item.days >= 0) upcoming.push(item)
     }
     for (const task of dossier.tasks) {
       if (task.status !== 'blocked') continue
@@ -56,7 +62,8 @@ export function overviewAgenda(dossiers, today) {
       })
     }
   }
-  priorities.sort((a, b) => (a.days ?? -0.5) - (b.days ?? -0.5))
+  priorities.sort((a, b) => Number(Boolean(a.reviewOnly)) - Number(Boolean(b.reviewOnly)) ||
+    (a.days ?? -0.5) - (b.days ?? -0.5))
   upcoming.sort((a, b) => a.date.localeCompare(b.date) ||
     Number(a.status === 'unknown') - Number(b.status === 'unknown'))
   return { priorities, upcoming }

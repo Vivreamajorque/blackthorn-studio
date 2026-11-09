@@ -5,11 +5,28 @@ const calendar = {
 
 export function filingDeadline(year, quarter, model) {
   if (quarter < 4) return { date: calendar[year][quarter - 1], indicative: false }
-  const lateJanuary = ['303', '130'].includes(model)
+  const lateJanuary = ['303', '130', '349', '390'].includes(model)
   if (year === 2025) return { date: lateJanuary ? '2026-01-30' : '2026-01-20', indicative: false }
   return lateJanuary
     ? { date: '2027-02-01', indicative: model !== '303' }
     : { date: '2027-01-20', indicative: true }
+}
+
+export function monthEnd(year, month) {
+  return new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10)
+}
+
+export function trackedFilingDeadline(year, filing) {
+  if (filing.model === '100') {
+    return year === 2025 ? { date: '2026-06-30', indicative: false } : { date: '', indicative: true }
+  }
+  if (filing.model === 'RETA') {
+    const day = new Date(Date.UTC(year, filing.month, 0))
+    const weekday = day.getUTCDay()
+    day.setUTCDate(day.getUTCDate() - (weekday === 0 ? 2 : weekday === 6 ? 1 : 0))
+    return { date: day.toISOString().slice(0, 10), indicative: true }
+  }
+  return filingDeadline(year, filing.quarter || 4, filing.model)
 }
 
 export function todayInSpain(now = new Date()) {
