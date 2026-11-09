@@ -41,7 +41,10 @@ async function emailLink(sender, recipient, token) {
     }),
     signal: AbortSignal.timeout(12000),
   })
-  if (!response.ok) throw new Error('Delivery unavailable')
+  if (!response.ok) {
+    console.warn('Mi Gestoría mail provider rejected the request', response.status)
+    throw new Error('Delivery unavailable')
+  }
 }
 
 async function requestLink(res, email) {
@@ -64,15 +67,36 @@ async function requestLink(res, email) {
   return res.status(200).json({ requested: true })
 }
 
+async function consumeRecovery(blob, digest) {
+  const [expected, expires] = (process.env.GESTORIA_RECOVERY_LINK || '').split('.')
+  if (expected !== digest || !Number.isSafeInteger(Number(expires)) || Date.now() >= Number(expires)) return false
+
+  const usedPath = 'mi-gestoria/personal/v1/recovery/' + digest + '.used'
+  const readOptions = { access: 'private', useCache: false }
+  if (await blob.get(usedPath, readOptions)) return false
+  try {
+    await blob.put(usedPath, 'used', { access: 'private', addRandomSuffix: false, allowOverwrite: false })
+    return true
+  } catch (error) {
+    if (error instanceof blob.BlobPreconditionFailedError || await blob.get(usedPath, readOptions)) return false
+    throw error
+  }
+}
+
+async function consumeEmailToken(blob, digest) {
+  const { revision, state } = await readAccess(blob)
+  return !!state.tokenHash && state.expires >= Date.now() &&
+    timingSafeEqual(Buffer.from(digest), Buffer.from(state.tokenHash)) &&
+    await saveAccess(blob, revision, { ...state, tokenHash: null, expires: 0 })
+}
+
 async function signIn(req, res, token) {
   if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(token)) {
     return res.status(401).json({ error: 'Lien invalide ou expiré. Demande un nouveau lien.' })
   }
   const blob = await import('@vercel/blob')
-  const { revision, state } = await readAccess(blob)
-  if (!state.tokenHash || state.expires < Date.now() ||
-      !timingSafeEqual(Buffer.from(hash(token)), Buffer.from(state.tokenHash)) ||
-      !await saveAccess(blob, revision, { ...state, tokenHash: null, expires: 0 })) {
+  const digest = hash(token)
+  if (!await consumeRecovery(blob, digest) && !await consumeEmailToken(blob, digest)) {
     return res.status(401).json({ error: 'Lien invalide ou expiré. Demande un nouveau lien.' })
   }
   const user = await session(req, res)
