@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/gestoria-importass-once.cjs"
+    "build": "vite build"
   },
   "dependencies": {
     "@vercel/blob": "^2.4.1",
