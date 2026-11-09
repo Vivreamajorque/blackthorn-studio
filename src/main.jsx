@@ -77,7 +77,7 @@ function App() {
   if (status === 'loading') return <main className="login"><p role="status">Chargement de Mi Gestoría…</p></main>
   if (status === 'connected') return <>
     <header className="app-header">
-      <span>Mon espace privé</span>
+      <strong className="app-brand"><span aria-hidden="true">MG</span> Mi Gestoría</strong>
       <button onClick={logout} disabled={busy}>Se déconnecter</button>
     </header>
     {feedback && <p className="auth-feedback" role="alert">{feedback.text}</p>}

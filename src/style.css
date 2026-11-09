@@ -36,7 +36,7 @@ a { color: #275b47; }
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
-  padding: .7rem max(1rem, calc((100% - 900px) / 2));
+  padding: .7rem max(1rem, calc((100% - 1180px) / 2));
   border-bottom: 1px solid var(--border);
   background: white;
 }
@@ -55,3 +55,6 @@ a { color: #275b47; }
 .login input { display: block; width: 100%; margin-top: .35rem; }
 .login button[type="submit"], .login button:first-of-type { background: #245846; color: white; }
 .auth-feedback { margin-inline: auto; max-width: 900px; }
+
+.app-brand { display: flex; align-items: center; gap: 8px; letter-spacing: -.025em; }
+.app-brand span { display: grid; place-items: center; width: 31px; height: 31px; background: #203e36; color: #f9f1d9; border-radius: 8px; font-size: .64rem; letter-spacing: .04em; }

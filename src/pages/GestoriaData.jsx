@@ -35,8 +35,8 @@ function Movements({ title, rows }) {
   </details>
 }
 
-export function StudioData({ year }) {
-  const [state, setState] = useState({ status: 'loading' })
+export function useStudioLedger(year) {
+  const [state, setState] = useState({ year, status: 'loading' })
   const [refresh, setRefresh] = useState(0)
   useEffect(() => {
     const controller = new AbortController()
@@ -46,25 +46,31 @@ export function StudioData({ year }) {
         if (response.status === 401 && !controller.signal.aborted) window.dispatchEvent(new Event('gestoria-auth-expired'))
         if (!response.ok) throw new Error()
         const data = await response.json()
-        if (!controller.signal.aborted) setState({ status: 'ready', data })
+        if (!controller.signal.aborted) setState({ year, status: 'ready', data })
       } catch {
-        if (!controller.signal.aborted) setState({ status: 'error' })
+        if (!controller.signal.aborted) setState({ year, status: 'error' })
       }
     }
     load()
     return () => controller.abort()
   }, [year, refresh])
 
-  const data = state.data
+  const current = state.year === year ? state : { status: 'loading' }
+  function reload() {
+    setState({ year, status: 'loading' })
+    setRefresh(previous => previous + 1)
+  }
+  return { ...current, reload }
+}
+
+export function StudioData({ ledger }) {
+  const { data, status, reload } = ledger
   return <section style={card}>
     <h2 style={{ fontSize: 18, marginTop: 0 }}>Blackthorn Tattoo · Compta du Hub</h2>
     <p style={muted}>Données Notion en lecture seule. Les rendez-vous prévus sont hors encaissements. Les dépenses reflètent le registre du studio.</p>
-    <button disabled={state.status === 'loading'} onClick={() => {
-      setState({ status: 'loading' })
-      setRefresh(previous => previous + 1)
-    }}>Actualiser depuis le Hub</button>
-    {state.status === 'loading' && <p role="status">Chargement des données du studio…</p>}
-    {state.status === 'error' && <p role="alert">Lecture du Hub indisponible. Réessaie depuis une session propriétaire connectée.</p>}
+    <button disabled={status === 'loading'} onClick={reload}>Actualiser depuis le Hub</button>
+    {status === 'loading' && <p role="status">Chargement des données du studio…</p>}
+    {status === 'error' && <p role="alert">Lecture du Hub indisponible. Réessaie depuis une session propriétaire connectée.</p>}
     {data && <>
       <Amounts values={[['Encaissements enregistrés', total(data.receipts)], ['Dépenses saisies', total(data.expenses)]]} />
       {!data.receipts.length && !data.expenses.length && <p>Aucun mouvement trouvé pour cette année.</p>}

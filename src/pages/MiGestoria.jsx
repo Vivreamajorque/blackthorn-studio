@@ -1,7 +1,9 @@
 import React, { useState } from 'react'
-import { PersonalData, StudioData } from './GestoriaData'
+import { PersonalData, StudioData, useStudioLedger } from './GestoriaData'
 import GestoriaGuide from './GestoriaGuide'
-import { filingDeadline, formatDate } from '../lib/gestoria-calendar.mjs'
+import GestoriaDashboard from './GestoriaDashboard'
+import { formatDate } from '../lib/gestoria-calendar.mjs'
+import { dossierFor, isComplete } from '../lib/gestoria-dashboard.mjs'
 import { useGestoriaWorkspace } from '../lib/gestoria-workspace'
 
 const ENTITIES = [
@@ -116,19 +118,27 @@ function StatusSelect({ title, status, options, onChange, disabled }) {
 export default function MiGestoria() {
   const [entity, setEntity] = useState('independent')
   const [year, setYear] = useState(2026)
-  const [tab, setTab] = useState('guide')
+  const [tab, setTab] = useState('overview')
+  const studio = useStudioLedger(year)
   const [bank, setBank] = useState([])
   const { data, loadState, saving, feedback: saveFeedback, save, reload } = useGestoriaWorkspace()
   const canSave = loadState === 'ready' && !saving
   const [formFilter, setFormFilter] = useState('all')
   const [feedback, setFeedback] = useState(null)
   const scope = entity + ':' + year
-  const current = ENTITIES.find(item => item.id === entity)
-  const record = data.records[scope] || { tasks: {}, filings: {}, notices: [] }
-  const filings = FILING_ROWS.map(row => ({ ...row, ...filingDeadline(year, row.quarter, row.model), status: record.filings[row.key] || 'unknown' }))
-  const tasks = TASKS.filter(task => !task.entity || task.entity === entity)
-  const completed = tasks.filter(task => ['complete', 'not_applicable'].includes(record.tasks[task.id])).length
+  const dossiers = ENTITIES.map(item => dossierFor(data, item, year, TASKS, FILING_ROWS))
+  const current = dossiers.find(item => item.id === entity)
+  const { record, filings, tasks } = current
+  const completed = tasks.filter(task => isComplete(task.status)).length
   const fileBase = 'mi-gestoria-' + entity + '-' + year
+
+  function openDossier(nextEntity, nextTab, model = 'all') {
+    setEntity(nextEntity)
+    setTab(nextTab)
+    setFormFilter(model)
+    setFeedback(null)
+    window.scrollTo(0, 0)
+  }
 
   function updateRecord(changes) {
     return save(current => ({
@@ -169,27 +179,27 @@ export default function MiGestoria() {
     download(fileBase + '.txt', lines.join('\n'), 'text/plain;charset=utf-8')
   }
 
-  return <main style={{ padding: '24px 16px 100px', maxWidth: 900, margin: '0 auto', color: 'var(--txt, #222)' }}>
-    <h1 style={{ margin: '12px 0 4px' }}>Mi Gestoría</h1>
-    <p style={muted}>Suivi de la régularisation · Deux dossiers distincts</p>
-
-    <section style={card}>
-      <label htmlFor="gestoria-entity" style={{ display: 'block', marginBottom: 8, fontWeight: 700 }}>Dossier</label>
-      <select id="gestoria-entity" value={entity} onChange={event => { setEntity(event.target.value); setFeedback(null) }}
-        style={{ width: '100%', padding: 10 }}>
-        {ENTITIES.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-      </select>
-      <p style={muted}>{current.subtitle}</p>
-      <label>Année <select value={year} onChange={event => { setYear(Number(event.target.value)); setFeedback(null) }}>
-        {YEARS.map(item => <option key={item} value={item}>{item}</option>)}
-      </select></label>
-    </section>
-
-    <nav aria-label="Sections de Mi Gestoría" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-      {[['guide', 'À faire'], ['finance', 'Compta'], ['tasks', 'Démarches']].map(([id, label]) =>
-        <button key={id} aria-pressed={tab === id} style={{ ...buttonStyle, fontWeight: tab === id ? 700 : 400 }}
-          onClick={() => setTab(id)}>{label}</button>)}
-    </nav>
+  return <main className="mg-shell">
+    <div className="mg-toolbar">
+      <nav className="mg-main-nav" aria-label="Sections de Mi Gestoría">
+        {[['overview', 'Vue d’ensemble'], ['guide', 'Courriers'], ['finance', 'Compta'], ['tasks', 'Démarches']].map(([id, label]) =>
+          <button type="button" key={id} aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</button>)}
+      </nav>
+      <div className="mg-toolbar-filters">
+        {tab !== 'overview' && <label>Dossier <select value={entity} onChange={event => { setEntity(event.target.value); setFeedback(null) }}>
+          {ENTITIES.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </select></label>}
+        <label>Exercice <select value={year} onChange={event => { setYear(Number(event.target.value)); setFeedback(null) }}>
+          {YEARS.map(item => <option key={item} value={item}>{item}</option>)}
+        </select></label>
+      </div>
+    </div>
+    {tab !== 'overview' && <div className="mg-detail-heading">
+      <h1>{current.name}</h1>
+      <p>{current.subtitle} · Exercice {year}</p>
+    </div>}
+    {tab === 'overview' && loadState === 'ready' && <GestoriaDashboard
+      year={year} dossiers={dossiers} entries={data.entries} studio={studio} onOpen={openDossier} />}
     {loadState === 'loading' && <p role="status">Chargement de ton dossier privé…</p>}
     {loadState === 'error' && <div role="alert">
       <p>Le dossier privé n’a pas pu être chargé.</p>
@@ -201,9 +211,9 @@ export default function MiGestoria() {
     </div>}
     {tab === 'guide' && loadState === 'ready' &&
       <GestoriaGuide key={scope} year={year} notices={record.notices} filings={filings}
-        tasks={tasks.map(task => ({ ...task, status: record.tasks[task.id] }))}
+        tasks={tasks}
         canSave={canSave} onNotices={notices => updateRecord({ notices })} onTasks={() => setTab('tasks')} />}
-    {tab === 'finance' && (entity === 'blackthorn' ? <StudioData key={year} year={year} /> :
+    {tab === 'finance' && (entity === 'blackthorn' ? <StudioData ledger={studio} /> :
       loadState === 'ready' && <PersonalData key={scope} year={year} entries={data.entries} canSave={canSave}
         onEntries={entries => save(current => ({ ...current, entries }))} bank={bank} onBank={setBank} />)}
     {tab === 'tasks' && loadState === 'ready' && <>

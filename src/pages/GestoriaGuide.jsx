@@ -52,9 +52,9 @@ export default function GestoriaGuide({ year, notices, filings, tasks, canSave, 
       {urgent && <a href={aeat + '/mi-area-personal.html'} target="_blank" rel="noopener noreferrer">Ouvrir Hacienda ↗</a>}
     </section>
     <section style={box}>
-      <h2>Courriers et délais personnels</h2>
-      <p>Inscris la date limite vérifiée dans la notification. Laisse-la vide si tu dois encore la confirmer.</p>
-      {notices.length === 0 && <p>Aucun courrier suivi pour ce dossier.</p>}
+      <h2>Courriers et dates à suivre</h2>
+      <p>Ajoute une date à anticiper ou le délai indiqué dans un courrier. Laisse-la vide si tu dois encore la confirmer.</p>
+      {notices.length === 0 && <p>Aucune date ou courrier suivi pour ce dossier.</p>}
       {[...notices].sort((a, b) => Number(a.done) - Number(b.done) || a.date.localeCompare(b.date)).map(notice =>
         <div style={line} key={notice.id}>
           <strong>{notice.title}</strong>
@@ -69,7 +69,7 @@ export default function GestoriaGuide({ year, notices, filings, tasks, canSave, 
         <button disabled={!canSave || !draft.title.trim()}>Enregistrer</button>{' '}
         <button type="button" onClick={() => setDraft(null)}>Annuler</button>
       </form> : <button disabled={!canSave || notices.length >= 50}
-        onClick={() => setDraft({ id: crypto.randomUUID(), title: '', date: '', done: false })}>Ajouter un courrier</button>}
+        onClick={() => setDraft({ id: crypto.randomUUID(), title: '', date: '', done: false })}>Ajouter un courrier ou une date</button>}
     </section>
     <section style={box}>
       <h2>Échéances fiscales</h2>
