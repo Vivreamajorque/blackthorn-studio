@@ -217,7 +217,7 @@ export function PersonalData({ year, startDate, entries, canSave, onEntries, ban
         {!draft && fileMessage && <p role="status">{fileMessage}</p>}
       </details>
       <GestoriaInvoice date={inActivityYear(today, year, startDate) ? today : minDate}
-        onPrepare={values => start('invoice', values)} />
+        onPrepare={values => start('invoice', { ...values, source: 'direct' })} />
       {rows.some(row => row.currency && row.currency !== 'EUR') &&
         <p style={muted}>Les écritures en devise sont affichées séparément. Pour les calculs fiscaux, renseigne leur montant vérifié en euros.</p>}
       {draft && <form onSubmit={submit} style={{ display: 'grid', gap: 12, padding: '14px 0', maxWidth: 520 }}>

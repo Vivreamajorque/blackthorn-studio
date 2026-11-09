@@ -85,9 +85,9 @@ export function GestoriaPayments({ year, dossier, data, onOpen }) {
       amount = irpf.quarters[row.quarter - 1]?.due
       caption = 'Estimation IRPF'
     } else if (row.model === '303' && personal && row.status !== 'filed') {
-      amount = vatSummary(data.entries, { year, startDate, today, quarter: row.quarter }).balance
-      if (amount != null) amount = Math.max(0, amount)
-      caption = 'Estimation IVA avant reports'
+      const vat = vatSummary(data.entries, { year, startDate, today, quarter: row.quarter })
+      amount = vat.balance == null ? null : Math.max(0, vat.balance)
+      caption = 'Estimation IVA avant reports' + (vat.missing.length ? ' · ' + vat.missing.length + ' écriture(s) à qualifier' : '')
     } else if (row.model === 'RETA' && row.date >= today && historical) {
       amount = historical
       caption = 'Projection · dernier prélèvement renseigné'
