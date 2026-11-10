@@ -3,7 +3,7 @@ const { readVersionedBlob } = require('../server/private-blob.cjs')
 
 const empty = { entries: [], records: {} }
 const entryKeys = ['id', 'kind', 'date', 'label', 'reference', 'amountCents', 'payment']
-const optionalEntryKeys = ['source', 'taxDate', 'paymentDate', 'taxAmountCents', 'withholdingCents', 'currency', 'vat', 'attachment', 'expectedPaymentDate', 'entity', 'expenseCategory', 'documentAmounts']
+const optionalEntryKeys = ['source', 'taxDate', 'paymentDate', 'taxAmountCents', 'withholdingCents', 'currency', 'vat', 'attachment', 'expectedPaymentDate', 'entity', 'expenseCategory', 'documentAmounts', 'taxReview']
 const taskStatuses = ['unknown', 'in_progress', 'blocked', 'complete', 'not_applicable']
 const filingKey = /^(?:T[1-4]:(?:303|130|115|111|349)|A:(?:390|100)|M(?:0[1-9]|1[0-2]):RETA)$/
 const filingStatuses = ['unknown', 'missing', 'to_prepare', 'filed', 'not_applicable']
@@ -21,17 +21,20 @@ function validDate(date) {
 function validEntry(entry) {
   if (!isObject(entry) || Object.keys(entry).some(key => !entryKeys.includes(key) && !optionalEntryKeys.includes(key)) ||
       !entryKeys.every(key => Object.hasOwn(entry, key))) return false
-  const { id, kind, date, label, reference, amountCents, payment, source, taxDate, paymentDate, taxAmountCents, withholdingCents, currency, vat, attachment, expectedPaymentDate, entity, expenseCategory, documentAmounts } = entry
+  const { id, kind, date, label, reference, amountCents, payment, source, taxDate, paymentDate, taxAmountCents, withholdingCents, currency, vat, attachment, expectedPaymentDate, entity, expenseCategory, documentAmounts, taxReview } = entry
   return (source === undefined || ['direct', 'malt', 'livementor'].includes(source)) && validDate(date) && /^(2025|2026|2027)-/.test(date) &&
     (currency === undefined || ['EUR', 'USD'].includes(currency)) &&
     (vat === undefined || validVat(vat, kind)) &&
     (entity === undefined || ['independent', 'blackthorn'].includes(entity)) &&
     (expenseCategory === undefined || (kind === 'expense' && ['professional', 'mixed', 'home', 'vehicle', 'equipment', 'personal', 'social'].includes(expenseCategory))) &&
     (attachment === undefined || validAttachment(attachment)) &&
+    (taxReview === undefined || (kind === 'expense' && typeof taxReview === 'string' && taxReview.trim().length > 0 && taxReview.length <= 360)) &&
     (documentAmounts === undefined || (isObject(documentAmounts) && validAmount(documentAmounts.baseCents) &&
       validAmount(documentAmounts.taxCents) && validAmount(documentAmounts.totalCents) &&
-      Object.keys(documentAmounts).every(key => ['baseCents', 'taxCents', 'totalCents', 'dueCents'].includes(key)) &&
-      (documentAmounts.dueCents === undefined || validAmount(documentAmounts.dueCents)))) &&
+      Object.keys(documentAmounts).every(key => ['baseCents', 'taxCents', 'totalCents', 'dueCents', 'rentWithholdingCents'].includes(key)) &&
+      (documentAmounts.dueCents === undefined || validAmount(documentAmounts.dueCents)) &&
+      (documentAmounts.rentWithholdingCents === undefined || (kind === 'expense' && validAmount(documentAmounts.rentWithholdingCents) &&
+        documentAmounts.rentWithholdingCents >= 0)))) &&
     (taxDate === undefined || validDate(taxDate)) &&
     (paymentDate === undefined || (payment === 'paid' && validDate(paymentDate))) &&
     (expectedPaymentDate === undefined || (payment !== 'paid' && validDate(expectedPaymentDate))) &&

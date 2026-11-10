@@ -198,9 +198,15 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
 
   const editor = draft && <form key={draft.id} id="mg-entry-editor" onSubmit={submit} className="mg-entry-editor">
     <h3>{editingVisible ? 'Modifier · ' + draft.label : draft.kind === 'invoice' ? 'Facture émise' : 'Dépense'}</h3>
+    {draft.taxReview && <div className="mg-doc-amounts">
+      <strong>Justificatif fiscal à vérifier</strong>
+      <span>{draft.taxReview}</span>
+      <button type="button" onClick={() => setDraft({ ...draft, taxReview: undefined })}>Ce point est vérifié</button>
+    </div>}
     {draft.documentAmounts && <div className="mg-doc-amounts">
       <strong>Montants lus sur le PDF</strong>
       <span>Base {cashAmount(draft.documentAmounts.baseCents, draft.currency)} · Taxe {cashAmount(draft.documentAmounts.taxCents, draft.currency)} · Total {cashAmount(draft.documentAmounts.totalCents, draft.currency)}</span>
+      {draft.documentAmounts.rentWithholdingCents != null && <span>Retenue IRPF sur le loyer · {cashAmount(draft.documentAmounts.rentWithholdingCents, draft.currency)} · Modelo 115</span>}
       {draft.documentAmounts.dueCents != null && <span>À régler selon la pièce · {cashAmount(draft.documentAmounts.dueCents, draft.currency)}</span>}
       {draft.currency === 'EUR' && <button type="button" onClick={() => setDraft({ ...draft,
         vatDraft: { ...draft.vatDraft, base: String(draft.documentAmounts.baseCents / 100) } })}>Copier la base dans la saisie TVA</button>}
@@ -329,6 +335,7 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
           {row.expectedPaymentDate && 'Prévu le ' + dateLabel(row.expectedPaymentDate) + ' · '}
           {'IRPF ' + (taxAmountCents == null ? 'à vérifier' : euro.format(taxAmountCents / 100))}
           {row.documentAmounts && ' · Montants du PDF relevés'}</p>
+        {row.taxReview && <p className="mg-card-note">{row.taxReview}</p>}
         <div className="mg-actions">{row.attachment && <a className="mg-soft-action" href={attachmentUrl(row.attachment)}
           target="_blank" rel="noopener noreferrer">Voir le PDF ↗</a>}
         <button type="button" disabled={!canSave || uploading} aria-expanded={draftId === row.id}

@@ -30,9 +30,9 @@ export default function GestoriaTaxDashboard({ dossier, year, entries, settings,
     return { irpf, vat, calculation, tax: forecast.quarters[irpf.quarter - 1] }
   })
   const active = entries.filter(row => inActivityYear(row.date, year, startDate))
-  const unqualified = active.filter(row => row.kind === 'expense' && (row.taxAmountCents == null || !row.vat))
+  const unqualified = active.filter(row => row.kind === 'expense' && (row.taxAmountCents == null || !row.vat || row.taxReview))
   const noProof = active.filter(row => row.kind === 'expense' && row.taxAmountCents !== 0 && !row.attachment)
-  const vatToCheck = active.filter(row => row.kind === 'expense' && row.vat?.quotaCents > 0 &&
+  const vatToCheck = active.filter(row => row.kind === 'expense' && row.vat?.quotaCents > 0 && !row.taxReview &&
     row.vat?.deductibleCents === 0 && !['personal', 'social'].includes(row.expenseCategory))
   const priorMissing = settings?.priorNetCents == null
   const notEntered = filings.filter(row => ['130', '303'].includes(row.model) && row.status === 'filed' &&

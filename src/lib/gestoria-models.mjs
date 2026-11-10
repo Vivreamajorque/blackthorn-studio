@@ -40,7 +40,8 @@ export function vatSummary(entries, { year, quarter, startDate, today }) {
     const date = row.vat?.date || row.date
     if (!inActivityYear(date, year, startDate) || date > today ||
         (quarter && Math.ceil(Number(date.slice(5, 7)) / 3) !== quarter)) continue
-    if (!row.vat) { missing.push(row); continue }
+    if (row.taxReview) missing.push(row)
+    if (!row.vat) { if (!row.taxReview) missing.push(row); continue }
     const { category, baseCents, quotaCents, deductibleCents, country, id, rate } = row.vat
     count++
     if (category === 'excluded') continue
