@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { preparationChecks, rentWithholdings } from '../src/lib/gestoria-filing-audit.mjs'
 import { trackedFilingDeadline } from '../src/lib/gestoria-calendar.mjs'
 import { vatSummary } from '../src/lib/gestoria-models.mjs'
+import { withTaxProjections } from '../src/lib/gestoria-quarter-estimates.mjs'
 import { irpfForecast, minoracion } from '../src/lib/gestoria-irpf.mjs'
 
 const year = 2026
@@ -57,4 +58,17 @@ test('the annual rent reporting deadline is distinct from the quarterly withhold
   assert.deepEqual(trackedFilingDeadline(2025, { model: '180' }), { date: '2026-02-02', indicative: false })
   assert.deepEqual(trackedFilingDeadline(2026, { model: '180' }), { date: '2027-02-01', indicative: true })
   assert.equal(trackedFilingDeadline(2026, { model: '115', quarter: 4 }).date, '2027-01-20')
+})
+
+
+test('rent assumptions apply to projections only and respect confirmed fiscal amounts', () => {
+  const vat = { category: 'buy_es', date: '2026-08-01', baseCents: 87720, quotaCents: 18421, deductibleCents: 18421 }
+  const entry = expense('rent', '2026-08-01', { taxProjection: { irpfCents: 87720, vat, note: 'Prévision' } })
+  const period = { year, quarter: 3, today }
+  assert.equal(vatSummary([entry], period).balance, null)
+  assert.equal(vatSummary(withTaxProjections([entry]), period).balance, -18421)
+  assert.equal(withTaxProjections([entry])[0].taxAmountCents, 87720)
+  const verified = { ...entry, taxAmountCents: 80000, vat: { ...vat, deductibleCents: 0 } }
+  assert.equal(vatSummary(withTaxProjections([verified]), period).balance, 0)
+  assert.equal(withTaxProjections([verified])[0].taxAmountCents, 80000)
 })

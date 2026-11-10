@@ -359,7 +359,7 @@ export default function MiGestoria() {
         bank={entity === 'independent' ? bank : undefined} onBank={setBank} />
     </>}
     {tab === 'payments' && loadState === 'ready' &&
-      <GestoriaPayments year={year} dossier={current} data={data} onOpen={openDossier} />}
+      <GestoriaPayments year={year} dossier={current} data={data} onOpen={openDossier} studio={entity === 'blackthorn' ? studio : undefined} />}
     {tab === 'tasks' && loadState === 'ready' && <>
 
     {formFilter === 'all' && <section className="mg-panel mg-ledger-panel">

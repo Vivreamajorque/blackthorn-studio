@@ -3,7 +3,7 @@ const { readVersionedBlob } = require('../server/private-blob.cjs')
 
 const empty = { entries: [], records: {} }
 const entryKeys = ['id', 'kind', 'date', 'label', 'reference', 'amountCents', 'payment']
-const optionalEntryKeys = ['source', 'taxDate', 'paymentDate', 'taxAmountCents', 'withholdingCents', 'currency', 'vat', 'attachment', 'expectedPaymentDate', 'entity', 'expenseCategory', 'documentAmounts', 'taxReview']
+const optionalEntryKeys = ['source', 'taxDate', 'paymentDate', 'taxAmountCents', 'withholdingCents', 'currency', 'vat', 'attachment', 'expectedPaymentDate', 'entity', 'expenseCategory', 'documentAmounts', 'taxReview', 'taxProjection']
 const taskStatuses = ['unknown', 'in_progress', 'blocked', 'complete', 'not_applicable']
 const filingKey = /^(?:T[1-4]:(?:303|130|115|111|349)|A:(?:390|180|100)|M(?:0[1-9]|1[0-2]):RETA)$/
 const filingStatuses = ['unknown', 'missing', 'to_prepare', 'filed', 'not_applicable']
@@ -21,7 +21,7 @@ function validDate(date) {
 function validEntry(entry) {
   if (!isObject(entry) || Object.keys(entry).some(key => !entryKeys.includes(key) && !optionalEntryKeys.includes(key)) ||
       !entryKeys.every(key => Object.hasOwn(entry, key))) return false
-  const { id, kind, date, label, reference, amountCents, payment, source, taxDate, paymentDate, taxAmountCents, withholdingCents, currency, vat, attachment, expectedPaymentDate, entity, expenseCategory, documentAmounts, taxReview } = entry
+  const { id, kind, date, label, reference, amountCents, payment, source, taxDate, paymentDate, taxAmountCents, withholdingCents, currency, vat, attachment, expectedPaymentDate, entity, expenseCategory, documentAmounts, taxReview, taxProjection } = entry
   return (source === undefined || ['direct', 'malt', 'livementor'].includes(source)) && validDate(date) && /^(2025|2026|2027)-/.test(date) &&
     (currency === undefined || ['EUR', 'USD'].includes(currency)) &&
     (vat === undefined || validVat(vat, kind)) &&
@@ -29,6 +29,7 @@ function validEntry(entry) {
     (expenseCategory === undefined || (kind === 'expense' && ['professional', 'mixed', 'home', 'vehicle', 'equipment', 'personal', 'social'].includes(expenseCategory))) &&
     (attachment === undefined || validAttachment(attachment)) &&
     (taxReview === undefined || (kind === 'expense' && typeof taxReview === 'string' && taxReview.trim().length > 0 && taxReview.length <= 360)) &&
+    (taxProjection === undefined || kind === 'expense' && validTaxProjection(taxProjection)) &&
     (documentAmounts === undefined || (isObject(documentAmounts) && validAmount(documentAmounts.baseCents) &&
       validAmount(documentAmounts.taxCents) && validAmount(documentAmounts.totalCents) &&
       Object.keys(documentAmounts).every(key => ['baseCents', 'taxCents', 'totalCents', 'dueCents', 'rentWithholdingCents'].includes(key)) &&
@@ -45,6 +46,13 @@ function validEntry(entry) {
     typeof label === 'string' && label.trim().length > 0 && label.length <= 160 &&
     typeof reference === 'string' && reference.length <= 100 &&
     validAmount(amountCents)
+}
+
+function validTaxProjection(projection) {
+  return isObject(projection) && Object.keys(projection).every(key => ['irpfCents', 'vat', 'note'].includes(key)) &&
+    validAmount(projection.irpfCents) && typeof projection.note === 'string' &&
+    projection.note.trim().length > 0 && projection.note.length <= 360 &&
+    (projection.vat === undefined || validVat(projection.vat, 'expense') && projection.vat.category === 'buy_es')
 }
 
 function validAttachment(attachment) {

@@ -374,6 +374,8 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
           {'IRPF ' + (taxAmountCents == null ? 'à vérifier' : euro.format(taxAmountCents / 100))}
           {row.documentAmounts && ' · Montants du PDF relevés'}</p>
         {row.taxReview && <p className="mg-card-note">{row.taxReview}</p>}
+        {row.taxProjection && (row.taxAmountCents == null || !row.vat && row.taxProjection.vat) &&
+          <p className="mg-card-note">Simulation fiscale · {row.taxProjection.note}</p>}
         <div className="mg-actions">{row.attachment && <a className="mg-soft-action" href={attachmentUrl(row.attachment)}
           target="_blank" rel="noopener noreferrer">Voir le PDF ↗</a>}
         <button type="button" disabled={!canSave || uploading || Boolean(draft)} aria-expanded={pointingId === row.id}

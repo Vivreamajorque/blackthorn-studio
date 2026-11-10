@@ -72,3 +72,12 @@ export function studioEstimateEntries(entries, receipts, { year, startDate, toda
   })
   return { entries: [...expensesAndOtherSales, ...hubRows], usingHub: true, overlapping }
 }
+
+
+export function withTaxProjections(entries) {
+  return entries.map(row => {
+    const estimate = row.taxProjection
+    if (!estimate || row.kind !== 'expense') return row
+    return { ...row, taxAmountCents: row.taxAmountCents ?? estimate.irpfCents, vat: row.vat ?? estimate.vat }
+  })
+}

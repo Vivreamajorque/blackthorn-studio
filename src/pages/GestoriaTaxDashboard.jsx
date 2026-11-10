@@ -3,7 +3,7 @@ import { formatDate, inActivityYear, monthEnd } from '../lib/gestoria-calendar.m
 import { forecastPayments, irpfForecast, minoracion } from '../lib/gestoria-irpf.mjs'
 import { rentWithholdings } from '../lib/gestoria-filing-audit.mjs'
 import { models, vatSummary } from '../lib/gestoria-models.mjs'
-import { studioEstimateEntries } from '../lib/gestoria-quarter-estimates.mjs'
+import { studioEstimateEntries, withTaxProjections } from '../lib/gestoria-quarter-estimates.mjs'
 import GestoriaIrpf from './GestoriaIrpf'
 
 const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
@@ -34,7 +34,8 @@ export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, 
   const { id, name, startDate, filings } = dossier
   const fiscalEntries = [...entries, ...contributions.confirmedRows]
   const scenario = studioEstimateEntries(fiscalEntries, studio?.data?.receipts, { year, startDate, today })
-  const irpfEntries = [...forecastPayments(scenario.entries, today), ...contributions.projectedRows]
+  const projectedEntries = withTaxProjections(scenario.entries)
+  const irpfEntries = [...forecastPayments(projectedEntries, today), ...contributions.projectedRows]
   const forecastOptions = { year, startDate, today: year + '-12-31' }
   const forecast = irpfForecast(irpfEntries, { ...forecastOptions, settings })
   const current = filings.filter(row => row.quarter === quarter)
@@ -43,7 +44,10 @@ export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, 
   const rentFiling = current.find(row => row.model === '115')
   const rent = rentFiling && rentFiling.status !== 'not_applicable'
     ? rentWithholdings(entries, { year, quarter, startDate, today }) : null
-  const calculation = vatSummary(scenario.entries, { year, quarter, startDate, today })
+  const vatScope = { year, quarter, startDate, today }
+  const calculation = vatSummary(projectedEntries, vatScope)
+  const registeredVat = vatSummary(scenario.entries, vatScope)
+  const projectedVat = (calculation.boxes['45'] || 0) - (registeredVat.boxes['45'] || 0)
   const tax = forecast.quarters[quarter - 1]
   const archivedDraft303 = dossier.record.archives?.some(item =>
     item.type === 'draft' && item.model === '303' && item.quarter === quarter)
@@ -60,6 +64,9 @@ export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, 
   const quarterEnd = monthEnd(year, quarter * 3)
   const studioRevenue = scenario.entries.some(row => row.kind === 'invoice' && row.taxAmountCents != null &&
     inActivityYear(row.date, year, startDate) && row.date <= quarterEnd)
+  const assumptions = entries.filter(row => row.taxProjection &&
+    (row.taxAmountCents == null || !row.vat && row.taxProjection.vat) &&
+    inActivityYear(row.date, year, startDate) && Math.ceil(Number(row.date.slice(5, 7)) / 3) === quarter)
   const estimate130 = studio && !studioRevenue ? null : tax.due
   const estimate303 = studio && !studioRevenue ? null : calculation.balance
   const priorMissing = settings?.priorNetCents == null
@@ -124,10 +131,12 @@ export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, 
           <h3>TVA · 303</h3>
           {vat.status === 'not_applicable' ? <span>Non applicable</span> : <>
             <TaxCell vat official={actual303} estimate={estimate303} filed={filed303} paid={vat.evidence?.paid} proof={vat.evidence?.attachment}
-              qualification={calculation.missing.length ? 'Estimation partielle · lignes à vérifier' : 'Estimation avant reports'} />
+              qualification={projectedVat > 0 ? 'Simulation avec TVA de loyers à justifier' :
+                calculation.missing.length ? 'Estimation partielle · lignes à vérifier' : 'Estimation avant reports'} />
             <FilingDate row={vat} onOpen={() => onOpen(id, 'tasks', '303', true)} />
             {archivedDraft303 && vat.status !== 'filed' && <small>Brouillon archivé · dépôt à vérifier</small>}
-            {calculation.balance != null && <small>TVA collectée {money(calculation.boxes['27'])} · TVA déductible retenue {money(calculation.boxes['45'])}</small>}
+            {calculation.balance != null && <small>TVA collectée {money(calculation.boxes['27'])} · TVA déductible justifiée dans le registre {money(registeredVat.boxes['45'] || 0)}</small>}
+            {projectedVat > 0 && <small>{money(projectedVat)} de TVA sur loyers ajoutée à la simulation. Solde hors hypothèses {vatLabel(registeredVat.balance)}.</small>}
             {pendingVatTotal > 0 && <details className="mg-chart-details">
               <summary>{money(pendingVatTotal)} de TVA sur les dépenses à vérifier</summary>
               <ul>{vatPending.map(row => <li key={row.id}>
@@ -157,6 +166,14 @@ export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, 
           <a href={models.RETA.url} target="_blank" rel="noreferrer">Voir les reçus Importass ↗</a>
         </article>}
       </div>
+      {assumptions.length > 0 && <details className="mg-more">
+        <summary>Voir les hypothèses sur les dépenses du trimestre</summary>
+        <ul className="mg-action-list">{assumptions.map(row => <li key={row.id}>
+          <strong>{row.label}</strong>
+          <p>{row.taxProjection.note}</p>
+          {row.taxAmountCents == null && <small>Charge IRPF estimée · {money(row.taxProjection.irpfCents)}</small>}
+        </li>)}</ul>
+      </details>}
       {rent && (rent.documented > 0 || rent.missing > 0) && <div className="mg-card-note">
         <strong>Retenues sur le loyer · Modelo 115</strong>
         {rent.documented > 0 && <p>{money(rent.documented)} de retenues sur les factures. {money(rent.confirmed)} rattachés à un paiement pointé et daté.</p>}
