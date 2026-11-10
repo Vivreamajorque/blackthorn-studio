@@ -203,9 +203,8 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
       <span>Base {cashAmount(draft.documentAmounts.baseCents, draft.currency)} · Taxe {cashAmount(draft.documentAmounts.taxCents, draft.currency)} · Total {cashAmount(draft.documentAmounts.totalCents, draft.currency)}</span>
       {draft.documentAmounts.dueCents != null && <span>À régler selon la pièce · {cashAmount(draft.documentAmounts.dueCents, draft.currency)}</span>}
       {draft.currency === 'EUR' && <button type="button" onClick={() => setDraft({ ...draft,
-        vatDraft: { ...draft.vatDraft, base: String(draft.documentAmounts.baseCents / 100),
-          quota: String(draft.documentAmounts.taxCents / 100) } })}>Copier la base et la taxe dans les champs de TVA</button>}
-      <small>Vérifie le régime fiscal avant de choisir une opération de TVA.</small>
+        vatDraft: { ...draft.vatDraft, base: String(draft.documentAmounts.baseCents / 100) } })}>Copier la base dans la saisie TVA</button>}
+      <small>La taxe imprimée sur le PDF peut différer de la TVA à déclarer en Espagne. Vérifie le régime avant de saisir la TVA.</small>
     </div>}
     <label>Origine <select value={draft.source} onChange={e => setDraft({ ...draft, source: e.target.value })}>
       {Object.entries(sources).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
