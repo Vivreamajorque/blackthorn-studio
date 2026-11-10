@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import { overviewAgenda, isComplete, ledgerSummary } from '../lib/gestoria-dashboard.mjs'
 import { daysUntil, formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
-import { forecastPayments, irpfForecast } from '../lib/gestoria-irpf.mjs'
 import GestoriaControl from './GestoriaControl'
 import GestoriaTaxDashboard from './GestoriaTaxDashboard'
 import './gestoria-dashboard.css'
@@ -15,6 +14,7 @@ const ledgers = {
   independent: { income: 'Facturé hors TVA renseigné', expenses: 'Dépenses saisies', source: 'Factures et dépenses ajoutées dans Mi Gestoría' },
   blackthorn: { income: 'Encaissé', expenses: 'Dépenses saisies', source: 'Ventes du Hub · charges de Mi Gestoría' },
 }
+const quarterLabels = ['Janvier – mars', 'Avril – juin', 'Juillet – septembre', 'Octobre – décembre']
 const horizons = [{ id: 30, title: '30 jours' }, { id: 90, title: '90 jours' }, { id: 0, title: 'Tout voir' }]
 
 function deadlineLabel(item) {
@@ -78,12 +78,13 @@ function ActivityCard({ dossier, ledger, studioStatus, warnings, reload, onOpen 
   </article>
 }
 
-function MonthlyChart({ ledger, activity, startMonth = 0 }) {
+function MonthlyChart({ ledger, activity, startMonth }) {
   const caption = ledgers[activity]
-  if (!ledger || !ledger.months.some(month => month.income !== 0 || month.expenses !== 0)) {
-    return <p className="mg-muted">{ledger ? 'Aucun mouvement à afficher sur cet exercice.' : 'Données du Hub en attente.'}</p>
+  if (!ledger) return <p className="mg-muted">Données du Hub en attente.</p>
+  const visibleMonths = ledger.months.slice(startMonth, startMonth + 3)
+  if (!visibleMonths.some(month => month.income || month.expenses)) {
+    return <p className="mg-muted">Aucun montant saisi pour ces trois mois.</p>
   }
-  const visibleMonths = ledger.months.slice(startMonth)
   const values = visibleMonths.flatMap(month => [month.income, month.expenses])
   const min = Math.min(0, ...values)
   const max = Math.max(0, ...values)
@@ -118,15 +119,17 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
   const [showDetails, setShowDetails] = useState(false)
   const [horizon, setHorizon] = useState(90)
   const [selectedActivity, setActivity] = useState('independent')
+  const [quarters, setQuarters] = useState({})
   const personal = dossiers.find(dossier => dossier.id === 'independent')
   const selected = dossiers.find(dossier => dossier.id === selectedActivity) || dossiers[0]
   const activity = selected.id
   const personalEntries = entries.filter(row => !row.entity || row.entity === 'independent')
   const activityEntries = activity === 'independent' ? personalEntries : entries.filter(row => row.entity === activity)
   const activityIrpf = activity === 'independent' ? irpf : selected.record.irpf
-  const startMonth = activity === 'independent' && personalStart?.startsWith(year + '-')
-    ? Number(personalStart.slice(5, 7)) - 1 : 0
   const today = todayInSpain()
+  const currentYear = Number(today.slice(0, 4))
+  const quarter = quarters[year] || (year < currentYear ? 4 : year > currentYear ? 1 : Math.ceil(Number(today.slice(5, 7)) / 3))
+  const startMonth = (quarter - 1) * 3
   const { priorities, upcoming } = overviewAgenda(dossiers, today)
   const visible = upcoming.filter(item => !horizon || item.days <= horizon)
   const focus = selected
@@ -135,12 +138,6 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
   const openDatedNotice = focus.notices.filter(notice => !notice.done && notice.date && notice.kind !== 'debt')
     .sort((a, b) => a.date.localeCompare(b.date))[0]
   const next = upcoming.find(item => item.entity === focus.id && !item.reviewOnly)
-  const nextTax = focus.filings.find(item => item.model === '130' && item.date >= today &&
-    !['filed', 'not_applicable'].includes(item.status) && !activityIrpf?.filed?.[item.quarter])
-  const estimate = nextTax && (activity === 'independent' || activityIrpf) &&
-    irpfForecast(forecastPayments(activityEntries, today),
-      { year, startDate: focus.startDate, today: year + '-12-31', settings: activityIrpf }).quarters[nextTax.quarter - 1]?.due
-  const estimatedDue = typeof estimate === 'number' ? estimate : null
   const nearNotice = openDatedNotice && daysUntil(openDatedNotice.date, today) <= 7
   const action = nearNotice
     ? { title: 'Relis ton courrier', note: openDatedNotice.title, tab: 'guide' }
@@ -158,12 +155,21 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
     ], year, true) : null,
   }
 
+  const ledger = summaries[activity]
+  const quarterMonths = ledger?.months.slice(startMonth, startMonth + 3)
+  const quarterIncome = quarterMonths?.reduce((sum, month) => sum + month.income, 0)
+  const quarterExpenses = quarterMonths?.reduce((sum, month) => sum + month.expenses, 0)
+  const missingIncome = activity === 'independent' && activityEntries.filter(row =>
+    row.kind === 'invoice' && row.taxAmountCents == null && row.date.startsWith(year + '-') &&
+    (!personalStart || row.date >= personalStart) && Math.ceil(Number(row.date.slice(5, 7)) / 3) === quarter
+  ).length
+
   return <div className="mg-dashboard">
     <section className="mg-hero" aria-labelledby="mg-home-title">
       <div>
         <p className="mg-eyebrow"><span /> {longDate.format(new Date(today)).toUpperCase()} · EXERCICE {year}</p>
-        <h1 id="mg-home-title">Ton activité, au clair.</h1>
-        <p className="mg-hero-description">{personal ? 'Tes montants, tes prochaines dates et la première chose à faire.' : 'Les montants et démarches de Blackthorn Tattoo.'}</p>
+        <h1 id="mg-home-title">Mon trimestre</h1>
+        <p className="mg-hero-description">{'Tes recettes, tes dépenses et les échéances Hacienda.'}</p>
       </div>
       <div className="mg-hero-next">
         <span className="mg-hero-label">PAR QUOI COMMENCER</span>
@@ -179,53 +185,47 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
         {dossiers.map(({ id, name }) => <button type="button" key={id} aria-pressed={id === activity} onClick={() => setActivity(id)}>{name}</button>)}
       </div>
     </section>
-    <section className="mg-start-grid" aria-label="Tes repères essentiels">
-      <article className="mg-start-card mg-start-debt">
-        <span className="mg-section-label">01 · COTISATIONS À VÉRIFIER</span>
-        <strong>{debts.some(item => item.amountCents != null) ? money(debtTotal) : 'À consulter'}</strong>
-        <p>{debts.length ? `${debts.length} ligne${debts.length === 1 ? '' : 's'} Importass enregistrée${debts.length === 1 ? '' : 's'}. Le solde actuel se vérifie sur Importass.`
-          : 'Consulte Importass pour connaître le montant actuel.'}</p>
-        <button type="button" onClick={() => onOpen(focus.id, 'payments')}>Voir les montants →</button>
-      </article>
-      <article className="mg-start-card mg-start-estimate">
-        <span className="mg-section-label">02 · IMPÔT SUR LE REVENU</span>
-        <strong>{estimatedDue != null ? money(estimatedDue) : 'À calculer'}</strong>
-        <p>{estimatedDue != null ? `Acompte estimé du T${nextTax.quarter}. ${activityIrpf?.priorNetCents == null ? 'Case 13 à vérifier.' : 'Réduction de la case 13 intégrée.'}`
-          : 'Ouvre les prévisions pour retrouver les montants et leur origine.'}</p>
-        <button type="button" onClick={() => onOpen(focus.id, 'payments')}>Ouvrir mes prévisions →</button>
-      </article>
-      <article className="mg-start-card mg-start-date">
-        <span className="mg-section-label">03 · PROCHAINE DATE DU SUIVI</span>
-        <strong>{next ? formatDate(next.date) : 'À vérifier'}</strong>
-        <p>{next ? [next.title, next.indicative && 'date indicative', next.status === 'unknown' && 'applicabilité à vérifier'].filter(Boolean).join(' · ')
-          : 'Retrouve les recherches Hacienda et Importass dans les portails officiels.'}</p>
-        <button type="button" onClick={() => next ? onOpen(next.entity, next.tab, next.model) : onOpen(focus.id, 'portals')}>Voir la démarche →</button>
-      </article>
+    <section className="mg-panel mg-dashboard-filter" aria-label="Trimestre affiché">
+      <div><p className="mg-section-label">T{quarter} · {year}</p><h2>{quarterLabels[quarter - 1]}</h2></div>
+      <div className="mg-switch" role="group" aria-label="Choisir le trimestre">
+        {quarterLabels.map((label, index) => <button type="button" key={label} aria-label={'T' + (index + 1) + ' · ' + label}
+          aria-pressed={quarter === index + 1} onClick={() => setQuarters(previous => ({ ...previous, [year]: index + 1 }))}>T{index + 1}</button>)}
+      </div>
     </section>
 
-    <section className="mg-panel mg-evolution" aria-labelledby="mg-evolution">
-      <div className="mg-panel-heading"><div><p className="mg-section-label">{selected.name.toUpperCase()}</p>
-        <h2 id="mg-evolution">Recettes et dépenses par mois</h2></div></div>
-      {summaries[activity] && <dl className="mg-amounts">
-        <div><dt>{ledgers[activity].income}</dt><dd>{money(summaries[activity].income)}</dd></div>
-        <div><dt>{ledgers[activity].expenses}</dt><dd>{money(summaries[activity].expenses)}</dd></div>
-      </dl>}
-      <p className="mg-muted">{activity === 'blackthorn'
-        ? 'Encaissements du Hub Blackthorn et charges enregistrées dans Mi Gestoría.'
-        : 'Chiffre d’affaires hors TVA renseigné et total des dépenses saisies dans Mi Gestoría.'}</p>
-      {activity === 'independent' && summaries[activity]?.missingIncome > 0 && <p className="mg-card-note">
-        Montant hors TVA à compléter sur {summaries[activity].missingIncome} facture(s).
-      </p>}
-      <MonthlyChart ledger={summaries[activity]} activity={activity} startMonth={startMonth} />
-      {activity === 'blackthorn' && studio.status === 'error' && <button type="button" onClick={studio.reload}>Réessayer la lecture du Hub</button>}
-      <div className="mg-card-actions"><button type="button" onClick={() => onOpen(activity, 'finance')}>Ajouter une facture ou un ticket →</button></div>
+    <section className="mg-start-grid mg-quarter-grid" aria-label="Chiffres du trimestre">
+      <article className="mg-start-card mg-start-estimate">
+        <span className="mg-section-label">{ledgers[activity].income.toUpperCase()}</span>
+        <strong>{ledger ? money(quarterIncome) : 'En attente'}</strong>
+        <p>{missingIncome > 0 ? `Montant hors TVA à compléter sur ${missingIncome} facture(s).` : ledgers[activity].source}</p>
+      </article>
+      <article className="mg-start-card mg-start-date">
+        <span className="mg-section-label">DÉPENSES SAISIES</span>
+        <strong>{ledger ? money(quarterExpenses) : 'En attente'}</strong>
+        <p>Total des dépenses en euros enregistrées pour ce trimestre.</p>
+      </article>
     </section>
-    <GestoriaTaxDashboard key={activity + ':' + year} dossier={selected} year={year} entries={activityEntries}
+    <GestoriaTaxDashboard key={activity + ':' + year} dossier={selected} year={year} quarter={quarter} entries={activityEntries}
       settings={activityIrpf} today={today} canSave={canSave} onSave={settings => onIrpf(activity, settings)} onOpen={onOpen} />
+
+    <details className="mg-more">
+      <summary>Voir les recettes et dépenses par mois</summary>
+      <section className="mg-panel mg-evolution mg-more-body">
+        <MonthlyChart ledger={ledger} activity={activity} startMonth={startMonth} />
+        {activity === 'blackthorn' && studio.status === 'error' && <button type="button" onClick={studio.reload}>Réessayer la lecture du Hub</button>}
+        <div className="mg-card-actions"><button type="button" onClick={() => onOpen(activity, 'finance')}>Ajouter une facture ou un ticket →</button></div>
+      </section>
+    </details>
 
     <details className="mg-more" onToggle={event => setShowDetails(event.currentTarget.open)}>
       <summary>Voir l’agenda et le suivi détaillé des deux activités</summary>
       {showDetails && <div className="mg-dashboard mg-more-body">
+    {debts.length > 0 && <section className="mg-panel">
+      <p className="mg-section-label">COTISATIONS À VÉRIFIER · {selected.name}</p>
+      <h2>{debts.some(item => item.amountCents != null) ? money(debtTotal) : 'À consulter'}</h2>
+      <p className="mg-muted">Le solde actuel se vérifie dans Importass.</p>
+      <button type="button" onClick={() => onOpen(activity, 'payments')}>Voir les montants →</button>
+    </section>}
     {personal && <GestoriaControl dossier={personal} entries={personalEntries} year={year} today={today} irpf={irpf} onOpen={onOpen} />}
 
     <div className="mg-agenda-grid">

@@ -4,6 +4,7 @@ import { GestoriaPayments, ModelPreparation } from './GestoriaModels'
 import GestoriaFilingDetails from './GestoriaFilingDetails'
 import GestoriaGuide from './GestoriaGuide'
 import GestoriaDashboard from './GestoriaDashboard'
+import GestoriaArchives from './GestoriaArchives'
 import GestoriaPortals from './GestoriaPortals'
 import { applyPortalCheck, captureKey, readPortalCapture } from '../lib/gestoria-portal.mjs'
 import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
@@ -20,6 +21,7 @@ const sections = [
   ['finance', 'Compta', 'M4 4h16v16H4zM4 9h16M9 9v11m4-7h4m-4 3h4'],
   ['payments', 'Prévisions', 'M4 4v16h16M7 15l4-5 3 2 6-7'],
   ['tasks', 'Démarches', 'M7 4h10l3 3v13H7zM10 10h7m-7 4h7m-7 3h5'],
+  ['archives', 'Archives', 'M3 7h18v4H3zM5 11v9h14v-9m-9 4h4'],
   ['guide', 'Courriers', 'M4 6h16v12H4zM4 7l8 6 8-6'],
   ['portals', 'Portails officiels', 'M5 20h14M7 20V9m5 11V9m5 11V9M3 8l9-4 9 4z'],
 ]
@@ -27,6 +29,7 @@ const pageCopy = {
   finance: ['Factures, dépenses et paiements', 'Retrouve une écriture, ouvre sa pièce ou pointe son paiement.'],
   payments: ['Ce qu’il faut prévoir', 'Retrouve les échéances, les montants déclarés et ce qu’il reste à vérifier.'],
   tasks: ['Déclarations et cotisations', 'Prépare un dépôt, garde son justificatif et confirme le paiement.'],
+  archives: ['Archives fiscales', 'Retrouve les pièces privées de ce dossier et de cet exercice.'],
   guide: ['Courriers et rappels', 'Regroupe les notifications, dates limites et actions à suivre.'],
   portals: ['Hacienda et Importass', 'Accède aux sites officiels et ramène les résultats dans ton dossier.'],
 }
@@ -326,6 +329,14 @@ export default function MiGestoria() {
     {tab === 'portals' && loadState === 'ready' &&
       <GestoriaPortals capture={capture} year={year} dossier={current} canSave={canSave}
         onSave={savePortalCheck} onDiscard={discardCapture} />}
+    {tab === 'archives' && loadState === 'ready' &&
+      <GestoriaArchives key={scope} record={record} canSave={canSave}
+        onAdd={item => save(workspace => {
+          const latest = workspace.records[scope] || record
+          return { ...workspace, records: { ...workspace.records, [scope]: {
+            ...latest, archives: [...(latest.archives || []).filter(doc => doc.id !== item.id), item],
+          } } }
+        })} />}
     {tab === 'guide' && loadState === 'ready' &&
       <GestoriaGuide key={scope} year={year} startDate={current.startDate} notices={notices} filings={filings}
         tasks={tasks}

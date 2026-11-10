@@ -117,6 +117,21 @@ function validFilingDetails(details) {
     (item.paid === undefined || typeof item.paid === 'boolean'))
 }
 
+function validArchives(archives) {
+  return Array.isArray(archives) && archives.length <= 100 &&
+    archives.every(item => isObject(item) &&
+      Object.keys(item).every(key => ['id', 'label', 'type', 'model', 'quarter', 'date', 'reference', 'attachment'].includes(key)) &&
+      typeof item.id === 'string' && /^[\w-]{1,64}$/.test(item.id) &&
+      typeof item.label === 'string' && item.label.trim().length > 0 && item.label.length <= 160 &&
+      ['filed', 'draft', 'certificate', 'supporting'].includes(item.type) &&
+      (item.model === undefined || typeof item.model === 'string' && /^\d{3}$/.test(item.model)) &&
+      (item.quarter === undefined || [1, 2, 3, 4].includes(item.quarter)) &&
+      (item.date === undefined || validDate(item.date)) &&
+      (item.reference === undefined || typeof item.reference === 'string' && item.reference.length <= 120) &&
+      validAttachment(item.attachment)) &&
+    new Set(archives.map(item => item.id)).size === archives.length
+}
+
 async function validWorkspace(data) {
   const { validPortalChecks } = await import('../src/lib/gestoria-portal.mjs')
   return isObject(data) && Object.keys(data).every(key => ['entries', 'records', 'irpf'].includes(key)) &&
@@ -125,7 +140,8 @@ async function validWorkspace(data) {
     new Set(data.entries.map(entry => entry.id)).size === data.entries.length &&
     Object.entries(data.records).every(([key, record]) =>
       /^(independent|blackthorn):20(25|26|27)$/.test(key) && isObject(record) &&
-      Object.keys(record).every(field => ['tasks', 'filings', 'notices', 'filingDetails', 'portalChecks', 'irpf'].includes(field)) &&
+      Object.keys(record).every(field => ['tasks', 'filings', 'notices', 'filingDetails', 'portalChecks', 'irpf', 'archives'].includes(field)) &&
+      (record.archives === undefined || validArchives(record.archives)) &&
       (record.filingDetails === undefined || validFilingDetails(record.filingDetails)) &&
       (record.irpf === undefined || validIrpfSettings(record.irpf)) &&
       (record.portalChecks === undefined || validPortalChecks(record.portalChecks)) &&
