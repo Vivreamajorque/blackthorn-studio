@@ -268,3 +268,14 @@
   .mg-portal-intro, .mg-start-grid { grid-template-columns: minmax(0, 1fr); }
   .mg-portal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.mg-dashboard-filter { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.mg-dashboard-filter .mg-switch { margin: 0; }
+.mg-tax-table td small { display: block; margin-top: 3px; color: var(--mg-muted); }
+.mg-action-list { display: grid; gap: 12px; list-style: none; padding: 0; }
+.mg-action-list li { padding: 12px 14px; border-radius: 10px; background: #f2f6ef; }
+.mg-action-list p { margin: 4px 0; }
+.mg-expense-guide { background: #f1f6ed; }
+.mg-expense-guide p { margin: 0; }
+.mg-filing-evidence .mg-filing-form { display: grid; max-width: 42rem; align-items: start; }
+.mg-filing-form label, .mg-filing-form fieldset { min-width: 0; }

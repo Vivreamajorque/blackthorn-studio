@@ -70,9 +70,10 @@ export function GestoriaPayments({ year, dossier, data, onOpen }) {
   const { id, startDate, filings, notices } = dossier
   const today = todayInSpain()
   const personal = id === 'independent'
-  const settings = data.irpf?.[year]
-  const irpf = personal ? irpfForecast(data.entries, { year, startDate, today, settings }) : null
-  const projected = personal ? irpfForecast(forecastPayments(data.entries, today),
+  const entries = data.entries.filter(row => (row.entity || 'independent') === id)
+  const settings = personal ? data.irpf?.[year] : dossier.record.irpf
+  const irpf = personal || settings ? irpfForecast(entries, { year, startDate, today, settings }) : null
+  const projected = irpf ? irpfForecast(forecastPayments(entries, today),
     { year, startDate, today: year + '-12-31', settings }) : null
   const historical = Object.entries(data.records).filter(([key]) => key.startsWith(id + ':') && Number(key.slice(-4)) <= year)
     .flatMap(([key, record]) => Object.entries(record.filingDetails || {}).map(([period, evidence]) => ({
@@ -83,7 +84,7 @@ export function GestoriaPayments({ year, dossier, data, onOpen }) {
     .filter(row => row.period <= today.slice(0, 7))
     .sort((a, b) => b.period.localeCompare(a.period))[0]?.amountCents
   const rows = filings.filter(row => row.status !== 'not_applicable' && !['349', '390'].includes(row.model) &&
-    (row.status !== 'filed' || row.evidence?.amountCents > 0)).map(row => {
+    (row.status !== 'filed' || (row.evidence?.amountCents > 0 && !row.evidence.paid))).map(row => {
     let amount = row.evidence?.amountCents
     let caption = 'Montant à vérifier'
     if (amount != null) caption = row.status === 'filed' && row.model === 'RETA' ? 'Prélevé' : 'Montant saisi · paiement à rapprocher'
@@ -91,10 +92,10 @@ export function GestoriaPayments({ year, dossier, data, onOpen }) {
       const actual = irpf.quarters[row.quarter - 1]?.due
       const projection = row.date >= today ? projected.quarters[row.quarter - 1]?.due : null
       amount = projection ?? actual
-      caption = projection != null && projection !== actual ? 'Projection IRPF · dates prévues incluses' : 'Estimation IRPF'
-    } else if (row.model === '303' && personal && row.status !== 'filed') {
-      const vat = vatSummary(data.entries, { year, startDate, today, quarter: row.quarter })
-      amount = vat.balance == null ? null : Math.max(0, vat.balance)
+      caption = (projection != null && projection !== actual ? 'Projection IRPF · dates prévues incluses' : 'Estimation IRPF') + (settings?.priorNetCents == null ? ' · case 13 à vérifier' : ' · case 13 incluse')
+    } else if (row.model === '303' && row.status !== 'filed') {
+      const vat = vatSummary(entries, { year, startDate, today, quarter: row.quarter })
+      amount = vat.balance
       caption = 'Estimation IVA avant reports' + (vat.missing.length ? ' · ' + vat.missing.length + ' écriture(s) à qualifier' : '')
     } else if (row.model === 'RETA' && row.date >= today && (lastReceipt != null || historical != null)) {
       amount = lastReceipt ?? historical
@@ -113,7 +114,7 @@ export function GestoriaPayments({ year, dossier, data, onOpen }) {
         <tbody>{rows.map(row => <tr key={row.key}>
           <td>{row.date ? formatDate(row.date) : 'À confirmer'}{row.indicative && row.date && ' · indicative'}</td>
           <th scope="row"><button type="button" onClick={() => onOpen(id, 'tasks', row.model)}>{row.title}</button></th>
-          <td>{row.amount == null ? 'À vérifier' : money(row.amount)}</td><td>{row.amount == null ? 'Données à compléter' : row.caption}</td>
+          <td>{row.amount == null ? 'À vérifier' : row.model === '303' && row.amount < 0 ? money(-row.amount) + ' en ta faveur' : money(row.amount)}</td><td>{row.amount == null ? 'Données à compléter' : row.caption}</td>
         </tr>)}</tbody>
       </table></div>
     </section>

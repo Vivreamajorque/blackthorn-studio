@@ -3,7 +3,7 @@ import { inActivityYear } from './gestoria-calendar.mjs'
 const noFiling = { box07: 0, box15: 0, box16: 0, box19: 0, fields: {} }
 const emptyMonth = () => ({ income: 0, expenses: 0, withheld: 0, entries: 0 })
 
-function minoracion(net) {
+export function minoracion(net) {
   if (net == null || net > 1200000) return 0
   if (net <= 900000) return 10000
   if (net <= 1000000) return 7500
@@ -35,6 +35,7 @@ export function irpfForecast(rows, { year, startDate, today, settings = {} }) {
   const excluded = { missingAmount: 0, missingDate: 0, awaitingPayment: 0 }
   const cash = settings.basis === 'cash'
   const deduction = minoracion(settings.priorNetCents)
+  const configuredReduction = settings.priorNetCents != null
   for (const row of rows) {
     const booked = row.taxDate || row.date
     const date = cash ? row.paymentDate : booked
@@ -75,7 +76,8 @@ export function irpfForecast(rows, { year, startDate, today, settings = {} }) {
     if (i % 3 !== 2) continue
 
     const filed = settings.filed?.[quarter]
-    quarters.push({ quarter, due: totals.entries ? due : null, filed, fields: estimated.fields })
+    quarters.push({ quarter, due: totals.entries ? due : null, filed,
+      deduction: configuredReduction ? deduction : null, fields: estimated.fields })
     const boxes = filed || estimated
     previous += Math.max(0, boxes.box07) - boxes.box16
     credit = Math.max(0, credit - boxes.box15) + Math.max(0, -boxes.box19)

@@ -2,32 +2,18 @@ import React, { useEffect, useState } from 'react'
 import { inActivityYear, todayInSpain } from '../lib/gestoria-calendar.mjs'
 import { parseGestoriaCsv } from '../lib/gestoria-import.mjs'
 import GestoriaInvoice from './GestoriaInvoice'
+import { attachmentUrl, uploadFile } from '../lib/gestoria-files.mjs'
+import GestoriaExpenseGuide from './GestoriaExpenseGuide'
 import GestoriaVatFields, { editVat, saveVat } from './GestoriaVatFields'
 
 const card = { background: 'var(--card, #fff)', border: '1px solid var(--border, #ddd)', borderRadius: 14, padding: 16, marginBottom: 16 }
 const muted = { color: 'var(--txt2, #777)', fontSize: 13 }
-const fileTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
 const cashAmount = (amount, currency) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: currency || 'EUR' }).format(amount / 100)
 const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
 const total = rows => rows.reduce((cents, row) => cents + Math.round(row.amount * 100), 0) / 100
 const dateLabel = date => date.split('-').reverse().join('/')
 const payment = { cash: 'Espèces', carte: 'Carte', virement: 'Virement', inconnu: 'Mode à vérifier' }
 
-async function uploadFile(file) {
-  if (!fileTypes.includes(file.type) || file.size > 2 * 1024 * 1024) throw new Error('Choisis un PDF, JPEG, PNG ou WebP de 2 Mo maximum.')
-  const encoded = await new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onerror = reject
-    reader.onload = () => resolve(String(reader.result).split(',')[1])
-    reader.readAsDataURL(file)
-  })
-  const response = await fetch('/api/gestoria-file', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: file.name, mime: file.type, base64: encoded }) })
-  const result = await response.json()
-  if (response.status === 401) window.dispatchEvent(new Event('gestoria-auth-expired'))
-  if (!response.ok) throw new Error(result.error || 'Pièce non enregistrée.')
-  return result
-}
 
 
 function Amounts({ values }) {
@@ -105,7 +91,7 @@ export function StudioData({ ledger }) {
 const sources = { direct: 'Direct ou autre', malt: 'Malt', livementor: 'LiveMentor' }
 const payments = { unknown: 'Paiement à vérifier', pending: 'En attente', paid: 'Payé' }
 
-export function PersonalData({ year, startDate, entries, canSave, onEntries, bank, onBank }) {
+export function PersonalData({ entity = 'independent', year, startDate, entries, canSave, canAdd, onEntries, bank, onBank }) {
   const [draft, setDraft] = useState(null)
   const [fileMessage, setFileMessage] = useState('')
   const [uploading, setUploading] = useState(false)
@@ -190,7 +176,8 @@ export function PersonalData({ year, startDate, entries, canSave, onEntries, ban
 
   return <>
     <section style={card}>
-      <h2>Compta de mon activité</h2>
+      <h2>{entity === 'blackthorn' ? 'Factures et tickets de Blackthorn' : 'Compta de mon activité'}</h2>
+      {entity === 'blackthorn' && <p style={muted}>Ces pièces forment ton registre fiscal dans Mi Gestoría. Les graphiques de recettes et dépenses du studio utilisent les données du Hub.</p>}
       <label>Origine <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}>
         <option value="all">Toutes</option>
         {Object.entries(sources).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -207,8 +194,8 @@ export function PersonalData({ year, startDate, entries, canSave, onEntries, ban
         ['Factures reçues', sum(expenses)],
       ]} />
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <button disabled={!canSave || entries.length >= 1000} onClick={() => start('invoice')}>Ajouter une facture émise</button>
-        <button disabled={!canSave || entries.length >= 1000} onClick={() => start('expense')}>Ajouter une dépense</button>
+        <button disabled={!canSave || !canAdd} onClick={() => start('invoice')}>Ajouter une facture émise</button>
+        <button disabled={!canSave || !canAdd} onClick={() => start('expense')}>Ajouter une dépense</button>
       </div>
       <details className="mg-chart-details">
         <summary>Rattacher plusieurs factures originales</summary>
@@ -247,14 +234,18 @@ export function PersonalData({ year, startDate, entries, canSave, onEntries, ban
         {draft.payment !== 'paid' && <label>{draft.kind === 'invoice' ? 'Encaissement prévu, si connu' : 'Paiement prévu, si connu'}
           <input type="date" value={draft.expectedPaymentDate} onChange={e => setDraft({ ...draft, expectedPaymentDate: e.target.value })} />
         </label>}
+        {draft.kind === 'expense' && <GestoriaExpenseGuide category={draft.expenseCategory || ''}
+          onCategory={expenseCategory => setDraft({ ...draft, expenseCategory: expenseCategory || undefined })}
+          onExclude={() => setDraft({ ...draft, ...(draft.expenseCategory === 'personal' && { taxAmount: '0' }),
+            vatDraft: { ...draft.vatDraft, category: 'excluded' } })} />}
         <fieldset className="mg-tax-settings">
           <legend>Calcul de l’IRPF</legend>
           <label>{draft.kind === 'invoice' ? 'Revenu hors TVA en €' : 'Part déductible à l’IRPF en €'}
             <input type="number" step="0.01" min="-100000000" max="100000000" value={draft.taxAmount}
               onChange={e => setDraft({ ...draft, taxAmount: e.target.value })} />
           </label>
-          <button type="button" disabled={draft.amount === '' || draft.currency !== 'EUR'}
-            onClick={() => setDraft({ ...draft, taxAmount: draft.amount })}>Reprendre le montant saisi</button>
+          {draft.kind === 'invoice' && <button type="button" disabled={!draft.vatDraft.base || !draft.vatDraft.category || draft.vatDraft.category === 'excluded'}
+            onClick={() => setDraft({ ...draft, taxAmount: draft.vatDraft.base })}>Reprendre la base hors TVA saisie plus bas</button>}
           <span style={muted}>Laisse le montant fiscal vide s’il reste à vérifier. Indique 0 si la ligne est exclue de l’IRPF.</span>
           <label>Date de rattachement si différente de la date de facture
             <input type="date" value={draft.taxDate} onChange={e => setDraft({ ...draft, taxDate: e.target.value })} />
@@ -266,7 +257,7 @@ export function PersonalData({ year, startDate, entries, canSave, onEntries, ban
         </fieldset>
         <GestoriaVatFields value={draft.vatDraft} invoice={draft.kind === 'invoice'}
           onChange={vatDraft => setDraft({ ...draft, vatDraft })} />
-        <label>Justificatif PDF ou image · 2 Mo maximum
+        <label>Justificatif PDF ou image · 3 Mo maximum
           <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" disabled={uploading}
             onChange={e => setDraft({ ...draft, file: e.target.files?.[0] })} />
         </label>
@@ -286,7 +277,7 @@ export function PersonalData({ year, startDate, entries, canSave, onEntries, ban
           {row.paymentDate && ' · Payé le ' + dateLabel(row.paymentDate)}
           {row.expectedPaymentDate && ' · Prévu le ' + dateLabel(row.expectedPaymentDate)}
           {' · IRPF ' + (taxAmountCents == null ? 'à vérifier' : euro.format(taxAmountCents / 100))}</p>
-        {row.attachment && <p><a href={'/api/gestoria-file?id=' + row.attachment.id + '&name=' + encodeURIComponent(row.attachment.name)}
+        {row.attachment && <p><a href={attachmentUrl(row.attachment)}
           target="_blank" rel="noopener noreferrer">Voir le justificatif ↗</a></p>}
         <button disabled={!canSave || uploading} onClick={() => setDraft({ ...row, source: row.source || 'direct', amount: String(amountCents / 100),
           currency: row.currency || 'EUR', vatDraft: editVat(vat, row.date),
@@ -299,7 +290,7 @@ export function PersonalData({ year, startDate, entries, canSave, onEntries, ban
         }}>Retirer</button>
       </div>)}
     </section>
-    <BankPreview year={year} startDate={startDate} bank={bank} onBank={onBank} />
+    {bank && <BankPreview year={year} startDate={startDate} bank={bank} onBank={onBank} />}
   </>
 }
 

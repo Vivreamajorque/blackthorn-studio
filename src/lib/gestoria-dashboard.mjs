@@ -72,15 +72,18 @@ export function overviewAgenda(dossiers, today) {
 export function ledgerSummary(rows, year, studio, startDate) {
   const months = Array.from({ length: 12 }, () => ({ income: 0, expenses: 0 }))
   let pending = 0
+  let missingIncome = 0
   for (const row of rows) {
     if (!inActivityYear(row.date, year, startDate)) continue
     const month = months[Number(row.date.slice(5, 7)) - 1]
     if (!month) continue
-    if (!studio && row.currency && row.currency !== 'EUR') continue
+    if (!studio && row.kind === 'expense' && row.currency && row.currency !== 'EUR') continue
     const cents = studio ? Math.round(row.amount * 100) : row.amountCents
     if (row.kind === 'expense') month.expenses += cents
     else {
-      month.income += cents
+      if (studio) month.income += cents
+      else if (row.taxAmountCents == null) missingIncome++
+      else month.income += row.taxAmountCents
       if (!studio && row.payment !== 'paid') pending++
     }
   }
@@ -88,6 +91,6 @@ export function ledgerSummary(rows, year, studio, startDate) {
     months,
     income: months.reduce((sum, month) => sum + month.income, 0),
     expenses: months.reduce((sum, month) => sum + month.expenses, 0),
-    pending,
+    pending, missingIncome,
   }
 }

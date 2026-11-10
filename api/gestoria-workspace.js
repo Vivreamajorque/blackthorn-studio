@@ -3,7 +3,7 @@ const { readVersionedBlob } = require('../server/private-blob.cjs')
 
 const empty = { entries: [], records: {} }
 const entryKeys = ['id', 'kind', 'date', 'label', 'reference', 'amountCents', 'payment']
-const optionalEntryKeys = ['source', 'taxDate', 'paymentDate', 'taxAmountCents', 'withholdingCents', 'currency', 'vat', 'attachment', 'expectedPaymentDate']
+const optionalEntryKeys = ['source', 'taxDate', 'paymentDate', 'taxAmountCents', 'withholdingCents', 'currency', 'vat', 'attachment', 'expectedPaymentDate', 'entity', 'expenseCategory']
 const taskStatuses = ['unknown', 'in_progress', 'blocked', 'complete', 'not_applicable']
 const filingKey = /^(?:T[1-4]:(?:303|130|115|111|349)|A:(?:390|100)|M(?:0[1-9]|1[0-2]):RETA)$/
 const filingStatuses = ['unknown', 'missing', 'to_prepare', 'filed', 'not_applicable']
@@ -21,13 +21,13 @@ function validDate(date) {
 function validEntry(entry) {
   if (!isObject(entry) || Object.keys(entry).some(key => !entryKeys.includes(key) && !optionalEntryKeys.includes(key)) ||
       !entryKeys.every(key => Object.hasOwn(entry, key))) return false
-  const { id, kind, date, label, reference, amountCents, payment, source, taxDate, paymentDate, taxAmountCents, withholdingCents, currency, vat, attachment, expectedPaymentDate } = entry
+  const { id, kind, date, label, reference, amountCents, payment, source, taxDate, paymentDate, taxAmountCents, withholdingCents, currency, vat, attachment, expectedPaymentDate, entity, expenseCategory } = entry
   return (source === undefined || ['direct', 'malt', 'livementor'].includes(source)) && validDate(date) && /^(2025|2026|2027)-/.test(date) &&
     (currency === undefined || ['EUR', 'USD'].includes(currency)) &&
     (vat === undefined || validVat(vat, kind)) &&
-    (attachment === undefined || (isObject(attachment) && Object.keys(attachment).length === 3 &&
-      /^[a-f0-9-]{36}$/.test(attachment.id) && typeof attachment.name === 'string' && attachment.name.length <= 160 &&
-      ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(attachment.mime))) &&
+    (entity === undefined || ['independent', 'blackthorn'].includes(entity)) &&
+    (expenseCategory === undefined || (kind === 'expense' && ['professional', 'mixed', 'home', 'vehicle', 'equipment', 'personal', 'social'].includes(expenseCategory))) &&
+    (attachment === undefined || validAttachment(attachment)) &&
     (taxDate === undefined || validDate(taxDate)) &&
     (paymentDate === undefined || (payment === 'paid' && validDate(paymentDate))) &&
     (expectedPaymentDate === undefined || (payment !== 'paid' && validDate(expectedPaymentDate))) &&
@@ -38,6 +38,13 @@ function validEntry(entry) {
     typeof label === 'string' && label.trim().length > 0 && label.length <= 160 &&
     typeof reference === 'string' && reference.length <= 100 &&
     validAmount(amountCents)
+}
+
+function validAttachment(attachment) {
+  return isObject(attachment) && Object.keys(attachment).length === 3 &&
+    typeof attachment.id === 'string' && /^[a-f0-9-]{36}$/.test(attachment.id) &&
+    typeof attachment.name === 'string' && attachment.name.trim().length > 0 && attachment.name.length <= 160 &&
+    ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(attachment.mime)
 }
 
 function validAmount(value) {
@@ -59,15 +66,20 @@ function validVat(vat, kind) {
 
 function validIrpf(value) {
   return isObject(value) && Object.entries(value).every(([year, settings]) =>
-    /^20(25|26|27)$/.test(year) && isObject(settings) &&
+    /^20(25|26|27)$/.test(year) && validIrpfSettings(settings))
+}
+
+function validIrpfSettings(settings) {
+  return isObject(settings) &&
     Object.keys(settings).every(key => ['basis', 'priorNetCents', 'filed'].includes(key)) &&
     ['cash', 'accrual'].includes(settings.basis) &&
     (settings.priorNetCents === undefined || validAmount(settings.priorNetCents)) &&
     isObject(settings.filed) && Object.entries(settings.filed).every(([quarter, boxes]) =>
-      /^[1-4]$/.test(quarter) && isObject(boxes) && Object.keys(boxes).length === 4 &&
+      /^[1-4]$/.test(quarter) && isObject(boxes) && Object.keys(boxes).every(key => ['box07', 'box13', 'box15', 'box16', 'box19'].includes(key)) &&
+      (boxes.box13 === undefined || (validAmount(boxes.box13) && boxes.box13 >= 0)) &&
       validAmount(boxes.box07) && validAmount(boxes.box19) &&
       validAmount(boxes.box15) && boxes.box15 >= 0 &&
-      validAmount(boxes.box16) && boxes.box16 >= 0))
+      validAmount(boxes.box16) && boxes.box16 >= 0)
 }
 
 function validStatuses(values, keyPattern, statuses) {
@@ -90,9 +102,12 @@ function validNotices(notices) {
 function validFilingDetails(details) {
   return isObject(details) && Object.entries(details).every(([key, item]) =>
     filingKey.test(key) && isObject(item) &&
-    Object.keys(item).every(field => ['reference', 'amountCents'].includes(field)) &&
+    Object.keys(item).every(field => ['reference', 'amountCents', 'attachment', 'filedDate', 'paid'].includes(field)) &&
     typeof item.reference === 'string' && item.reference.length <= 120 &&
-    (item.amountCents === undefined || validAmount(item.amountCents)))
+    (item.amountCents === undefined || validAmount(item.amountCents)) &&
+    (item.attachment === undefined || validAttachment(item.attachment)) &&
+    (item.filedDate === undefined || validDate(item.filedDate)) &&
+    (item.paid === undefined || typeof item.paid === 'boolean'))
 }
 
 async function validWorkspace(data) {
@@ -103,8 +118,9 @@ async function validWorkspace(data) {
     new Set(data.entries.map(entry => entry.id)).size === data.entries.length &&
     Object.entries(data.records).every(([key, record]) =>
       /^(independent|blackthorn):20(25|26|27)$/.test(key) && isObject(record) &&
-      Object.keys(record).every(field => ['tasks', 'filings', 'notices', 'filingDetails', 'portalChecks'].includes(field)) &&
+      Object.keys(record).every(field => ['tasks', 'filings', 'notices', 'filingDetails', 'portalChecks', 'irpf'].includes(field)) &&
       (record.filingDetails === undefined || validFilingDetails(record.filingDetails)) &&
+      (record.irpf === undefined || validIrpfSettings(record.irpf)) &&
       (record.portalChecks === undefined || validPortalChecks(record.portalChecks)) &&
       validNotices(record.notices) &&
       validStatuses(record.tasks, /^(census|residence|reta|sales|malt|expenses|filings|roi|annual)$/, taskStatuses) &&

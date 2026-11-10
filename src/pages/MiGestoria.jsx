@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { PersonalData, StudioData, useStudioLedger } from './GestoriaData'
 import { GestoriaPayments, ModelPreparation } from './GestoriaModels'
+import GestoriaFilingDetails from './GestoriaFilingDetails'
 import GestoriaGuide from './GestoriaGuide'
 import GestoriaDashboard from './GestoriaDashboard'
 import GestoriaPortals from './GestoriaPortals'
@@ -75,7 +76,6 @@ const EXTRA_FORMS = [
 ]
 const MODELS = [...FORMS, ...EXTRA_FORMS]
 const monthName = new Intl.DateTimeFormat('fr-FR', { month: 'long', timeZone: 'UTC' })
-const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
 
 const TASK_STATUS = {
   unknown: 'À vérifier',
@@ -138,29 +138,6 @@ function StatusSelect({ title, status, options, onChange, disabled }) {
   </select>
 }
 
-function FilingDetails({ row, canSave, onSave }) {
-  const [reference, setReference] = useState(row.evidence?.reference || '')
-  const [amount, setAmount] = useState(row.evidence?.amountCents == null ? '' : String(row.evidence.amountCents / 100))
-  async function submit(event) {
-    event.preventDefault()
-    await onSave(row.key, {
-      reference: reference.trim(),
-      ...(amount !== '' && { amountCents: Math.round(Number(amount) * 100) }),
-    })
-  }
-  return <details className="mg-filing-evidence">
-    <summary>{row.evidence?.reference ? 'Référence enregistrée' : 'Ajouter la référence du justificatif'}
-      {row.evidence?.amountCents != null && ' · ' + euro.format(row.evidence.amountCents / 100)}</summary>
-    <form onSubmit={submit}>
-      <label>Référence du reçu <input maxLength={120} value={reference} onChange={e => setReference(e.target.value)} /></label>
-      <label>{row.model === 'RETA' ? 'Montant prélevé' : 'Solde déclaré en €'}
-        <input type="number" step="0.01" min="-100000000" max="100000000" value={amount} onChange={e => setAmount(e.target.value)} />
-      </label>
-      <button type="submit" disabled={!canSave}>Enregistrer</button>
-    </form>
-  </details>
-}
-
 export default function MiGestoria() {
   const [selectedEntity, setEntity] = useState('independent')
   const [year, setYear] = useState(() => Math.min(2027, Math.max(2025, Number(todayInSpain().slice(0, 4)))))
@@ -192,13 +169,15 @@ export default function MiGestoria() {
   const entity = current.id
   const scope = entity + ':' + year
   const { record, notices, filings, tasks } = current
+  const entries = data.entries.filter(row => (row.entity || 'independent') === entity)
+  const settings = entity === 'independent' ? data.irpf?.[year] : record.irpf
   const completed = tasks.filter(task => isComplete(task.status)).length
   const fileBase = 'mi-gestoria-' + entity + '-' + year
 
-  function openDossier(nextEntity, nextTab, model = 'all') {
+  function openDossier(nextEntity, nextTab, model = 'all', declarationsOnly = false) {
     setEntity(nextEntity)
     setTab(nextTab)
-    setFormFilter(model)
+    setFormFilter(declarationsOnly && model === 'all' ? 'declarations' : model)
     setFeedback(null)
     window.scrollTo(0, 0)
   }
@@ -229,8 +208,33 @@ export default function MiGestoria() {
     return updateRecord({ [group]: { ...record[group], [key]: status } })
   }
 
-  function saveFilingDetails(key, details) {
-    return updateRecord({ filingDetails: { ...record.filingDetails, [key]: details } })
+  function saveFilingDetails(key, details, filed, boxes) {
+    return save(workspace => {
+      const changes = { ...record, filingDetails: { ...record.filingDetails, [key]: details } }
+      if (filed) changes.filings = { ...record.filings, [key]: 'filed' }
+      else if (record.filings[key] === 'filed') changes.filings = { ...record.filings, [key]: 'unknown' }
+      let irpf = workspace.irpf
+      if (key.endsWith(':130') && (boxes || !filed)) {
+        const quarter = Number(key[1])
+        const previous = settings || { basis: 'accrual', filed: {} }
+        const declared = { ...previous.filed }
+        if (boxes) declared[quarter] = boxes
+        else delete declared[quarter]
+        const next = { ...previous, filed: declared }
+        if (entity === 'independent') irpf = { ...irpf, [year]: next }
+        else changes.irpf = next
+      }
+      return { ...workspace, ...(irpf && { irpf }), records: { ...workspace.records, [scope]: changes } }
+    })
+  }
+
+  function saveIrpf(entityId, value) {
+    if (entityId === 'independent') return save(workspace => ({ ...workspace, irpf: { ...workspace.irpf, [year]: value } }))
+    return save(workspace => {
+      const key = entityId + ':' + year
+      const previous = workspace.records[key] || { tasks: {}, filings: {}, notices: [] }
+      return { ...workspace, records: { ...workspace.records, [key]: { ...previous, irpf: value } } }
+    })
   }
 
   async function restoreBackup(event) {
@@ -294,7 +298,7 @@ export default function MiGestoria() {
     {tab === 'overview' && loadState === 'ready' && <GestoriaDashboard
       year={year} dossiers={dossiers} personalStart={personalStart} entries={data.entries} studio={studio} onOpen={openDossier}
       irpf={data.irpf?.[year]} canSave={canSave}
-      onIrpf={settings => save(current => ({ ...current, irpf: { ...current.irpf, [year]: settings } }))} />}
+      onIrpf={saveIrpf} />}
     {loadState === 'loading' && <p role="status">Chargement de ton dossier privé…</p>}
     {loadState === 'error' && <div role="alert">
       <p>Le dossier privé n’a pas pu être chargé.</p>
@@ -313,9 +317,16 @@ export default function MiGestoria() {
         canSave={canSave} canAddNotice={record.notices.length < 50} onNotices={updated => updateRecord({
           notices: [...record.notices.filter(notice => !notices.includes(notice)), ...updated],
         })} onTasks={() => setTab('tasks')} />}
-    {tab === 'finance' && (entity === 'blackthorn' ? <StudioData ledger={studio} /> :
-      loadState === 'ready' && <PersonalData key={scope} year={year} startDate={current.startDate} entries={data.entries} canSave={canSave}
-        onEntries={entries => save(current => ({ ...current, entries }))} bank={bank} onBank={setBank} />)}
+    {tab === 'finance' && loadState === 'ready' && <>
+      {entity === 'blackthorn' && <StudioData ledger={studio} />}
+      <PersonalData key={scope} entity={entity} year={year} startDate={current.startDate} entries={entries}
+        canSave={canSave} canAdd={data.entries.length < 1000}
+        onEntries={updated => save(workspace => ({ ...workspace, entries: [
+          ...workspace.entries.filter(row => (row.entity || 'independent') !== entity),
+          ...updated.map(row => ({ ...row, ...(entity === 'blackthorn' && { entity }) })),
+        ] }))}
+        bank={entity === 'independent' ? bank : undefined} onBank={setBank} />
+    </>}
     {tab === 'payments' && loadState === 'ready' &&
       <GestoriaPayments year={year} dossier={current} data={data} onOpen={openDossier} />}
     {tab === 'tasks' && loadState === 'ready' && <>
@@ -339,15 +350,17 @@ export default function MiGestoria() {
       <p style={muted}>Vérifie les obligations sur Hacienda et les prélèvements dans Importass. Enregistre le statut et la référence de chaque justificatif.</p>
       <label>Filtrer par modèle <select value={formFilter} onChange={event => setFormFilter(event.target.value)}>
         <option value="all">Tous</option>
+        <option value="declarations">Toutes les déclarations</option>
         {MODELS.map(form => <option key={form.id} value={form.id}>{form.title || 'Modelo ' + form.id}</option>)}
       </select></label>
       <div style={{ marginTop: 12 }}>
-        {filings.filter(row => formFilter === 'all' || row.key.endsWith(':' + formFilter)).map(row => <div key={row.key} style={rowStyle}>
+        {filings.filter(row => formFilter === 'all' || (formFilter === 'declarations' ? row.model !== 'RETA' : row.model === formFilter)).map(row => <div key={row.key} style={rowStyle}>
           <div><strong>{row.title}</strong><div style={muted}>{row.detail}
             {row.date && ' · ' + formatDate(row.date)}{row.indicative && ' · date à confirmer'}</div>
-            <ModelPreparation key={'prep:' + scope + ':' + row.key} row={row} year={year} entries={data.entries}
-              startDate={current.startDate} settings={data.irpf?.[year]} personal={entity === 'independent'} onFinance={() => setTab('finance')} />
-            <FilingDetails key={scope + ':' + row.key} row={row} canSave={canSave} onSave={saveFilingDetails} />
+            <ModelPreparation key={'prep:' + scope + ':' + row.key} row={row} year={year} entries={entries}
+              startDate={current.startDate} settings={settings} personal={entity === 'independent' || entries.length > 0} onFinance={() => setTab('finance')} />
+            <GestoriaFilingDetails key={scope + ':' + row.key + ':' + row.status} row={row} canSave={canSave}
+              declaredBoxes={row.model === '130' ? settings?.filed?.[row.quarter] : undefined} onSave={saveFilingDetails} />
           </div>
           <StatusSelect title={'Statut ' + row.title} status={record.filings[row.key]} options={row.model === 'RETA' ? RETA_STATUS : FILING_STATUS}
             disabled={!canSave} onChange={status => setStatus('filings', row.key, status)} />

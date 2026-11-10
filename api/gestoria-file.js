@@ -1,6 +1,6 @@
 const { requireSession } = require('../server/session.cjs')
 
-const limit = 2 * 1024 * 1024
+const limit = 3 * 1024 * 1024
 const signatures = {
   'application/pdf': file => file.subarray(0, 5).toString() === '%PDF-',
   'image/png': file => file.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])),
@@ -22,7 +22,7 @@ module.exports = async function handler(req, res) {
       if (!/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '') ||
           typeof name !== 'string' || !name.trim() || name.length > 160 ||
           !Object.hasOwn(signatures, mime) || typeof base64 !== 'string' || base64.length > Math.ceil(limit / 3) * 4) {
-        return res.status(400).json({ error: 'Choisis un PDF, JPEG, PNG ou WebP de 2 Mo maximum.' })
+        return res.status(400).json({ error: 'Choisis un PDF, JPEG, PNG ou WebP de 3 Mo maximum.' })
       }
       const bytes = Buffer.from(base64, 'base64')
       if (bytes.length > limit || !signatures[mime](bytes)) return res.status(400).json({ error: 'Le format du fichier ne correspond pas à son contenu.' })
