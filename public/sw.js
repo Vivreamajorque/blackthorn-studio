@@ -30,6 +30,7 @@ self.addEventListener('activate', e => {
 // FETCH : network-first pour index.html, cache-first pour assets
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url)
+  if (e.request.method !== 'GET' || url.pathname.startsWith('/api/')) return
 
   // Navigation : toujours réseau en premier (pour détecter les mises à jour)
   if (e.request.mode === 'navigate') {

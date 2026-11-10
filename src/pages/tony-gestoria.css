@@ -1,0 +1,15 @@
+.bt-gestoria { padding: 18px 16px 40px; max-width: 720px; margin: 0 auto; }
+.bt-gestoria header, .bt-gestoria-controls { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.bt-gestoria header p { margin: 0; color: var(--gold-dk); font-size: .7rem; font-weight: 750; letter-spacing: .1em; }
+.bt-gestoria h1, .bt-gestoria h2 { margin: 4px 0; font-family: var(--font-head); }
+.bt-gestoria-muted { color: var(--txt2); margin: 10px 0 16px; }
+.bt-gestoria-form { display: grid; gap: 10px; padding: 14px; margin: 12px 0; }
+.bt-gestoria-form label { display: grid; gap: 4px; }
+.bt-gestoria-form label.bt-gestoria-check { display: flex; gap: 6px; align-items: center; }
+.bt-gestoria-form input[type=checkbox] { width: auto; }
+.bt-gestoria-table { margin-top: 14px; padding: 9px 12px; }
+.bt-gestoria-table table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.bt-gestoria-table th, .bt-gestoria-table td { padding: 9px 5px; text-align: right; border-bottom: 1px solid var(--border); }
+.bt-gestoria-table th:first-child { text-align: left; text-transform: capitalize; }
+.bt-gestoria-table td { font-variant-numeric: tabular-nums; }
+.bt-gestoria-feedback { padding: 8px; border-radius: 6px; background: var(--bg); }

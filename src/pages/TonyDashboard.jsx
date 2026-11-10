@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import Planning from './Planning'
+import TonyGestoria from './TonyGestoria'
 import Devis    from './Devis'
 import { notion, parsePaiement, getNbSess } from '../lib/notion'
 
@@ -67,29 +68,19 @@ function Arc({ pct, color, size=120, stroke=10, value, sub, label, sub2 }) {
   )
 }
 
-const CATS=['🖊️ Matériel tatouage','🧴 Consommables','📱 Marketing','🔧 Équipement','🏠 Charges fixes','🚗 Déplacements','📦 Autre']
 const NATS=['🇫🇷 FR','🇩🇪 DE','🇬🇧 EN','🇪🇸 ES','Autre']
 
 export default function TonyDashboard({ onLogout }) {
   const [tab,       setTab]      = useState('home')
   const [sessions,     setSessions]     = useState([])
-  const [depenses,     setDepenses]     = useState([])
   const [sessionsPrevu,setSessionsPrevu] = useState([])
   const [devis,        setDevis]         = useState([])
   const [loading,   setLoading]  = useState(true)
   const [toast,     setToast]    = useState('')
-  const fileRef   = useRef(null)
-  const cameraRef = useRef(null)
 
   // Formulaires
   const [caForm,   setCaForm]   = useState({ ca:'', sessions:'1', paiement:'cash', natio:'🇫🇷 FR', source:'📸 Instagram', notes:'', date:todayStr(), avis:false })
   const [caSaving, setCaSaving] = useState(false)
-  const [depForm,  setDepForm]  = useState({ montant:'', fournisseur:'', categorie:'🖊️ Matériel tatouage', date:todayStr(), notes:'', iva_recuperable:true })
-  const [depSaving,setDepSaving]= useState(false)
-  const [photo,    setPhoto]    = useState(null)
-  const [photoUrl, setPhotoUrl] = useState(null)
-  const [analyzing,setAnalyzing]= useState(false)
-  const [uploading,setUploading]= useState(false)
   // RDV
   const [rdvForm,  setRdvForm]  = useState({ client:'', style:'', prixEstime:'', sessions:'1', acompte:'0', natio:'🇫🇷 FR', source:'📸 Instagram', date:'', heure:'10:00', duree:'120' })
   const [rdvSaving,setRdvSaving]= useState(false)
@@ -130,9 +121,8 @@ export default function TonyDashboard({ onLogout }) {
 
   const load = useCallback(async () => {
     try {
-      const [s,d,sp,dv] = await Promise.all([notion.getSessions(), notion.getDepenses(), notion.getSessionsPrevu(), notion.getDevis()])
+      const [s,sp,dv] = await Promise.all([notion.getSessions(), notion.getSessionsPrevu(), notion.getDevis()])
       if (s.results) setSessions(s.results)
-      if (d.results) setDepenses(d.results)
       if (sp.results) setSessionsPrevu(sp.results)
       if (dv.results) setDevis(dv.results)
     } catch(e) { console.error(e) }
@@ -313,39 +303,6 @@ export default function TonyDashboard({ onLogout }) {
       load()
     } catch(e) { console.error('updateRdv error:', e); showToast('Erreur : ' + (e.message||'').substring(0,40)) }
     setEditRdvSaving(false)
-  }
-
-  // Submit dépense
-  const submitDep = async () => {
-    if (!depForm.montant) return
-    setDepSaving(true)
-    try {
-      await notion.addDepense({...depForm,saisi_par:'Tony',photoUrl:photoUrl||null})
-      showToast('✓ Dépense enregistrée')
-      setDepForm({montant:'',fournisseur:'',categorie:'🖊️ Matériel tatouage',date:todayStr(),notes:'',iva_recuperable:true})
-      setPhoto(null); setPhotoUrl(null); setTab('home'); load()
-    } catch(e) { showToast('Erreur') }
-    setDepSaving(false)
-  }
-
-  // Photo
-  const handlePhoto = async (e) => {
-    const file=e.target.files?.[0]; if(!file) return
-    setAnalyzing(true)
-    const reader=new FileReader()
-    reader.onload=async(ev)=>{
-      setPhoto(ev.target.result)
-      setUploading(true)
-      fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:ev.target.result,filename:file.name||'ticket.jpg'})})
-        .then(r=>r.json()).then(d=>{if(d.url){setPhotoUrl(d.url);showToast('✓ Photo OK')}}).catch(()=>{}).finally(()=>setUploading(false))
-      try {
-        const res=await fetch('/api/analyze-receipt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:ev.target.result.split(',')[1],mediaType:file.type})})
-        const data=await res.json()
-        if(!data.manual&&data.montant){ setDepForm(f=>({...f,montant:data.montant?.toString()||f.montant,fournisseur:data.fournisseur||f.fournisseur,date:data.date||f.date})); showToast('✓ Ticket analysé') }
-      }catch(e){}
-      setAnalyzing(false)
-    }
-    reader.readAsDataURL(file)
   }
 
   // Edit
@@ -590,60 +547,7 @@ export default function TonyDashboard({ onLogout }) {
     </div>
   )
 
-  if (tab==='depense') return (
-    <div style={{padding:'0 0 40px',minHeight:'100dvh',background:'var(--bg)'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px'}}>
-        <div style={{fontFamily:'var(--font-head)',fontSize:'18px',fontWeight:800}}>Dépense / Facture</div>
-        <button className="btn btn-ghost" onClick={()=>{setTab('home');setPhoto(null);setPhotoUrl(null)}} style={{padding:'6px 14px',fontSize:'12px'}}>← Retour</button>
-      </div>
-      <input ref={fileRef} type="file" accept="image/*" onChange={handlePhoto} style={{display:'none'}}/>
-      <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} style={{display:'none'}}/>
-      {!photo?(
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'14px'}}>
-          <button onClick={()=>cameraRef.current?.click()} className="btn btn-ghost" style={{padding:'16px',flexDirection:'column',gap:'4px',fontSize:'12px'}}>
-            <span style={{fontSize:'22px'}}>📷</span>Photo
-          </button>
-          <button onClick={()=>fileRef.current?.click()} className="btn btn-ghost" style={{padding:'16px',flexDirection:'column',gap:'4px',fontSize:'12px'}}>
-            <span style={{fontSize:'22px'}}>📁</span>Fichier
-          </button>
-        </div>
-      ):(
-        <div style={{marginBottom:'14px',position:'relative'}}>
-          <img src={photo} style={{width:'100%',borderRadius:'var(--r)',maxHeight:'130px',objectFit:'cover'}}/>
-          {(analyzing||uploading)&&<div style={{position:'absolute',inset:0,background:'rgba(255,255,255,.85)',borderRadius:'var(--r)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px'}}>{analyzing?'🔍 Analyse...':'☁️ Upload...'}</div>}
-          <button onClick={()=>{setPhoto(null);setPhotoUrl(null)}} style={{position:'absolute',top:6,right:6,background:'rgba(0,0,0,.5)',border:'none',color:'#fff',borderRadius:'50%',width:24,height:24,cursor:'pointer'}}>×</button>
-          {photoUrl&&<div style={{position:'absolute',bottom:6,right:6,background:'#1A8C5A',borderRadius:'4px',padding:'2px 6px',fontSize:'10px',color:'#fff',fontWeight:600}}>✓ OK</div>}
-        </div>
-      )}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'10px'}}>
-        <div className="form-group" style={{margin:0}}>
-          <label>Montant TTC (€) *</label>
-          <input type="number" inputMode="decimal" placeholder="0.00" value={depForm.montant} onChange={e=>setDepForm({...depForm,montant:e.target.value})} style={{fontSize:'22px',textAlign:'center',fontFamily:'var(--font-mono)'}}/>
-        </div>
-        <div className="form-group" style={{margin:0}}>
-          <label>Date</label>
-          <input type="date" value={depForm.date} onChange={e=>setDepForm({...depForm,date:e.target.value})}/>
-        </div>
-      </div>
-      <div className="form-group" style={{marginBottom:'10px'}}>
-        <label>Catégorie</label>
-        <select value={depForm.categorie} onChange={e=>setDepForm({...depForm,categorie:e.target.value})}>
-          {CATS.map(c=><option key={c}>{c}</option>)}
-        </select>
-      </div>
-      <div className="form-group" style={{marginBottom:'10px'}}>
-        <label>Fournisseur</label>
-        <input placeholder="Kwadron, Mercadona..." value={depForm.fournisseur} onChange={e=>setDepForm({...depForm,fournisseur:e.target.value})}/>
-      </div>
-      <div style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'20px'}}>
-        <input type="checkbox" id="iva" checked={depForm.iva_recuperable} onChange={e=>setDepForm({...depForm,iva_recuperable:e.target.checked})} style={{width:18,height:18,accentColor:'var(--pierre)',cursor:'pointer'}}/>
-        <label htmlFor="iva" style={{fontSize:'13px',color:'var(--txt2)',cursor:'pointer'}}>IVA récupérable (21%)</label>
-      </div>
-      <button className="btn btn-primary" onClick={submitDep} disabled={depSaving||!depForm.montant} style={{width:'100%',padding:'16px'}}>
-        {depSaving?'Enregistrement...':'✓ Enregistrer'}
-      </button>
-    </div>
-  )
+  if (tab==='gestoria') return <TonyGestoria onBack={() => setTab('home')} />
 
   if (tab==='histo') return (
     <div style={{padding:'20px 16px 90px',background:'var(--bg)',minHeight:'100vh'}}>
@@ -1368,8 +1272,8 @@ export default function TonyDashboard({ onLogout }) {
           <button className="btn btn-ghost" onClick={()=>setTab('rdv')} style={{padding:'11px',fontSize:'12px',flexDirection:'column',gap:'2px'}}>
             <span>📅</span>RDV prévu
           </button>
-          <button className="btn btn-ghost" onClick={()=>setTab('depense')} style={{padding:'11px',fontSize:'12px',flexDirection:'column',gap:'2px'}}>
-            <span>🧾</span>Dépense
+          <button className="btn btn-ghost" onClick={()=>setTab('gestoria')} style={{padding:'11px',fontSize:'12px',flexDirection:'column',gap:'2px'}}>
+            <span>🧾</span>Ventes &amp; charges
           </button>
           <button className="btn btn-ghost" onClick={()=>setTab('histo')} style={{padding:'11px',fontSize:'12px',flexDirection:'column',gap:'2px'}}>
             <span>📋</span>Historique
@@ -1410,6 +1314,7 @@ export default function TonyDashboard({ onLogout }) {
           {id:'planning',icon:'⊡',  label:'Planning'},
           {id:'devis',   icon:'📋', label:'Devis'},
           {id:'histo',   icon:'≡',  label:'Historique'},
+          {id:'gestoria', icon:'▤',  label:'Ventes & charges'},
         ].map(item=>(
           <button key={item.id} onClick={()=>setTab(item.id)} style={{
             flex:1, display:'flex', flexDirection:'column', alignItems:'center',
@@ -1427,7 +1332,11 @@ export default function TonyDashboard({ onLogout }) {
             {item.label}
           </button>
         ))}
-        <button onClick={onLogout} style={{
+        <button onClick={async () => {
+          try { await fetch('/api/gestoria-link', { method:'POST', headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({ action:'logout' }), signal:AbortSignal.timeout(2000) }) } catch {}
+          onLogout()
+        }} style={{
           flex:1, display:'flex', flexDirection:'column', alignItems:'center',
           gap:'2px', padding:'10px 4px 6px',
           fontFamily:'var(--font-body)', fontSize:'9px', fontWeight:700,
