@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { inActivityYear, todayInSpain } from '../lib/gestoria-calendar.mjs'
 import { parseGestoriaCsv } from '../lib/gestoria-import.mjs'
 import GestoriaInvoice from './GestoriaInvoice'
@@ -104,6 +104,22 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
   const expenses = rows.filter(row => row.kind === 'expense')
   const sum = items => items.filter(row => !row.currency || row.currency === 'EUR').reduce((value, row) => value + row.amountCents, 0) / 100
 
+  const paymentField = useRef(null)
+  const draftId = draft?.id
+  const editingVisible = rows.some(row => row.id === draftId)
+  useEffect(() => {
+    if (draftId && editingVisible) paymentField.current?.focus()
+  }, [draftId, editingVisible])
+
+  function edit(row, { amountCents, taxAmountCents, withholdingCents, vat }) {
+    setFileMessage('')
+    setDraft({ ...row, source: row.source || 'direct', amount: String(amountCents / 100),
+      currency: row.currency || 'EUR', vatDraft: editVat(vat, row.date),
+      taxAmount: taxAmountCents == null ? '' : String(taxAmountCents / 100),
+      withholding: withholdingCents == null ? '' : String(withholdingCents / 100),
+      taxDate: row.taxDate || '', paymentDate: row.paymentDate || '', expectedPaymentDate: row.expectedPaymentDate || '' })
+  }
+
   function start(kind, values = {}) {
     const date = inActivityYear(today, year, startDate) ? today : minDate
     setFileMessage('')
@@ -174,6 +190,67 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
     }
   }
 
+  const editor = draft && <form key={draft.id} id="mg-entry-editor" onSubmit={submit} style={{ display: 'grid', gap: 12, padding: '14px 0', maxWidth: 520 }}>
+    <h3>{editingVisible ? 'Modifier · ' + draft.label : draft.kind === 'invoice' ? 'Facture émise' : 'Dépense'}</h3>
+    <label>Origine <select value={draft.source} onChange={e => setDraft({ ...draft, source: e.target.value })}>
+      {Object.entries(sources).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+    </select></label>
+    <label>Client ou fournisseur <input maxLength={160} required value={draft.label}
+      onChange={e => setDraft({ ...draft, label: e.target.value })} /></label>
+    <label>Date <input type="date" min={minDate} max={year + '-12-31'} required value={draft.date}
+      onChange={e => setDraft({ ...draft, date: e.target.value,
+        vatDraft: { ...draft.vatDraft, date: draft.vatDraft.date === draft.date ? e.target.value : draft.vatDraft.date } })} /></label>
+    <label>Devise <select value={draft.currency} onChange={e => setDraft({ ...draft, currency: e.target.value })}>
+      <option value="EUR">EUR</option><option value="USD">USD</option></select></label>
+    <label>Montant total dans cette devise <input type="number" step="0.01" min="-100000000" max="100000000" required value={draft.amount}
+      onChange={e => setDraft({ ...draft, amount: e.target.value })} /></label>
+    <label>Référence <input maxLength={100} value={draft.reference}
+      onChange={e => setDraft({ ...draft, reference: e.target.value })} /></label>
+    <label>Suivi du paiement <select ref={paymentField} value={draft.payment}
+      onChange={e => setDraft({ ...draft, payment: e.target.value })}>
+      {Object.entries(payments).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+    </select></label>
+    {draft.payment === 'paid' && <label>{draft.kind === 'invoice' ? 'Date d’encaissement' : 'Date de paiement'}
+      <input type="date" value={draft.paymentDate} onChange={e => setDraft({ ...draft, paymentDate: e.target.value })} />
+    </label>}
+    {draft.payment !== 'paid' && <label>{draft.kind === 'invoice' ? 'Encaissement prévu, si connu' : 'Paiement prévu, si connu'}
+      <input type="date" value={draft.expectedPaymentDate} onChange={e => setDraft({ ...draft, expectedPaymentDate: e.target.value })} />
+    </label>}
+    {draft.kind === 'expense' && <GestoriaExpenseGuide category={draft.expenseCategory || ''}
+      onCategory={expenseCategory => setDraft({ ...draft, expenseCategory: expenseCategory || undefined })}
+      onExclude={() => setDraft({ ...draft, ...(draft.expenseCategory === 'personal' && { taxAmount: '0' }),
+        vatDraft: { ...draft.vatDraft, category: 'excluded' } })} />}
+    <fieldset className="mg-tax-settings">
+      <legend>Calcul de l’IRPF</legend>
+      <label>{draft.kind === 'invoice' ? 'Revenu hors TVA en €' : 'Part déductible à l’IRPF en €'}
+        <input type="number" step="0.01" min="-100000000" max="100000000" value={draft.taxAmount}
+          onChange={e => setDraft({ ...draft, taxAmount: e.target.value })} />
+      </label>
+      {draft.kind === 'invoice' && <button type="button" disabled={!draft.vatDraft.base || !draft.vatDraft.category || draft.vatDraft.category === 'excluded'}
+        onClick={() => setDraft({ ...draft, taxAmount: draft.vatDraft.base })}>Reprendre la base hors TVA saisie plus bas</button>}
+      <span style={muted}>Laisse le montant fiscal vide s’il reste à vérifier. Indique 0 si la ligne est exclue de l’IRPF.</span>
+      <label>Date de rattachement si différente de la date de facture
+        <input type="date" value={draft.taxDate} onChange={e => setDraft({ ...draft, taxDate: e.target.value })} />
+      </label>
+      {draft.kind === 'invoice' && <label>Retenue d’IRPF espagnole en €, si applicable
+        <input type="number" step="0.01" min="-100000000" max="100000000" value={draft.withholding}
+          onChange={e => setDraft({ ...draft, withholding: e.target.value })} />
+      </label>}
+    </fieldset>
+    <GestoriaVatFields value={draft.vatDraft} invoice={draft.kind === 'invoice'}
+      onChange={vatDraft => setDraft({ ...draft, vatDraft })} />
+    <label>Justificatif PDF ou image · 3 Mo maximum
+      <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" disabled={uploading}
+        onChange={e => setDraft({ ...draft, file: e.target.files?.[0] })} />
+    </label>
+    {draft.attachment && <span style={muted}>Pièce actuelle · {draft.attachment.name}</span>}
+    {fileMessage && <p role="alert">{fileMessage}</p>}
+    <div>
+      <button disabled={!canSave || uploading || !draft.label.trim()}>{uploading ? 'Enregistrement…' : 'Enregistrer'}</button>{' '}
+      <button type="button" disabled={uploading} onClick={() => setDraft(null)}>Annuler</button>
+    </div>
+  </form>
+
   return <>
     <section style={card}>
       <h2>{entity === 'blackthorn' ? 'Factures et tickets de Blackthorn' : 'Compta de mon activité'}</h2>
@@ -208,66 +285,7 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
         onPrepare={values => start('invoice', { ...values, source: 'direct' })} />
       {rows.some(row => row.currency && row.currency !== 'EUR') &&
         <p style={muted}>Les écritures en devise sont affichées séparément. Pour les calculs fiscaux, renseigne leur montant vérifié en euros.</p>}
-      {draft && <form onSubmit={submit} style={{ display: 'grid', gap: 12, padding: '14px 0', maxWidth: 520 }}>
-        <h3>{draft.kind === 'invoice' ? 'Facture émise' : 'Dépense'}</h3>
-        <label>Origine <select value={draft.source} onChange={e => setDraft({ ...draft, source: e.target.value })}>
-          {Object.entries(sources).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-        </select></label>
-        <label>Client ou fournisseur <input maxLength={160} required value={draft.label}
-          onChange={e => setDraft({ ...draft, label: e.target.value })} /></label>
-        <label>Date <input type="date" min={minDate} max={year + '-12-31'} required value={draft.date}
-          onChange={e => setDraft({ ...draft, date: e.target.value,
-            vatDraft: { ...draft.vatDraft, date: draft.vatDraft.date === draft.date ? e.target.value : draft.vatDraft.date } })} /></label>
-        <label>Devise <select value={draft.currency} onChange={e => setDraft({ ...draft, currency: e.target.value })}>
-          <option value="EUR">EUR</option><option value="USD">USD</option></select></label>
-        <label>Montant total dans cette devise <input type="number" step="0.01" min="-100000000" max="100000000" required value={draft.amount}
-          onChange={e => setDraft({ ...draft, amount: e.target.value })} /></label>
-        <label>Référence <input maxLength={100} value={draft.reference}
-          onChange={e => setDraft({ ...draft, reference: e.target.value })} /></label>
-        <label>Suivi du paiement <select value={draft.payment}
-          onChange={e => setDraft({ ...draft, payment: e.target.value })}>
-          {Object.entries(payments).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-        </select></label>
-        {draft.payment === 'paid' && <label>{draft.kind === 'invoice' ? 'Date d’encaissement' : 'Date de paiement'}
-          <input type="date" value={draft.paymentDate} onChange={e => setDraft({ ...draft, paymentDate: e.target.value })} />
-        </label>}
-        {draft.payment !== 'paid' && <label>{draft.kind === 'invoice' ? 'Encaissement prévu, si connu' : 'Paiement prévu, si connu'}
-          <input type="date" value={draft.expectedPaymentDate} onChange={e => setDraft({ ...draft, expectedPaymentDate: e.target.value })} />
-        </label>}
-        {draft.kind === 'expense' && <GestoriaExpenseGuide category={draft.expenseCategory || ''}
-          onCategory={expenseCategory => setDraft({ ...draft, expenseCategory: expenseCategory || undefined })}
-          onExclude={() => setDraft({ ...draft, ...(draft.expenseCategory === 'personal' && { taxAmount: '0' }),
-            vatDraft: { ...draft.vatDraft, category: 'excluded' } })} />}
-        <fieldset className="mg-tax-settings">
-          <legend>Calcul de l’IRPF</legend>
-          <label>{draft.kind === 'invoice' ? 'Revenu hors TVA en €' : 'Part déductible à l’IRPF en €'}
-            <input type="number" step="0.01" min="-100000000" max="100000000" value={draft.taxAmount}
-              onChange={e => setDraft({ ...draft, taxAmount: e.target.value })} />
-          </label>
-          {draft.kind === 'invoice' && <button type="button" disabled={!draft.vatDraft.base || !draft.vatDraft.category || draft.vatDraft.category === 'excluded'}
-            onClick={() => setDraft({ ...draft, taxAmount: draft.vatDraft.base })}>Reprendre la base hors TVA saisie plus bas</button>}
-          <span style={muted}>Laisse le montant fiscal vide s’il reste à vérifier. Indique 0 si la ligne est exclue de l’IRPF.</span>
-          <label>Date de rattachement si différente de la date de facture
-            <input type="date" value={draft.taxDate} onChange={e => setDraft({ ...draft, taxDate: e.target.value })} />
-          </label>
-          {draft.kind === 'invoice' && <label>Retenue d’IRPF espagnole en €, si applicable
-            <input type="number" step="0.01" min="-100000000" max="100000000" value={draft.withholding}
-              onChange={e => setDraft({ ...draft, withholding: e.target.value })} />
-          </label>}
-        </fieldset>
-        <GestoriaVatFields value={draft.vatDraft} invoice={draft.kind === 'invoice'}
-          onChange={vatDraft => setDraft({ ...draft, vatDraft })} />
-        <label>Justificatif PDF ou image · 3 Mo maximum
-          <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" disabled={uploading}
-            onChange={e => setDraft({ ...draft, file: e.target.files?.[0] })} />
-        </label>
-        {draft.attachment && <span style={muted}>Pièce actuelle · {draft.attachment.name}</span>}
-        {fileMessage && <p role="alert">{fileMessage}</p>}
-        <div>
-          <button disabled={!canSave || uploading || !draft.label.trim()}>{uploading ? 'Enregistrement…' : 'Enregistrer'}</button>{' '}
-          <button type="button" disabled={uploading} onClick={() => setDraft(null)}>Annuler</button>
-        </div>
-      </form>}
+      {!editingVisible && editor}
       {rows.length === 0 && <p>Aucune facture ni dépense enregistrée pour {year}.</p>}
       {rows.map(({ amountCents, taxAmountCents, withholdingCents, vat, ...row }) => <div key={row.id}
         style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border, #ddd)' }}>
@@ -279,15 +297,14 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
           {' · IRPF ' + (taxAmountCents == null ? 'à vérifier' : euro.format(taxAmountCents / 100))}</p>
         {row.attachment && <p><a href={attachmentUrl(row.attachment)}
           target="_blank" rel="noopener noreferrer">Voir le justificatif ↗</a></p>}
-        <button disabled={!canSave || uploading} onClick={() => setDraft({ ...row, source: row.source || 'direct', amount: String(amountCents / 100),
-          currency: row.currency || 'EUR', vatDraft: editVat(vat, row.date),
-          taxAmount: taxAmountCents == null ? '' : String(taxAmountCents / 100),
-          withholding: withholdingCents == null ? '' : String(withholdingCents / 100),
-          taxDate: row.taxDate || '', paymentDate: row.paymentDate || '', expectedPaymentDate: row.expectedPaymentDate || '' })}>Modifier</button>{' '}
+        <button type="button" disabled={!canSave || uploading} aria-expanded={draftId === row.id}
+          aria-controls={draftId === row.id ? 'mg-entry-editor' : undefined}
+          onClick={() => edit(row, { amountCents, taxAmountCents, withholdingCents, vat })}>Modifier</button>{' '}
         <button disabled={!canSave || uploading} onClick={async () => {
           if (window.confirm('Retirer cette ligne de ton dossier ?') &&
               await onEntries(entries.filter(entry => entry.id !== row.id)) && draft?.id === row.id) setDraft(null)
         }}>Retirer</button>
+        {draftId === row.id && editor}
       </div>)}
     </section>
     {bank && <BankPreview year={year} startDate={startDate} bank={bank} onBank={onBank} />}
