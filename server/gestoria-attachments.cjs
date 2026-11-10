@@ -1,5 +1,9 @@
 const limit = 3 * 1024 * 1024
 const signatures = {
+  'text/csv': file => {
+    const preview = file.subarray(0, 4096).toString('utf8')
+    return !/[\u0000\uFFFD]/.test(preview) && !/^\s*</.test(preview) && /[;,\t]/.test(preview)
+  },
   'application/pdf': file => file.subarray(0, 5).toString() === '%PDF-',
   'image/png': file => file.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])),
   'image/jpeg': file => file.subarray(0, 3).equals(Buffer.from([255, 216, 255])),
@@ -12,7 +16,7 @@ const prefix = 'mi-gestoria/personal/v1/files/'
 function parseAttachment(value) {
   const { name, mime, base64 } = value || {}
   if (typeof name !== 'string' || !name.trim() || name.length > 160 ||
-      !Object.hasOwn(signatures, mime) || typeof base64 !== 'string' || base64.length > Math.ceil(limit / 3) * 4) return null
+      !Object.hasOwn(signatures, mime) || (mime === 'text/csv' && !/\.csv$/i.test(name.trim())) || typeof base64 !== 'string' || base64.length > Math.ceil(limit / 3) * 4) return null
   const bytes = Buffer.from(base64, 'base64')
   return bytes.length <= limit && signatures[mime](bytes) ? { name: name.trim(), mime, bytes } : null
 }

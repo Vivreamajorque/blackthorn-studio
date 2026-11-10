@@ -59,7 +59,7 @@ function validAttachment(attachment) {
   return isObject(attachment) && Object.keys(attachment).length === 3 &&
     typeof attachment.id === 'string' && /^[a-f0-9-]{36}$/.test(attachment.id) &&
     typeof attachment.name === 'string' && attachment.name.trim().length > 0 && attachment.name.length <= 160 &&
-    ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(attachment.mime)
+    ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'text/csv'].includes(attachment.mime)
 }
 
 function validAmount(value) {
@@ -142,7 +142,10 @@ function validArchives(archives) {
 
 async function validWorkspace(data) {
   const { validPortalChecks } = await import('../src/lib/gestoria-portal.mjs')
-  return isObject(data) && Object.keys(data).every(key => ['entries', 'records', 'irpf'].includes(key)) &&
+  const { validInboxItem } = await import('../src/lib/gestoria-inbox.mjs')
+  return isObject(data) && Object.keys(data).every(key => ['entries', 'records', 'irpf', 'inbox'].includes(key)) &&
+    (data.inbox === undefined || Array.isArray(data.inbox) && data.inbox.length <= 180 && data.inbox.every(validInboxItem) &&
+      new Set(data.inbox.map(item => item.attachment.id)).size === data.inbox.length) &&
     (data.irpf === undefined || validIrpf(data.irpf)) && isObject(data.records) &&
     Array.isArray(data.entries) && data.entries.length <= 1000 && data.entries.every(validEntry) &&
     new Set(data.entries.map(entry => entry.id)).size === data.entries.length &&

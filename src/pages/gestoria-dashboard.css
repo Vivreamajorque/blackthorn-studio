@@ -374,3 +374,10 @@
 }
 .mg-quarter-reserve strong { font-size: 1.65rem; }
 .mg-quarter-reserve small { color: var(--mg-muted); }
+
+.mg-inbox-drop { padding: 1rem; border: 1px dashed var(--border, #a9b7ac); border-radius: 12px; margin-bottom: .75rem; }
+.mg-inbox-drop input { display: block; margin-top: .5rem; max-width: 100%; }
+.mg-inbox-item { padding: .75rem 0; border-bottom: 1px solid var(--border, #ddd); }
+.mg-inbox-item > summary { cursor: pointer; overflow-wrap: anywhere; }
+.mg-inbox-item > summary span { display: inline-block; font-size: .85rem; margin-inline-start: .65rem; color: var(--mg-muted); }
+.mg-inbox-body { padding: .75rem 0; }

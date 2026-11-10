@@ -3,6 +3,7 @@ const { requireSession, appOrigin } = require('../server/session.cjs')
 const { readVersionedBlob } = require('../server/private-blob.cjs')
 const { fileId, parseAttachment, storeAttachment } = require('../server/gestoria-attachments.cjs')
 const { readWorkspace, validEntry } = require('./gestoria-workspace.js')
+const { receiveInboxFile } = require('../server/gestoria-inbox.cjs')
 const { readStudioSales, supportedYear } = require('./gestoria-studio.js')
 
 const accessPath = 'mi-gestoria/personal/v1/blackthorn-access.json'
@@ -92,7 +93,7 @@ module.exports = async (req, res) => {
   try {
     if (req.headers.host !== appOrigin().host ||
         !/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '')) return res.status(403).end()
-    const { action, token, year, expense } = req.body || {}
+    const { action, token, year, expense, file } = req.body || {}
     const ownerAction = ['invite', 'revoke'].includes(action)
     if (ownerAction) {
       if (!(await requireSession(req, res))) return
@@ -112,6 +113,10 @@ module.exports = async (req, res) => {
     }
     if (!authorized(token, access.value, 'session')) return res.status(401).json({ error: 'Active l’accès Mi Gestoría de ce navigateur.' })
     if (action === 'load' && supportedYear(year)) return res.status(200).json(await monthlyReport(blob, year))
+    if (action === 'inbox') {
+      const result = await receiveInboxFile(blob, file)
+      return res.status(result.error ? 400 : result.duplicate ? 200 : 201).json(result)
+    }
     if (action === 'expense') {
       const id = await addExpense(blob, expense)
       return id ? res.status(201).json({ id }) : res.status(400).json({ error: 'Vérifie la date, le montant et le justificatif.' })

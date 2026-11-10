@@ -4,6 +4,8 @@ import { GestoriaPayments, ModelPreparation } from './GestoriaModels'
 import GestoriaFilingDetails from './GestoriaFilingDetails'
 import GestoriaGuide from './GestoriaGuide'
 import GestoriaDashboard from './GestoriaDashboard'
+import GestoriaInbox from './GestoriaInbox'
+import { resolveInboxItem } from '../lib/gestoria-inbox.mjs'
 import GestoriaArchives from './GestoriaArchives'
 import GestoriaPortals from './GestoriaPortals'
 import { applyPortalCheck, captureKey, readPortalCapture } from '../lib/gestoria-portal.mjs'
@@ -22,6 +24,7 @@ const sections = [
   ['finance', 'Compta', 'M4 4h16v16H4zM4 9h16M9 9v11m4-7h4m-4 3h4'],
   ['payments', 'Prévisions', 'M4 4v16h16M7 15l4-5 3 2 6-7'],
   ['tasks', 'Démarches', 'M7 4h10l3 3v13H7zM10 10h7m-7 4h7m-7 3h5'],
+  ['inbox', 'Pièces à trier', 'M3 12l3-6h12l3 6v7H3zM3 12h5l2 3h4l2-3h5'],
   ['archives', 'Archives', 'M3 7h18v4H3zM5 11v9h14v-9m-9 4h4'],
   ['guide', 'Courriers', 'M4 6h16v12H4zM4 7l8 6 8-6'],
   ['portals', 'Portails officiels', 'M5 20h14M7 20V9m5 11V9m5 11V9M3 8l9-4 9 4z'],
@@ -30,6 +33,7 @@ const pageCopy = {
   finance: ['Factures, dépenses et paiements', 'Retrouve une écriture, ouvre sa pièce ou pointe son paiement.'],
   payments: ['Ce qu’il faut prévoir', 'Retrouve les échéances, les montants déclarés et ce qu’il reste à vérifier.'],
   tasks: ['Déclarations et cotisations', 'Prépare un dépôt, garde son justificatif et confirme le paiement.'],
+  inbox: ['Boîte de réception Blackthorn', 'Retrouve les pièces déposées depuis le Hub et valide leur classement.'],
   archives: ['Archives fiscales', 'Retrouve les pièces privées de ce dossier et de cet exercice.'],
   guide: ['Courriers et rappels', 'Regroupe les notifications, dates limites et actions à suivre.'],
   portals: ['Hacienda et Importass', 'Accède aux sites officiels et ramène les résultats dans ton dossier.'],
@@ -300,11 +304,12 @@ export default function MiGestoria() {
         {sections.map(([id, label, icon]) =>
           <button type="button" key={id} aria-pressed={tab === id} onClick={() => {
             setTab(id)
+            if (id === 'inbox') setEntity('blackthorn')
             if (id === 'tasks') setFormFilter('all')
-          }}><svg aria-hidden="true" viewBox="0 0 24 24"><path d={icon} /></svg>{label}</button>)}
+          }}><svg aria-hidden="true" viewBox="0 0 24 24"><path d={icon} /></svg>{label}{id === 'inbox' && data.inbox?.length > 0 && ' (' + data.inbox.length + ')'}</button>)}
       </nav>
       <div className="mg-toolbar-filters">
-        {tab !== 'overview' && <label>Dossier <select value={entity} onChange={event => { setEntity(event.target.value); setFeedback(null) }}>
+        {tab !== 'overview' && tab !== 'inbox' && <label>Dossier <select value={entity} onChange={event => { setEntity(event.target.value); setFeedback(null) }}>
           {dossiers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select></label>}
         <label>Exercice <select value={year} onChange={event => { setYear(Number(event.target.value)); setFeedback(null) }}>
@@ -334,6 +339,9 @@ export default function MiGestoria() {
     {tab === 'portals' && loadState === 'ready' &&
       <GestoriaPortals capture={capture} year={year} dossier={current} canSave={canSave}
         onSave={savePortalCheck} onDiscard={discardCapture} />}
+    {tab === 'inbox' && loadState === 'ready' &&
+      <GestoriaInbox items={data.inbox || []} year={year} canSave={canSave} reload={reload}
+        onResolve={(id, decision) => save(workspace => resolveInboxItem(workspace, id, decision))} />}
     {tab === 'archives' && loadState === 'ready' &&
       <GestoriaArchives key={scope} record={record} canSave={canSave}
         onAdd={item => save(workspace => {
