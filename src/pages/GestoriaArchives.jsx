@@ -67,7 +67,7 @@ export default function GestoriaArchives({ record, canSave, onAdd }) {
       {!documents.length && <p>Aucune pièce archivée pour cet exercice.</p>}
       {documents.map(item => <div className="mg-work-row" key={item.id}>
         <div><strong>{item.label}</strong>
-          <p className="mg-muted">{[types[item.type], item.quarter && 'T' + item.quarter,
+          <p className="mg-muted">{[types[item.type], item.model && !item.label.includes(item.model) && 'Modelo ' + item.model, item.quarter && 'T' + item.quarter,
             item.date && formatDate(item.date), item.reference && 'Réf. ' + item.reference].filter(Boolean).join(' · ')}</p>
         </div>
         <a href={attachmentUrl(item.attachment)} target="_blank" rel="noreferrer">Ouvrir la pièce ↗</a>

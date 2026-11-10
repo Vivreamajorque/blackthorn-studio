@@ -36,6 +36,8 @@ export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, 
   const vat = current.find(row => row.model === '303')
   const calculation = vatSummary(entries, { year, quarter, startDate, today })
   const tax = forecast.quarters[quarter - 1]
+  const archivedDraft303 = dossier.record.archives?.some(item =>
+    item.type === 'draft' && item.model === '303' && item.quarter === quarter)
   const otherModels = current.filter(row => !['130', '303'].includes(row.model) && row.status !== 'not_applicable')
     .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
   const active = entries.filter(row => inActivityYear(row.date, year, startDate))
@@ -69,6 +71,7 @@ export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, 
             <TaxCell vat official={vat.evidence?.amountCents} estimate={calculation.balance} filed={vat.status === 'filed'} paid={vat.evidence?.paid}
               qualification={calculation.missing.length ? 'Estimation partielle · lignes à vérifier' : 'Estimation avant reports'} />
             <FilingDate row={vat} onOpen={() => onOpen(id, 'tasks', '303', true)} />
+            {archivedDraft303 && vat.status !== 'filed' && <small>Brouillon archivé · dépôt à vérifier</small>}
             {calculation.balance != null && <small>TVA due brute {money(calculation.boxes['27'])} · TVA déductible {money(calculation.boxes['45'])}</small>}
           </>}
         </article>}
