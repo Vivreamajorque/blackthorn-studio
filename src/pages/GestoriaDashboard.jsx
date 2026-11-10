@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { overviewAgenda, isComplete, ledgerSummary } from '../lib/gestoria-dashboard.mjs'
-import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
+import { daysUntil, formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
+import { forecastPayments, irpfForecast } from '../lib/gestoria-irpf.mjs'
 import GestoriaControl from './GestoriaControl'
 import GestoriaIrpf from './GestoriaIrpf'
 import './gestoria-dashboard.css'
@@ -114,6 +115,7 @@ function MonthlyChart({ ledger, activity, startMonth = 0 }) {
 }
 
 export default function GestoriaDashboard({ year, dossiers, personalStart, entries, studio, onOpen, irpf, canSave, onIrpf }) {
+  const [showDetails, setShowDetails] = useState(false)
   const [horizon, setHorizon] = useState(90)
   const [selectedActivity, setActivity] = useState('independent')
   const personal = dossiers.find(dossier => dossier.id === 'independent')
@@ -123,7 +125,24 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
   const today = todayInSpain()
   const { priorities, upcoming } = overviewAgenda(dossiers, today)
   const visible = upcoming.filter(item => !horizon || item.days <= horizon)
-  const next = upcoming.find(item => item.status !== 'unknown' && !item.indicative)
+  const focus = personal || dossiers[0]
+  const debts = focus.notices.filter(notice => notice.kind === 'debt' && !notice.done)
+  const debtTotal = debts.reduce((sum, notice) => sum + (notice.amountCents || 0), 0)
+  const openDatedNotice = focus.notices.filter(notice => !notice.done && notice.date && notice.kind !== 'debt')
+    .sort((a, b) => a.date.localeCompare(b.date))[0]
+  const next = upcoming.find(item => item.entity === focus.id && !item.reviewOnly)
+  const nextTax = personal?.filings.find(item => item.model === '130' && item.date >= today &&
+    !['filed', 'not_applicable'].includes(item.status))
+  const estimate = nextTax && irpfForecast(forecastPayments(entries, today),
+    { year, startDate: personalStart, today: year + '-12-31', settings: irpf }).quarters[nextTax.quarter - 1]?.due
+  const nearNotice = openDatedNotice && daysUntil(openDatedNotice.date, today) <= 7
+  const action = nearNotice
+    ? { title: 'Relis ton courrier', note: openDatedNotice.title, tab: 'guide' }
+    : debts.length
+      ? { title: 'Vérifie tes cotisations', note: 'Compare les dettes relevées avec le tableau actuel d’Importass.', tab: 'portals' }
+      : next
+        ? { title: 'Vérifie ta prochaine échéance', note: next.title + ' · ' + formatDate(next.date), tab: 'tasks', model: next.model }
+        : { title: 'Vérifie tes portails', note: 'Commence par les dépôts et courriers sur Hacienda, puis les cotisations sur Importass.', tab: 'portals' }
   const summaries = {
     independent: personal ? ledgerSummary(entries, year, false, personalStart) : null,
     blackthorn: studio.data ? ledgerSummary([
@@ -135,27 +154,45 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
   return <div className="mg-dashboard">
     <section className="mg-hero" aria-labelledby="mg-home-title">
       <div>
-        <p className="mg-eyebrow"><span /> VUE D’ENSEMBLE · EXERCICE {year}</p>
-        <h1 id="mg-home-title">Ton bureau de gestion</h1>
-        <p className="mg-hero-description">{personal
-          ? (personalStart ? 'Mon activité est suivie à partir du ' + formatDate(personalStart) + '. Blackthorn a son propre suivi.'
-            : 'Tes chiffres, tes échéances et les démarches à avancer pour tes deux activités.')
-          : 'Cet exercice affiche le suivi de Blackthorn Tattoo.'}</p>
+        <p className="mg-eyebrow"><span /> {longDate.format(new Date(today)).toUpperCase()} · EXERCICE {year}</p>
+        <h1 id="mg-home-title">Ton activité, au clair.</h1>
+        <p className="mg-hero-description">{personal ? 'Tes montants, tes prochaines dates et la première chose à faire.' : 'Les montants et démarches de Blackthorn Tattoo.'}</p>
       </div>
       <div className="mg-hero-next">
-        <span className="mg-hero-label">Prochaine échéance confirmée</span>
-        {next ? <>
-          <strong>{deadlineLabel(next)}</strong>
-          <span>{next.title} · {formatDate(next.date)}</span>
-          <button type="button" onClick={() => onOpen(next.entity, next.tab, next.model)}>Voir le dossier <span aria-hidden="true">↗</span></button>
-        </> : <>
-          <strong>À confirmer</strong>
-          <span>Les dates à vérifier sont dans ton agenda.</span>
-          <a href="#mg-agenda">Voir l’agenda <span aria-hidden="true">↓</span></a>
-        </>}
+        <span className="mg-hero-label">PAR QUOI COMMENCER</span>
+        <strong>{action.title}</strong>
+        <span>{action.note}</span>
+        <button type="button" onClick={() => onOpen(focus.id, action.tab, action.model)}>Ouvrir mon suivi <span aria-hidden="true">→</span></button>
       </div>
     </section>
 
+    <section className="mg-start-grid" aria-label="Tes repères essentiels">
+      <article className="mg-start-card mg-start-debt">
+        <span className="mg-section-label">01 · COTISATIONS À VÉRIFIER</span>
+        <strong>{debts.some(item => item.amountCents != null) ? money(debtTotal) : 'À consulter'}</strong>
+        <p>{debts.length ? `${debts.length} ligne${debts.length === 1 ? '' : 's'} Importass enregistrée${debts.length === 1 ? '' : 's'}. Le solde actuel se vérifie sur Importass.`
+          : 'Consulte Importass pour connaître le montant actuel.'}</p>
+        <button type="button" onClick={() => onOpen(focus.id, 'payments')}>Voir les montants →</button>
+      </article>
+      <article className="mg-start-card mg-start-estimate">
+        <span className="mg-section-label">02 · IMPÔT SUR LE REVENU</span>
+        <strong>{estimate != null ? money(estimate) : 'À calculer'}</strong>
+        <p>{estimate != null ? `Acompte estimé du T${nextTax.quarter} d’après ta compta et les dates de paiement saisies.`
+          : 'Ouvre les prévisions pour retrouver les montants et leur origine.'}</p>
+        <button type="button" onClick={() => onOpen(focus.id, 'payments')}>Ouvrir mes prévisions →</button>
+      </article>
+      <article className="mg-start-card mg-start-date">
+        <span className="mg-section-label">03 · PROCHAINE DATE DU SUIVI</span>
+        <strong>{next ? formatDate(next.date) : 'À vérifier'}</strong>
+        <p>{next ? [next.title, next.indicative && 'date indicative', next.status === 'unknown' && 'applicabilité à vérifier'].filter(Boolean).join(' · ')
+          : 'Retrouve les recherches Hacienda et Importass dans les portails officiels.'}</p>
+        <button type="button" onClick={() => next ? onOpen(next.entity, next.tab, next.model) : onOpen(focus.id, 'portals')}>Voir la démarche →</button>
+      </article>
+    </section>
+
+    <details className="mg-more" onToggle={event => setShowDetails(event.currentTarget.open)}>
+      <summary>Voir l’agenda, le détail des impôts et les deux activités</summary>
+      {showDetails && <div className="mg-dashboard mg-more-body">
     {personal && <GestoriaControl dossier={personal} entries={entries} year={year} today={today} irpf={irpf} onOpen={onOpen} />}
 
     <div className="mg-agenda-grid">
@@ -209,5 +246,7 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
       </div>
       <MonthlyChart ledger={summaries[activity]} activity={activity} startMonth={startMonth} />
     </section>
+      </div>}
+    </details>
   </div>
 }

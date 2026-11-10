@@ -79,6 +79,9 @@ export function GestoriaPayments({ year, dossier, data, onOpen }) {
       key: key + ':' + period, period, evidence, filed: record.filings[period] === 'filed',
     }))).filter(item => item.period.endsWith(':RETA') && item.filed && item.evidence.amountCents > 0)
     .sort((a, b) => b.key.localeCompare(a.key))[0]?.evidence?.amountCents
+  const lastReceipt = dossier.record.portalChecks?.receipts?.rows
+    .filter(row => row.period <= today.slice(0, 7))
+    .sort((a, b) => b.period.localeCompare(a.period))[0]?.amountCents
   const rows = filings.filter(row => row.status !== 'not_applicable' && !['349', '390'].includes(row.model) &&
     (row.status !== 'filed' || row.evidence?.amountCents > 0)).map(row => {
     let amount = row.evidence?.amountCents
@@ -93,9 +96,9 @@ export function GestoriaPayments({ year, dossier, data, onOpen }) {
       const vat = vatSummary(data.entries, { year, startDate, today, quarter: row.quarter })
       amount = vat.balance == null ? null : Math.max(0, vat.balance)
       caption = 'Estimation IVA avant reports' + (vat.missing.length ? ' · ' + vat.missing.length + ' écriture(s) à qualifier' : '')
-    } else if (row.model === 'RETA' && row.date >= today && historical) {
-      amount = historical
-      caption = 'Projection · dernier prélèvement renseigné'
+    } else if (row.model === 'RETA' && row.date >= today && (lastReceipt != null || historical != null)) {
+      amount = lastReceipt ?? historical
+      caption = lastReceipt != null ? 'Projection · dernier reçu émis dans Importass' : 'Projection · dernier prélèvement renseigné'
     }
     return { ...row, amount, caption }
   }).filter(row => row.status !== 'filed' || row.model !== 'RETA')
@@ -116,12 +119,13 @@ export function GestoriaPayments({ year, dossier, data, onOpen }) {
     </section>
     <section className="mg-panel" style={{ marginTop: 16 }}>
       <h2>Retards et dettes Seguridad Social</h2>
+      <p className="mg-muted">Montants enregistrés. Vérifie le solde et les délais dans Importass avant de t’appuyer dessus.</p>
       {debts.length ? <ul>{debts.map(item => <li key={item.id}>
         {item.title}{item.amountCents != null && ' · ' + money(item.amountCents)}{item.date && ' · ' + formatDate(item.date)}
       </li>)}</ul> : <p>Aucune dette renseignée dans ce dossier. Consulte le résultat officiel dans Importass.</p>}
       <div className="mg-card-actions">
         <a href={debtUrl} target="_blank" rel="noopener noreferrer">Ouvrir la consultation officielle des dettes ↗</a>
-        <button type="button" onClick={() => onOpen(id, 'guide')}>Enregistrer un résultat ou un courrier</button>
+        <button type="button" onClick={() => onOpen(id, 'portals')}>Récupérer le tableau Importass</button>
       </div>
     </section>
   </>

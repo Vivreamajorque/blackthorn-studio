@@ -1,3 +1,4 @@
+const { validPortalChecks } = require('../src/lib/gestoria-portal.mjs')
 const { requireSession } = require('../server/session.cjs')
 
 const empty = { entries: [], records: {} }
@@ -101,8 +102,9 @@ function validWorkspace(data) {
     new Set(data.entries.map(entry => entry.id)).size === data.entries.length &&
     Object.entries(data.records).every(([key, record]) =>
       /^(independent|blackthorn):20(25|26|27)$/.test(key) && isObject(record) &&
-      Object.keys(record).every(field => ['tasks', 'filings', 'notices', 'filingDetails'].includes(field)) &&
+      Object.keys(record).every(field => ['tasks', 'filings', 'notices', 'filingDetails', 'portalChecks'].includes(field)) &&
       (record.filingDetails === undefined || validFilingDetails(record.filingDetails)) &&
+      (record.portalChecks === undefined || validPortalChecks(record.portalChecks)) &&
       validNotices(record.notices) &&
       validStatuses(record.tasks, /^(census|residence|reta|sales|malt|expenses|filings|roi|annual)$/, taskStatuses) &&
       validStatuses(record.filings, filingKey, filingStatuses))

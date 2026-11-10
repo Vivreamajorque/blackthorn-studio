@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Lecture Mi Gestoría</title>
+  <style>
+    body { width: 285px; padding: 16px; margin: 0; font: 14px system-ui, sans-serif; color: #18362e; background: #f4f8f1; }
+    h1 { margin: 0; font-size: 20px; }
+    p { line-height: 1.45; }
+    button { padding: 10px 14px; width: 100%; color: white; background: #224b3f; border: 0; border-radius: 9px; font: inherit; cursor: pointer; }
+    button:disabled { opacity: .6; }
+  </style>
+</head>
+<body>
+  <h1>Mi Gestoría</h1>
+  <p>Connecte-toi sur le site officiel et affiche le tableau des résultats. Tu pourras relire les lignes dans Mi Gestoría avant de les enregistrer.</p>
+  <button type="button" id="read">Lire le tableau affiché</button>
+  <p id="feedback" role="status" aria-live="polite"></p>
+  <script src="reader.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

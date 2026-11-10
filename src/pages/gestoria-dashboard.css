@@ -212,3 +212,59 @@
 
 .mg-preparation { margin: 8px 0 12px; padding: 10px 12px; border-left: 2px solid var(--mg-line); }
 .mg-preparation .mg-card-actions { gap: 12px; }
+
+.mg-start-grid, .mg-portal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+.mg-start-card {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  border: 1px solid var(--mg-line);
+  border-radius: 17px;
+  padding: clamp(16px, 2.3vw, 25px);
+  background: #fff;
+  min-width: 0;
+}
+.mg-start-debt { background: #fbf2e5; border-color: #ebdac2; }
+.mg-start-estimate { background: #eef5e9; border-color: #dae7d5; }
+.mg-start-date { background: #eff4f8; border-color: #dce6ec; }
+.mg-start-card > strong {
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.045em;
+  line-height: 1.1;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+.mg-start-card > p { color: var(--mg-muted); margin: 2px 0 5px; font-size: .86rem; }
+.mg-start-card > button { justify-self: start; text-align: left; font-size: .83rem; font-weight: 650; }
+.mg-more > summary, .mg-install > summary { cursor: pointer; font-weight: 700; }
+.mg-more > summary { padding: 13px 17px; background: white; border: 1px solid var(--mg-line); border-radius: 12px; }
+.mg-more-body { margin-top: 14px; }
+.mg-portal { display: grid; gap: 16px; }
+.mg-portal-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 18px;
+  background: #e9f2e6;
+}
+.mg-portal-intro p:last-child { margin-bottom: 0; }
+.mg-install { padding: 13px; border-radius: 12px; background: #ffffffb0; }
+.mg-install ol { padding-inline-start: 1.2rem; }
+.mg-install li + li { margin-top: .35rem; }
+.mg-portal-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.mg-portal-choice { display: grid; gap: 5px; padding: 13px; text-align: left; border-color: var(--mg-line); }
+.mg-portal-choice span:last-child { color: var(--mg-muted); font-size: .8rem; }
+.mg-portal-saved { margin-top: 20px; }
+.mg-capture { border-color: #7fa18a; border-width: 2px; }
+.mg-link-button, .mg-primary { display: inline-block; padding: 7px 12px; border-radius: 8px; background: #234d3e; color: #fff; font-weight: 650; }
+.mg-link-button { text-decoration: none; }
+.mg-link-button:hover, button.mg-primary:hover:not(:disabled) { background: #15372b; color: #fff; }
+@media (max-width: 760px) {
+  .mg-portal-intro, .mg-start-grid { grid-template-columns: minmax(0, 1fr); }
+  .mg-portal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

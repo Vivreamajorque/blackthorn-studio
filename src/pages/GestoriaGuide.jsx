@@ -26,7 +26,8 @@ export default function GestoriaGuide({ year, startDate, notices, filings, tasks
     || openNotices.find(notice => !notice.date)
     || [...openNotices].sort((a, b) => a.date.localeCompare(b.date))
       .find(notice => daysUntil(notice.date, today) <= 7)
-  const priority = urgent ? (!urgent.date ? 'Vérifier le délai du courrier « ' : urgent.date < today
+  const priority = urgent?.kind === 'debt' ? 'Vérifier la cotisation dans Importass'
+    : urgent ? (!urgent.date ? 'Vérifier le délai du courrier « ' : urgent.date < today
     ? 'Vérifier les suites possibles du courrier « ' : 'Traiter le courrier « ') + urgent.title + ' »'
     : confirmed.length ? 'Vérifier le dépôt ou préparer le ' + confirmed[0].title
       : nextTask?.title || 'Suivi à jour pour les démarches listées.'
@@ -48,11 +49,13 @@ export default function GestoriaGuide({ year, startDate, notices, filings, tasks
     <section style={box}>
       <h2>À faire en priorité</h2>
       <p><strong>{priority}</strong></p>
-      {urgent ? <p>Ouvre la notification d’origine dans ton espace Hacienda et vérifie le délai à partir des informations de notification. Enregistre ensuite la date limite dans le suivi.</p>
+      {urgent?.kind === 'debt' ? <p>Compare le montant relevé avec le tableau de dettes, le reçu émis et le débit bancaire correspondant.</p>
+        : urgent ? <p>Ouvre la notification d’origine dans ton espace Hacienda et vérifie le délai à partir des informations de notification. Enregistre ensuite la date limite dans le suivi.</p>
         : confirmed.length ? <p>Vérifie les dépôts déjà effectués et rassemble les justificatifs du trimestre concerné.</p>
           : nextTask && <p>{nextTask.detail}</p>}
       <button onClick={onTasks}>Ouvrir les démarches</button>{' '}
-      {urgent && <a href={aeat + '/mi-area-personal.html'} target="_blank" rel="noopener noreferrer">Ouvrir Hacienda ↗</a>}
+      {urgent?.kind === 'debt' && <a href={debtUrl} target="_blank" rel="noopener noreferrer">Ouvrir Importass ↗</a>}
+      {urgent && urgent.kind !== 'debt' && <a href={aeat + '/mi-area-personal.html'} target="_blank" rel="noopener noreferrer">Ouvrir Hacienda ↗</a>}
     </section>
     <section style={box}>
       <h2>Courriers et dates à suivre</h2>

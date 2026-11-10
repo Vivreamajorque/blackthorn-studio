@@ -1,9 +1,11 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { PersonalData, StudioData, useStudioLedger } from './GestoriaData'
 import { GestoriaPayments, ModelPreparation } from './GestoriaModels'
 import GestoriaGuide from './GestoriaGuide'
 import GestoriaDashboard from './GestoriaDashboard'
-import { formatDate } from '../lib/gestoria-calendar.mjs'
+import GestoriaPortals from './GestoriaPortals'
+import { applyPortalCheck, captureKey, readPortalCapture } from '../lib/gestoria-portal.mjs'
+import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
 import { dossierFor, isComplete } from '../lib/gestoria-dashboard.mjs'
 import { useGestoriaWorkspace } from '../lib/gestoria-workspace'
 
@@ -161,8 +163,21 @@ function FilingDetails({ row, canSave, onSave }) {
 
 export default function MiGestoria() {
   const [selectedEntity, setEntity] = useState('independent')
-  const [year, setYear] = useState(2026)
-  const [tab, setTab] = useState('overview')
+  const [year, setYear] = useState(() => Math.min(2027, Math.max(2025, Number(todayInSpain().slice(0, 4)))))
+  const [capture, setCapture] = useState(readPortalCapture)
+  const [tab, setTab] = useState(() => capture ? 'portals' : 'overview')
+  useEffect(() => {
+    function receiveCapture() {
+      const incoming = readPortalCapture()
+      if (!incoming) return
+      setCapture(incoming)
+      setTab('portals')
+      window.scrollTo(0, 0)
+    }
+    window.addEventListener('mi-gestoria-portal-capture', receiveCapture)
+    receiveCapture()
+    return () => window.removeEventListener('mi-gestoria-portal-capture', receiveCapture)
+  }, [])
   const studio = useStudioLedger(year)
   const [bank, setBank] = useState([])
   const { data, personalStart, loadState, saving, feedback: saveFeedback, save, reload } = useGestoriaWorkspace()
@@ -192,6 +207,22 @@ export default function MiGestoria() {
     return save(current => ({
       ...current, records: { ...current.records, [scope]: { ...record, ...changes } },
     }))
+  }
+
+  function discardCapture() {
+    sessionStorage.removeItem(captureKey)
+    setCapture(null)
+  }
+
+  async function savePortalCheck(kind, check) {
+    const saved = await save(data => ({
+      ...data, records: { ...data.records, [scope]: applyPortalCheck(record, kind, check) },
+    }))
+    if (saved) {
+      const currentCapture = readPortalCapture()
+      if (!currentCapture || currentCapture.capturedAt === check.capturedAt) discardCapture()
+    }
+    return saved
   }
 
   function setStatus(group, key, status) {
@@ -241,7 +272,7 @@ export default function MiGestoria() {
   return <main className="mg-shell">
     <div className="mg-toolbar">
       <nav className="mg-main-nav" aria-label="Sections de Mi Gestoría">
-        {[['overview', 'Vue d’ensemble'], ['guide', 'Courriers'], ['finance', 'Compta'], ['payments', 'Prévisions'], ['tasks', 'Démarches']].map(([id, label]) =>
+        {[['overview', 'Aujourd’hui'], ['payments', 'Prévisions'], ['portals', 'Portails officiels'], ['tasks', 'Démarches'], ['finance', 'Compta'], ['guide', 'Courriers']].map(([id, label]) =>
           <button type="button" key={id} aria-pressed={tab === id} onClick={() => {
             setTab(id)
             if (id === 'tasks') setFormFilter('all')
@@ -273,6 +304,9 @@ export default function MiGestoria() {
       <p>{saveFeedback.text}</p>
       {saveFeedback.error && <button disabled={saving} onClick={reload}>Recharger le dossier</button>}
     </div>}
+    {tab === 'portals' && loadState === 'ready' &&
+      <GestoriaPortals capture={capture} year={year} dossier={current} canSave={canSave}
+        onSave={savePortalCheck} onDiscard={discardCapture} />}
     {tab === 'guide' && loadState === 'ready' &&
       <GestoriaGuide key={scope} year={year} startDate={current.startDate} notices={notices} filings={filings}
         tasks={tasks}

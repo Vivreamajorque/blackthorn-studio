@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Mi Gestoría · Lecture des portails",
+  "version": "1.0.0",
+  "description": "Copie les lignes visibles sur Hacienda ou Importass dans un aperçu privé, à ta demande.",
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": ["https://mi-gestoria-amely.vercel.app/*"],
+  "action": {
+    "default_title": "Mi Gestoría · Lire ce tableau",
+    "default_popup": "popup.html"
+  }
+}
