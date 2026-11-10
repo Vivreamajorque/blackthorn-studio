@@ -15,6 +15,22 @@ const ENTITIES = [
   { id: 'blackthorn', name: 'Blackthorn Tattoo', subtitle: 'Activité du studio de tatouage' },
 ]
 
+const sections = [
+  ['overview', 'Aujourd’hui', 'M3 12l9-8 9 8v8h-6v-6H9v6H3z'],
+  ['finance', 'Compta', 'M4 4h16v16H4zM4 9h16M9 9v11m4-7h4m-4 3h4'],
+  ['payments', 'Prévisions', 'M4 4v16h16M7 15l4-5 3 2 6-7'],
+  ['tasks', 'Démarches', 'M7 4h10l3 3v13H7zM10 10h7m-7 4h7m-7 3h5'],
+  ['guide', 'Courriers', 'M4 6h16v12H4zM4 7l8 6 8-6'],
+  ['portals', 'Portails officiels', 'M5 20h14M7 20V9m5 11V9m5 11V9M3 8l9-4 9 4z'],
+]
+const pageCopy = {
+  finance: ['Factures, dépenses et paiements', 'Retrouve une écriture, ouvre sa pièce ou pointe son paiement.'],
+  payments: ['Ce qu’il faut prévoir', 'Retrouve les échéances, les montants déclarés et ce qu’il reste à vérifier.'],
+  tasks: ['Déclarations et cotisations', 'Prépare un dépôt, garde son justificatif et confirme le paiement.'],
+  guide: ['Courriers et rappels', 'Regroupe les notifications, dates limites et actions à suivre.'],
+  portals: ['Hacienda et Importass', 'Accède aux sites officiels et ramène les résultats dans ton dossier.'],
+}
+
 const AEAT = 'https://sede.agenciatributaria.gob.es/Sede'
 const TASKS = [
   {
@@ -112,10 +128,7 @@ const FILING_ROWS = [
 const RETA_STATUS = { ...FILING_STATUS, missing: 'Prélèvement à vérifier', to_prepare: 'À prévoir',
   filed: 'Payée, à rapprocher du reçu' }
 
-const card = { background: 'var(--card, #fff)', border: '1px solid var(--border, #ddd)', borderRadius: 14, padding: 16, marginBottom: 16 }
 const muted = { color: 'var(--txt2, #777)', fontSize: 13 }
-const rowStyle = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '12px 0', borderTop: '1px solid var(--border, #ddd)' }
-const buttonStyle = { padding: '9px 12px', cursor: 'pointer' }
 
 function download(name, content, type) {
   const url = URL.createObjectURL(new Blob([content], { type }))
@@ -276,11 +289,11 @@ export default function MiGestoria() {
   return <main className="mg-shell">
     <div className="mg-toolbar">
       <nav className="mg-main-nav" aria-label="Sections de Mi Gestoría">
-        {[['overview', 'Aujourd’hui'], ['payments', 'Prévisions'], ['portals', 'Portails officiels'], ['tasks', 'Démarches'], ['finance', 'Compta'], ['guide', 'Courriers']].map(([id, label]) =>
+        {sections.map(([id, label, icon]) =>
           <button type="button" key={id} aria-pressed={tab === id} onClick={() => {
             setTab(id)
             if (id === 'tasks') setFormFilter('all')
-          }}>{label}</button>)}
+          }}><svg aria-hidden="true" viewBox="0 0 24 24"><path d={icon} /></svg>{label}</button>)}
       </nav>
       <div className="mg-toolbar-filters">
         {tab !== 'overview' && <label>Dossier <select value={entity} onChange={event => { setEntity(event.target.value); setFeedback(null) }}>
@@ -291,10 +304,12 @@ export default function MiGestoria() {
         </select></label>
       </div>
     </div>
-    {tab !== 'overview' && <div className="mg-detail-heading">
-      <h1>{current.name}</h1>
-      <p>{current.subtitle} · Exercice {year}{current.startDate && ' · Suivi depuis le ' + formatDate(current.startDate)}</p>
-    </div>}
+    {pageCopy[tab] && <header className="mg-page-heading">
+      <div><p className="mg-section-label">{current.name.toUpperCase()} · {year}</p>
+        <h1>{pageCopy[tab][0]}</h1>
+        <p>{pageCopy[tab][1]}</p></div>
+      {current.startDate && <span className="mg-tag calm">Suivi depuis le {formatDate(current.startDate)}</span>}
+    </header>}
     {tab === 'overview' && loadState === 'ready' && <GestoriaDashboard
       year={year} dossiers={dossiers} personalStart={personalStart} entries={data.entries} studio={studio} onOpen={openDossier}
       irpf={data.irpf?.[year]} canSave={canSave}
@@ -304,7 +319,7 @@ export default function MiGestoria() {
       <p>Le dossier privé n’a pas pu être chargé.</p>
       <button onClick={reload}>Réessayer</button>
     </div>}
-    {saveFeedback && <div role={saveFeedback.error ? 'alert' : 'status'}>
+    {saveFeedback && <div className="mg-save-feedback" role={saveFeedback.error ? 'alert' : 'status'}>
       <p>{saveFeedback.text}</p>
       {saveFeedback.error && <button disabled={saving} onClick={reload}>Recharger le dossier</button>}
     </div>}
@@ -331,10 +346,10 @@ export default function MiGestoria() {
       <GestoriaPayments year={year} dossier={current} data={data} onOpen={openDossier} />}
     {tab === 'tasks' && loadState === 'ready' && <>
 
-    {formFilter === 'all' && <section style={card}>
-      <h2 style={{ fontSize: 18, marginTop: 0 }}>Démarches et pièces</h2>
+    {formFilter === 'all' && <section className="mg-panel mg-ledger-panel">
+      <p className="mg-section-label">LISTE DE CONTRÔLE</p><h2>Démarches et pièces</h2>
       <p style={muted}>{completed} sur {tasks.length} vérifiées, terminées ou non concernées.</p>
-      {tasks.map(task => <div key={task.id} style={rowStyle}>
+      {tasks.map(task => <div key={task.id} className="mg-work-row">
         <div style={{ flex: '1 1 260px' }}>
           <strong>{task.title}</strong>
           <div style={muted}>{task.detail}</div>
@@ -345,8 +360,8 @@ export default function MiGestoria() {
       </div>)}
     </section>}
 
-    <section style={card}>
-      <h2 style={{ fontSize: 18, marginTop: 0 }}>Déclarations et cotisations</h2>
+    <section className="mg-panel mg-ledger-panel">
+      <p className="mg-section-label">DOSSIER FISCAL</p><h2>Déclarations et cotisations</h2>
       <p style={muted}>Vérifie les obligations sur Hacienda et les prélèvements dans Importass. Enregistre le statut et la référence de chaque justificatif.</p>
       <label>Filtrer par modèle <select value={formFilter} onChange={event => setFormFilter(event.target.value)}>
         <option value="all">Tous</option>
@@ -354,7 +369,7 @@ export default function MiGestoria() {
         {MODELS.map(form => <option key={form.id} value={form.id}>{form.title || 'Modelo ' + form.id}</option>)}
       </select></label>
       <div style={{ marginTop: 12 }}>
-        {filings.filter(row => formFilter === 'all' || (formFilter === 'declarations' ? row.model !== 'RETA' : row.model === formFilter)).map(row => <div key={row.key} style={rowStyle}>
+        {filings.filter(row => formFilter === 'all' || (formFilter === 'declarations' ? row.model !== 'RETA' : row.model === formFilter)).map(row => <div key={row.key} className="mg-work-row">
           <div><strong>{row.title}</strong><div style={muted}>{row.detail}
             {row.date && ' · ' + formatDate(row.date)}{row.indicative && ' · date à confirmer'}</div>
             <ModelPreparation key={'prep:' + scope + ':' + row.key} row={row} year={year} entries={entries}
@@ -368,13 +383,13 @@ export default function MiGestoria() {
       </div>
     </section>
 
-    <section style={card}>
-      <h2 style={{ fontSize: 18, marginTop: 0 }}>Exporter ou reprendre</h2>
+    <section className="mg-panel mg-ledger-panel">
+      <p className="mg-section-label">SAUVEGARDE</p><h2>Exporter ou reprendre</h2>
       <p style={muted}>Chaque export concerne uniquement le dossier et l’année affichés. Les statuts sont enregistrés dans ton dossier. Cette copie facultative contient les statuts des démarches et déclarations.</p>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-        <button onClick={exportChecklist} style={buttonStyle}>Exporter la checklist</button>
+        <button onClick={exportChecklist}>Exporter la checklist</button>
         <button onClick={exportBackup}
-          style={buttonStyle}>Télécharger la sauvegarde</button>
+         >Télécharger la sauvegarde</button>
       </div>
       <label style={{ display: 'block', marginTop: 12 }}>
         Reprendre une sauvegarde

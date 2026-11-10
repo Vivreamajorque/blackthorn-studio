@@ -6,7 +6,6 @@ import { attachmentUrl, uploadFile } from '../lib/gestoria-files.mjs'
 import GestoriaExpenseGuide from './GestoriaExpenseGuide'
 import GestoriaVatFields, { editVat, saveVat } from './GestoriaVatFields'
 
-const card = { background: 'var(--card, #fff)', border: '1px solid var(--border, #ddd)', borderRadius: 14, padding: 16, marginBottom: 16 }
 const muted = { color: 'var(--txt2, #777)', fontSize: 13 }
 const cashAmount = (amount, currency) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: currency || 'EUR' }).format(amount / 100)
 const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
@@ -72,7 +71,7 @@ export function useStudioLedger(year) {
 
 export function StudioData({ ledger }) {
   const { data, status, reload } = ledger
-  return <section style={card}>
+  return <section className="mg-panel mg-ledger-panel">
     <h2 style={{ fontSize: 18, marginTop: 0 }}>Blackthorn Tattoo · Compta du Hub</h2>
     <p style={muted}>Données Notion en lecture seule. Les rendez-vous prévus sont hors encaissements. Les dépenses reflètent le registre du studio.</p>
     <button disabled={status === 'loading'} onClick={reload}>Actualiser depuis le Hub</button>
@@ -96,17 +95,24 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
   const [fileMessage, setFileMessage] = useState('')
   const [uploading, setUploading] = useState(false)
   const [sourceFilter, setSourceFilter] = useState('all')
+  const [kindFilter, setKindFilter] = useState('all')
+  const [paymentFilter, setPaymentFilter] = useState('all')
+  const [query, setQuery] = useState('')
   const today = todayInSpain()
   const minDate = startDate?.startsWith(year + '-') ? startDate : year + '-01-01'
   const rows = entries.filter(row => inActivityYear(row.date, year, startDate) &&
     (sourceFilter === 'all' || (row.source || 'direct') === sourceFilter)).sort((a, b) => b.date.localeCompare(a.date))
+  const needle = query.trim().toLocaleLowerCase('fr')
+  const visibleRows = rows.filter(row => (kindFilter === 'all' || row.kind === kindFilter) &&
+    (paymentFilter === 'all' || row.payment === paymentFilter) &&
+    (!needle || [row.label, row.reference, row.attachment?.name].some(value => value?.toLocaleLowerCase('fr').includes(needle))))
   const invoices = rows.filter(row => row.kind === 'invoice')
   const expenses = rows.filter(row => row.kind === 'expense')
   const sum = items => items.filter(row => !row.currency || row.currency === 'EUR').reduce((value, row) => value + row.amountCents, 0) / 100
 
   const paymentField = useRef(null)
   const draftId = draft?.id
-  const editingVisible = rows.some(row => row.id === draftId)
+  const editingVisible = visibleRows.some(row => row.id === draftId)
   useEffect(() => {
     if (draftId && editingVisible) paymentField.current?.focus()
   }, [draftId, editingVisible])
@@ -190,8 +196,17 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
     }
   }
 
-  const editor = draft && <form key={draft.id} id="mg-entry-editor" onSubmit={submit} style={{ display: 'grid', gap: 12, padding: '14px 0', maxWidth: 520 }}>
+  const editor = draft && <form key={draft.id} id="mg-entry-editor" onSubmit={submit} className="mg-entry-editor">
     <h3>{editingVisible ? 'Modifier · ' + draft.label : draft.kind === 'invoice' ? 'Facture émise' : 'Dépense'}</h3>
+    {draft.documentAmounts && <div className="mg-doc-amounts">
+      <strong>Montants lus sur le PDF</strong>
+      <span>Base {cashAmount(draft.documentAmounts.baseCents, draft.currency)} · Taxe {cashAmount(draft.documentAmounts.taxCents, draft.currency)} · Total {cashAmount(draft.documentAmounts.totalCents, draft.currency)}</span>
+      {draft.documentAmounts.dueCents != null && <span>À régler selon la pièce · {cashAmount(draft.documentAmounts.dueCents, draft.currency)}</span>}
+      {draft.currency === 'EUR' && <button type="button" onClick={() => setDraft({ ...draft,
+        vatDraft: { ...draft.vatDraft, base: String(draft.documentAmounts.baseCents / 100),
+          quota: String(draft.documentAmounts.taxCents / 100) } })}>Copier la base et la taxe dans les champs de TVA</button>}
+      <small>Vérifie le régime fiscal avant de choisir une opération de TVA.</small>
+    </div>}
     <label>Origine <select value={draft.source} onChange={e => setDraft({ ...draft, source: e.target.value })}>
       {Object.entries(sources).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
     </select></label>
@@ -252,13 +267,16 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
   </form>
 
   return <>
-    <section style={card}>
-      <h2>{entity === 'blackthorn' ? 'Factures et tickets de Blackthorn' : 'Compta de mon activité'}</h2>
-      {entity === 'blackthorn' && <p style={muted}>Ces pièces forment ton registre fiscal dans Mi Gestoría. Les graphiques de recettes et dépenses du studio utilisent les données du Hub.</p>}
-      <label>Origine <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}>
-        <option value="all">Toutes</option>
-        {Object.entries(sources).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-      </select></label>
+    <section className="mg-panel mg-ledger-panel">
+      <div className="mg-panel-heading mg-ledger-heading">
+        <div><p className="mg-section-label">REGISTRE ET JUSTIFICATIFS</p>
+          <h2>{entity === 'blackthorn' ? 'Factures et tickets de Blackthorn' : 'Factures et dépenses'}</h2>
+          {entity === 'blackthorn' && <p className="mg-muted">Les graphiques du studio utilisent les données du Hub.</p>}</div>
+        <div className="mg-actions">
+          <button className="mg-primary" disabled={!canSave || !canAdd} onClick={() => start('invoice')}>Ajouter une facture émise</button>
+          <button disabled={!canSave || !canAdd} onClick={() => start('expense')}>Ajouter une dépense</button>
+        </div>
+      </div>
       {sourceFilter === 'malt' && <p style={muted}>
         Ajoute la facture de mission et, séparément, la facture de frais Malt si elle existe.
         Rapproche le versement bancaire avec la mission.{' '}
@@ -270,10 +288,6 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
         ['Factures marquées payées', sum(invoices.filter(row => row.payment === 'paid'))],
         ['Factures reçues', sum(expenses)],
       ]} />
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <button disabled={!canSave || !canAdd} onClick={() => start('invoice')}>Ajouter une facture émise</button>
-        <button disabled={!canSave || !canAdd} onClick={() => start('expense')}>Ajouter une dépense</button>
-      </div>
       <details className="mg-chart-details">
         <summary>Rattacher plusieurs factures originales</summary>
         <p style={muted}>Le nom de chaque fichier doit contenir la référence de la facture. Les pièces déjà présentes sont conservées.</p>
@@ -286,26 +300,47 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
       {rows.some(row => row.currency && row.currency !== 'EUR') &&
         <p style={muted}>Les écritures en devise sont affichées séparément. Pour les calculs fiscaux, renseigne leur montant vérifié en euros.</p>}
       {!editingVisible && editor}
-      {rows.length === 0 && <p>Aucune facture ni dépense enregistrée pour {year}.</p>}
-      {rows.map(({ amountCents, taxAmountCents, withholdingCents, vat, ...row }) => <div key={row.id}
-        style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border, #ddd)' }}>
-        <strong>{row.label} · {cashAmount(amountCents, row.currency)}</strong>
-        <p style={muted}>{dateLabel(row.date)} · {row.kind === 'invoice' ? 'Facture émise' : 'Dépense'} · {payments[row.payment]} · {sources[row.source || 'direct']}
-          {row.reference && ' · ' + row.reference}
-          {row.paymentDate && ' · Payé le ' + dateLabel(row.paymentDate)}
-          {row.expectedPaymentDate && ' · Prévu le ' + dateLabel(row.expectedPaymentDate)}
-          {' · IRPF ' + (taxAmountCents == null ? 'à vérifier' : euro.format(taxAmountCents / 100))}</p>
-        {row.attachment && <p><a href={attachmentUrl(row.attachment)}
-          target="_blank" rel="noopener noreferrer">Voir le justificatif ↗</a></p>}
+      <div className="mg-ledger-filters">
+        <label>Rechercher <input type="search" placeholder="Fournisseur, référence, fichier" value={query} onChange={e => setQuery(e.target.value)} /></label>
+        <label>Type <select value={kindFilter} onChange={e => setKindFilter(e.target.value)}>
+          <option value="all">Tout</option><option value="invoice">Factures émises</option><option value="expense">Dépenses</option>
+        </select></label>
+        <label>Paiement <select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)}>
+          <option value="all">Tous</option>
+          {Object.entries(payments).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+        </select></label>
+        <label>Origine <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}>
+          <option value="all">Toutes</option>
+          {Object.entries(sources).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+        </select></label>
+      </div>
+      <p className="mg-muted" role="status">{visibleRows.length} ligne(s) affichée(s)</p>
+      {visibleRows.length === 0 && <p className="mg-empty">Aucune écriture pour cette sélection.</p>}
+      {visibleRows.map(({ amountCents, taxAmountCents, withholdingCents, vat, ...row }) => <article key={row.id} className="mg-ledger-row">
+        <div className="mg-ledger-row-head">
+          <div><strong>{row.label}</strong>
+            <p className="mg-muted">{dateLabel(row.date)} · {row.kind === 'invoice' ? 'Facture émise' : 'Dépense'} · {sources[row.source || 'direct']}
+              {row.reference && ' · ' + row.reference}</p>
+          </div>
+          <div className="mg-ledger-amount"><strong>{cashAmount(amountCents, row.currency)}</strong>
+            <span className={`mg-tag ${row.payment === 'paid' ? 'calm' : 'warning'}`}>{payments[row.payment]}</span>
+          </div>
+        </div>
+        <p className="mg-muted">{row.paymentDate && 'Payé le ' + dateLabel(row.paymentDate) + ' · '}
+          {row.expectedPaymentDate && 'Prévu le ' + dateLabel(row.expectedPaymentDate) + ' · '}
+          {'IRPF ' + (taxAmountCents == null ? 'à vérifier' : euro.format(taxAmountCents / 100))}
+          {row.documentAmounts && ' · Montants du PDF relevés'}</p>
+        <div className="mg-actions">{row.attachment && <a className="mg-soft-action" href={attachmentUrl(row.attachment)}
+          target="_blank" rel="noopener noreferrer">Voir le PDF ↗</a>}
         <button type="button" disabled={!canSave || uploading} aria-expanded={draftId === row.id}
           aria-controls={draftId === row.id ? 'mg-entry-editor' : undefined}
           onClick={() => edit(row, { amountCents, taxAmountCents, withholdingCents, vat })}>Modifier</button>{' '}
         <button disabled={!canSave || uploading} onClick={async () => {
           if (window.confirm('Retirer cette ligne de ton dossier ?') &&
               await onEntries(entries.filter(entry => entry.id !== row.id)) && draft?.id === row.id) setDraft(null)
-        }}>Retirer</button>
+        }}>Retirer</button></div>
         {draftId === row.id && editor}
-      </div>)}
+      </article>)}
     </section>
     {bank && <BankPreview year={year} startDate={startDate} bank={bank} onBank={onBank} />}
   </>
@@ -329,7 +364,7 @@ function BankPreview({ year, startDate, bank, onBank }) {
     }
   }
 
-  return <details style={card}>
+  return <details className="mg-panel mg-disclosure">
     <summary>Comparer avec un relevé Revolut Pro · facultatif</summary>
     <p style={muted}>Aperçu temporaire du relevé dans cet onglet, séparé de ta compta.</p>
     <label>Importer un relevé CSV <input type="file" accept=".csv,text/csv" onChange={readFile} /></label>

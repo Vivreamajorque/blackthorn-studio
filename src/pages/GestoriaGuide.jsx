@@ -2,8 +2,6 @@ import React, { useState } from 'react'
 import { debtUrl } from '../lib/gestoria-models.mjs'
 import { daysUntil, formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
 
-const box = { background: 'var(--card, #fff)', border: '1px solid var(--border, #ddd)', borderRadius: 14, padding: 16, marginBottom: 16 }
-const line = { padding: '12px 0', borderTop: '1px solid var(--border, #ddd)' }
 const aeat = 'https://sede.agenciatributaria.gob.es/Sede'
 
 function countdown(date, today) {
@@ -46,8 +44,8 @@ export default function GestoriaGuide({ year, startDate, notices, filings, tasks
   }
 
   return <>
-    <section style={box}>
-      <h2>À faire en priorité</h2>
+    <section className="mg-panel mg-ledger-panel">
+      <p className="mg-section-label">PROCHAINE ACTION</p><h2>À faire en priorité</h2>
       <p><strong>{priority}</strong></p>
       {urgent?.kind === 'debt' ? <p>Compare le montant relevé avec le tableau de dettes, le reçu émis et le débit bancaire correspondant.</p>
         : urgent ? <p>Ouvre la notification d’origine dans ton espace Hacienda et vérifie le délai à partir des informations de notification. Enregistre ensuite la date limite dans le suivi.</p>
@@ -57,15 +55,15 @@ export default function GestoriaGuide({ year, startDate, notices, filings, tasks
       {urgent?.kind === 'debt' && <a href={debtUrl} target="_blank" rel="noopener noreferrer">Ouvrir Importass ↗</a>}
       {urgent && urgent.kind !== 'debt' && <a href={aeat + '/mi-area-personal.html'} target="_blank" rel="noopener noreferrer">Ouvrir Hacienda ↗</a>}
     </section>
-    <section style={box}>
-      <h2>Courriers et dates à suivre</h2>
+    <section className="mg-panel mg-ledger-panel">
+      <p className="mg-section-label">SUIVI</p><h2>Courriers et dates à suivre</h2>
       <p>Ajoute une date à anticiper ou le délai indiqué dans un courrier. Laisse-la vide si tu dois encore la confirmer.</p>
       {notices.length === 0 && <p>Aucune date ou courrier suivi pour ce dossier.</p>}
       {[...notices].sort((a, b) => Number(a.done) - Number(b.done) || a.date.localeCompare(b.date)).map(notice =>
-        <div style={line} key={notice.id}>
+        <div className="mg-work-row" key={notice.id}>
           <strong>{notice.title}{notice.kind === 'debt' && notice.amountCents != null &&
           ' · ' + new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(notice.amountCents / 100)}</strong>
-          <p>{notice.done ? 'Traité' : notice.date ? formatDate(notice.date) + ' · ' + countdown(notice.date, today) : 'Date limite à vérifier'}</p>
+          <p className="mg-muted">{notice.done ? 'Traité' : notice.date ? formatDate(notice.date) + ' · ' + countdown(notice.date, today) : 'Date limite à vérifier'}</p>
           <button disabled={!canSave} onClick={() => {
           const { amountCents, ...fields } = notice
           setDraft({ ...fields, amount: amountCents == null ? '' : String(amountCents / 100) })
@@ -73,7 +71,7 @@ export default function GestoriaGuide({ year, startDate, notices, filings, tasks
           <button disabled={!canSave} onClick={() => onNotices(notices.map(item =>
             item.id === notice.id ? { ...item, done: !item.done } : item))}>{notice.done ? 'Rouvrir' : 'Marquer traité'}</button>
         </div>)}
-      {draft ? <form onSubmit={submit} style={line}>
+      {draft ? <form onSubmit={submit} className="mg-work-row">
         <label>Type <select value={draft.kind || ''} onChange={e => setDraft({ ...draft, kind: e.target.value })}>
           <option value="">Courrier ou date</option><option value="debt">Dette constatée dans Importass</option></select></label>{' '}
         <label>Intitulé <input required maxLength={140} value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} /></label>{' '}
@@ -85,8 +83,8 @@ export default function GestoriaGuide({ year, startDate, notices, filings, tasks
       </form> : <button disabled={!canSave || !canAddNotice}
         onClick={() => setDraft({ id: crypto.randomUUID(), title: '', date: '', done: false })}>Ajouter un courrier ou une date</button>}
     </section>
-    <section style={box}>
-      <h2>Échéances fiscales</h2>
+    <section className="mg-panel mg-ledger-panel">
+      <p className="mg-section-label">CALENDRIER</p><h2>Échéances fiscales</h2>
       <p>Dates générales des déclarations et prélèvements suivis. Le paiement par prélèvement a son propre calendrier.</p>
       {confirmed.filter(item => item.date && item.date < today).map(item => <p key={item.key}>
         <strong>{item.title}</strong> · {formatDate(item.date)} · Date passée, dépôt à vérifier
