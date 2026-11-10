@@ -1,5 +1,6 @@
 const { createHash, randomBytes, timingSafeEqual } = require('node:crypto')
 const { appOrigin, allowedRequest, session } = require('../server/session.cjs')
+const { readVersionedBlob } = require('../server/private-blob.cjs')
 
 const path = 'mi-gestoria/personal/v1/access.json'
 const hour = 3600 * 1000
@@ -7,9 +8,9 @@ const lifetime = 15 * 60 * 1000
 const hash = value => createHash('sha256').update(value).digest('hex')
 
 async function readAccess(blob) {
-  const current = await blob.get(path, { access: 'private', useCache: false })
+  const current = await readVersionedBlob(blob, path)
   return current
-    ? { revision: current.blob.etag, state: await new Response(current.stream).json() }
+    ? { revision: current.revision, state: await new Response(current.content.stream).json() }
     : { revision: null, state: { sent: [], expires: 0, tokenHash: null } }
 }
 
@@ -55,16 +56,20 @@ async function requestLink(res, email) {
     .find(address => address && address.toLowerCase() === normalizedEmail)
   if (!recipient) return res.status(200).json({ requested: true })
   const blob = await import('@vercel/blob')
-  const { revision, state } = await readAccess(blob)
-  const now = Date.now()
-  const sent = state.sent.filter(time => now - time < hour)
-  if (sent.length >= 4 || sent.some(time => now - time < 2 * 60 * 1000)) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { revision, state } = await readAccess(blob)
+    const now = Date.now()
+    const sent = state.sent.filter(time => now - time < hour)
+    if (sent.length >= 4 || sent.some(time => now - time < 2 * 60 * 1000)) {
+      return res.status(200).json({ requested: true })
+    }
+    const token = randomBytes(32).toString('base64url')
+    const saved = await saveAccess(blob, revision, { sent: [...sent, now], expires: now + lifetime, tokenHash: hash(token) })
+    if (!saved) continue
+    await emailLink(owner, recipient, token)
     return res.status(200).json({ requested: true })
   }
-  const token = randomBytes(32).toString('base64url')
-  const saved = await saveAccess(blob, revision, { sent: [...sent, now], expires: now + lifetime, tokenHash: hash(token) })
-  if (saved) await emailLink(owner, recipient, token)
-  return res.status(200).json({ requested: true })
+  throw new Error('Sign-in state changed while requesting a link')
 }
 
 async function consumeRecovery(blob, digest) {

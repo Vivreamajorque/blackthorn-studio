@@ -1,4 +1,5 @@
 const { requireSession } = require('../server/session.cjs')
+const { readVersionedBlob } = require('../server/private-blob.cjs')
 
 const empty = { entries: [], records: {} }
 const entryKeys = ['id', 'kind', 'date', 'label', 'reference', 'amountCents', 'payment']
@@ -111,7 +112,7 @@ async function validWorkspace(data) {
 }
 
 async function readWorkspace(blob, path) {
-  const result = await blob.get(path, { access: 'private', useCache: false })
+  const result = await readVersionedBlob(blob, path)
   if (!result) {
     const previous = await blob.get('mi-gestoria/preview/v1/workspace.json', { access: 'private', useCache: false })
     if (previous) {
@@ -124,24 +125,7 @@ async function readWorkspace(blob, path) {
     if (!(await validWorkspace(data))) throw new Error('Invalid initial workspace')
     return { revision: null, data }
   }
-  const normalizeEtag = value => value?.replace(/^W\//, '').replace(/^"|"$/g, '')
-  const metadata = await blob.head(result.blob.url)
-  if (!metadata.etag) throw new Error('Ledger revision unavailable')
-  let content = result
-  let revision = metadata.etag
-  if (normalizeEtag(content.blob.etag) !== normalizeEtag(revision)) {
-    // Private downloads can have a different HTTP ETag than the Blob API write token.
-    // Re-read between two metadata checks before pairing the content with that token.
-    let stable = false
-    for (let attempt = 0; attempt < 3; attempt++) {
-      content = await blob.get(path, { access: 'private', useCache: false })
-      if (!content) throw new Error('Ledger disappeared while reading')
-      const next = await blob.head(content.blob.url)
-      if (next.etag === revision) { stable = true; break }
-      revision = next.etag
-    }
-    if (!stable || !revision) throw new Error('Ledger changed while reading')
-  }
+  const { content, revision } = result
   const data = await new Response(content.stream).json()
   if (!(await validWorkspace(data))) throw new Error('Invalid saved workspace')
   return { revision, data }
