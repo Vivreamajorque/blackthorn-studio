@@ -49,7 +49,10 @@ export default function GestoriaFilingDetails({ row, canSave, onSave, declaredBo
     <summary>{row.evidence?.attachment || row.evidence?.reference ? 'Déclaration ou justificatif enregistré' : 'Ajouter une déclaration ou un justificatif'}
       {row.evidence?.amountCents != null && ' · ' + euro.format(row.evidence.amountCents / 100)}</summary>
     <form className="mg-filing-form" onSubmit={submit}>
-      {row.model !== 'RETA' && <>
+      {row.model === 'RETA' ? <>
+        <label><input type="checkbox" checked={filed} onChange={e => setFiled(e.target.checked)} /> Cotisation prélevée ou payée</label>
+        <label>Date du paiement <input type="date" value={filedDate} onChange={e => setFiledDate(e.target.value)} /></label>
+      </> : <>
         <label><input type="checkbox" checked={filed} onChange={e => setFiled(e.target.checked)} /> Déclaration déposée auprès de Hacienda</label>
         <label>Date de dépôt <input type="date" value={filedDate} onChange={e => setFiledDate(e.target.value)} /></label>
       </>}

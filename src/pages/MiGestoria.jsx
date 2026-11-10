@@ -8,6 +8,7 @@ import GestoriaArchives from './GestoriaArchives'
 import GestoriaPortals from './GestoriaPortals'
 import { applyPortalCheck, captureKey, readPortalCapture } from '../lib/gestoria-portal.mjs'
 import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
+import { contributionInputs } from '../lib/gestoria-quarter-estimates.mjs'
 import { dossierFor, isComplete } from '../lib/gestoria-dashboard.mjs'
 import { useGestoriaWorkspace } from '../lib/gestoria-workspace'
 
@@ -186,6 +187,9 @@ export default function MiGestoria() {
   const scope = entity + ':' + year
   const { record, notices, filings, tasks } = current
   const entries = data.entries.filter(row => (row.entity || 'independent') === entity)
+  const taskEntries = tab === 'tasks' ? [
+    ...entries, ...contributionInputs(entries, current, year, todayInSpain()).confirmedRows,
+  ] : entries
   const settings = entity === 'independent' ? data.irpf?.[year] : record.irpf
   const completed = tasks.filter(task => isComplete(task.status)).length
   const fileBase = 'mi-gestoria-' + entity + '-' + year
@@ -383,7 +387,7 @@ export default function MiGestoria() {
         {filings.filter(row => formFilter === 'all' || (formFilter === 'declarations' ? row.model !== 'RETA' : row.model === formFilter)).map(row => <div key={row.key} className="mg-work-row">
           <div><strong>{row.title}</strong><div style={muted}>{row.detail}
             {row.date && ' · ' + formatDate(row.date)}{row.indicative && ' · date à confirmer'}</div>
-            <ModelPreparation key={'prep:' + scope + ':' + row.key} row={row} year={year} entries={entries}
+            <ModelPreparation key={'prep:' + scope + ':' + row.key} row={row} year={year} entries={taskEntries}
               startDate={current.startDate} settings={settings} personal={entity === 'independent' || entries.length > 0} onFinance={() => setTab('finance')} />
             <GestoriaFilingDetails key={scope + ':' + row.key + ':' + row.status} row={row} canSave={canSave}
               declaredBoxes={row.model === '130' ? settings?.filed?.[row.quarter] : undefined} onSave={saveFilingDetails} />

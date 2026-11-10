@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
 import { forecastPayments, irpfForecast } from '../lib/gestoria-irpf.mjs'
+import { contributionInputs } from '../lib/gestoria-quarter-estimates.mjs'
 import { debtUrl, models, vatSummary } from '../lib/gestoria-models.mjs'
 
 const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
@@ -70,10 +71,12 @@ export function GestoriaPayments({ year, dossier, data, onOpen }) {
   const { id, startDate, filings, notices } = dossier
   const today = todayInSpain()
   const personal = id === 'independent'
-  const entries = data.entries.filter(row => (row.entity || 'independent') === id)
+  const ledger = data.entries.filter(row => (row.entity || 'independent') === id)
+  const contributions = contributionInputs(ledger, dossier, year, today)
+  const entries = [...ledger, ...contributions.confirmedRows]
   const settings = personal ? data.irpf?.[year] : dossier.record.irpf
   const irpf = personal || settings ? irpfForecast(entries, { year, startDate, today, settings }) : null
-  const projected = irpf ? irpfForecast(forecastPayments(entries, today),
+  const projected = irpf ? irpfForecast([...forecastPayments(entries, today), ...contributions.projectedRows],
     { year, startDate, today: year + '-12-31', settings }) : null
   const historical = Object.entries(data.records).filter(([key]) => key.startsWith(id + ':') && Number(key.slice(-4)) <= year)
     .flatMap(([key, record]) => Object.entries(record.filingDetails || {}).map(([period, evidence]) => ({

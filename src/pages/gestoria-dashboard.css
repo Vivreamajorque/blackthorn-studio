@@ -363,3 +363,14 @@
 @media (max-width: 620px) {
   .mg-quarter-grid, .mg-quarter-tax { grid-template-columns: minmax(0, 1fr); }
 }
+
+.mg-quarter-reserve {
+  display: grid;
+  gap: .35rem;
+  border-radius: 12px;
+  padding: 1rem;
+  background: var(--mg-paper, #f2f7f2);
+  border: 1px solid var(--border, #ddd);
+}
+.mg-quarter-reserve strong { font-size: 1.65rem; }
+.mg-quarter-reserve small { color: var(--mg-muted); }

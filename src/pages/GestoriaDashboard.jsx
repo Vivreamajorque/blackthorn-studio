@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { overviewAgenda, isComplete, ledgerSummary } from '../lib/gestoria-dashboard.mjs'
-import { daysUntil, formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
+import { contributionInputs } from '../lib/gestoria-quarter-estimates.mjs'
+import { daysUntil, formatDate, monthEnd, todayInSpain } from '../lib/gestoria-calendar.mjs'
 import GestoriaControl from './GestoriaControl'
 import GestoriaTaxDashboard from './GestoriaTaxDashboard'
 import './gestoria-dashboard.css'
@@ -130,6 +131,10 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
   const currentYear = Number(today.slice(0, 4))
   const quarter = quarters[year] || (year < currentYear ? 4 : year > currentYear ? 1 : Math.ceil(Number(today.slice(5, 7)) / 3))
   const startMonth = (quarter - 1) * 3
+  const contributions = contributionInputs(activityEntries, selected, year, today)
+  const studioExpenses = entries.filter(row => row.entity === 'blackthorn' && row.kind === 'expense' && (!row.currency || row.currency === 'EUR'))
+  const confirmedQuarterExpenses = contributions.confirmedRows.reduce((sum, row) =>
+    sum + (row.taxDate >= year + '-' + String(startMonth + 1).padStart(2, '0') + '-01' && row.taxDate <= monthEnd(year, quarter * 3) ? row.amountCents : 0), 0)
   const { priorities, upcoming } = overviewAgenda(dossiers, today)
   const visible = upcoming.filter(item => !horizon || item.days <= horizon)
   const focus = selected
@@ -150,15 +155,15 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
     independent: personal ? ledgerSummary(personalEntries, year, false, personalStart) : null,
     blackthorn: studio.data ? ledgerSummary([
       ...studio.data.receipts,
-      ...entries.filter(row => row.entity === 'blackthorn' && row.kind === 'expense' && (!row.currency || row.currency === 'EUR'))
-        .map(row => ({ ...row, amount: row.amountCents / 100 })),
+      ...studioExpenses.map(row => ({ ...row, amount: row.amountCents / 100 })),
     ], year, true) : null,
   }
 
   const ledger = summaries[activity]
   const quarterMonths = ledger?.months.slice(startMonth, startMonth + 3)
   const quarterIncome = quarterMonths?.reduce((sum, month) => sum + month.income, 0)
-  const quarterExpenses = quarterMonths?.reduce((sum, month) => sum + month.expenses, 0)
+  const expenseMonths = quarterMonths || ledgerSummary(studioExpenses, year, false).months.slice(startMonth, startMonth + 3)
+  const quarterExpenses = expenseMonths.reduce((sum, month) => sum + month.expenses, 0)
   const missingIncome = activity === 'independent' && activityEntries.filter(row =>
     row.kind === 'invoice' && row.taxAmountCents == null && row.date.startsWith(year + '-') &&
     (!personalStart || row.date >= personalStart) && Math.ceil(Number(row.date.slice(5, 7)) / 3) === quarter
@@ -201,12 +206,12 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
       </article>
       <article className="mg-start-card mg-start-date">
         <span className="mg-section-label">DÉPENSES SAISIES</span>
-        <strong>{ledger ? money(quarterExpenses) : 'En attente'}</strong>
-        <p>Total des dépenses en euros enregistrées pour ce trimestre.</p>
+        <strong>{money(quarterExpenses + confirmedQuarterExpenses)}</strong>
+        <p>Dépenses en euros, cotisations confirmées comprises.</p>
       </article>
     </section>
     <GestoriaTaxDashboard key={activity + ':' + year} dossier={selected} year={year} quarter={quarter} entries={activityEntries}
-      settings={activityIrpf} today={today} canSave={canSave} onSave={settings => onIrpf(activity, settings)} onOpen={onOpen} />
+      settings={activityIrpf} today={today} contributions={contributions} studio={activity === 'blackthorn' ? studio : undefined} canSave={canSave} onSave={settings => onIrpf(activity, settings)} onOpen={onOpen} />
 
     <details className="mg-more">
       <summary>Voir les recettes et dépenses par mois</summary>
