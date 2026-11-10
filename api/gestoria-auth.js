@@ -43,7 +43,11 @@ async function emailLink(sender, recipient, token) {
     signal: AbortSignal.timeout(12000),
   })
   if (!response.ok) {
-    console.warn('Mi Gestoría mail provider rejected the request', response.status)
+    const error = await response.json().catch(() => null)
+    const message = typeof error?.message === 'string' ? error.message : ''
+    const reason = /(?:unrecogni[sz]ed|unauthori[sz]ed|unknown|not allowed) ip|ip address.*(?:allowed|authori[sz]ed)/i.test(message)
+      ? 'ip-restricted' : /api key|credential/i.test(message) ? 'credentials' : 'unspecified'
+    console.warn('Mi Gestoría mail provider rejected the request', response.status, reason)
     throw new Error('Delivery unavailable')
   }
 }
