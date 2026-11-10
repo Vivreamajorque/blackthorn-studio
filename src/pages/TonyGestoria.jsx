@@ -16,13 +16,14 @@ async function call(action, fields = {}) {
   return result
 }
 
-function readReceipt(file) {
+function readReceipt(file, allowCsv = false) {
   if (!file) return undefined
-  if (!fileTypes.includes(file.type) || file.size > 3 * 1024 * 1024) throw new Error('Choisis un PDF, JPEG, PNG ou WebP de 3 Mo maximum.')
+  const mime = allowCsv && /\.csv$/i.test(file.name) ? 'text/csv' : file.type
+  if ((!fileTypes.includes(mime) && !(allowCsv && mime === 'text/csv')) || file.size > 3 * 1024 * 1024) throw new Error('Choisis un PDF, JPEG, PNG ou WebP' + (allowCsv ? ' ou CSV' : '') + ' de 3 Mo maximum.')
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onerror = () => reject(new Error('Le justificatif n’a pas pu être lu.'))
-    reader.onload = () => resolve({ name: file.name, mime: file.type, base64: String(reader.result).split(',')[1] })
+    reader.onload = () => resolve({ name: file.name, mime, base64: String(reader.result).split(',')[1] })
     reader.readAsDataURL(file)
   })
 }
@@ -34,6 +35,7 @@ export default function TonyGestoria({ onBack }) {
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [feedback, setFeedback] = useState(null)
+  const [documents, setDocuments] = useState([])
   const [draft, setDraft] = useState(null)
   const [revision, refresh] = useState(0)
   const inFlight = useRef(false)
@@ -94,6 +96,39 @@ export default function TonyGestoria({ onBack }) {
     }
   }
 
+  async function uploadBatch(event) {
+    event.preventDefault()
+    if (inFlight.current || !documents.length) return
+    inFlight.current = true
+    setBusy(true)
+    const failed = []
+    let accepted = 0
+    let duplicates = 0
+    let firstError = ''
+    try {
+      for (const file of documents) {
+        setFeedback({ text: 'Dépôt ' + (accepted + duplicates + failed.length + 1) + ' / ' + documents.length + '…' })
+        try {
+          const result = await call('inbox', { file: await readReceipt(file, true) })
+          if (result.duplicate) duplicates++
+          else accepted++
+        } catch (error) {
+          failed.push(file)
+          firstError ||= error.message
+          if (error.status === 401) setAccess('activate')
+        }
+      }
+      setDocuments(failed)
+      setFeedback({ error: failed.length > 0, text: [
+        accepted + ' pièce(s) envoyée(s) à Mi Gestoría', duplicates && duplicates + ' doublon(s)',
+        failed.length && failed.length + ' à réessayer · ' + firstError,
+      ].filter(Boolean).join(' · ') })
+    } finally {
+      setBusy(false)
+      inFlight.current = false
+    }
+  }
+
   return <section className="bt-gestoria">
     <header><div><p>BLACKTHORN TATTOO</p><h1>Ventes &amp; charges</h1></div>
       <button type="button" className="btn btn-ghost" onClick={onBack}>← Retour</button></header>
@@ -116,6 +151,18 @@ export default function TonyGestoria({ onBack }) {
           id: crypto.randomUUID(), label: '', date: today(), amount: '', paid: false, paymentDate: '',
         })}>Ajouter une charge</button>
       </div>
+      <form className="card bt-gestoria-form" onSubmit={uploadBatch} onDragOver={e => e.preventDefault()} onDrop={e => {
+        e.preventDefault()
+        if (!busy) setDocuments(Array.from(e.dataTransfer.files))
+      }}>
+        <h2>Déposer mes justificatifs</h2>
+        <p>Glisse tes factures, tickets ou relevés. Ils arrivent dans la boîte de réception Blackthorn de Mi Gestoría.</p>
+        <label>Fichiers <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.csv" disabled={busy}
+          onChange={e => { setDocuments(Array.from(e.target.files)); e.target.value = '' }} /></label>
+        <p className="bt-gestoria-muted">PDF, photos et CSV · 3 Mo par fichier</p>
+        {documents.length > 0 && <ul>{documents.map((file, i) => <li key={i}>{file.name}</li>)}</ul>}
+        <button className="btn btn-primary" disabled={busy || !documents.length}>{busy ? 'En cours…' : 'Envoyer ' + documents.length + ' pièce(s)'}</button>
+      </form>
       {draft && <form className="card bt-gestoria-form" onSubmit={event => submit(event, 'expense')}>
         <h2>Nouvelle charge</h2>
         <label>Fournisseur ou libellé <input required maxLength={160} value={draft.label}
