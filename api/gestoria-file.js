@@ -1,13 +1,6 @@
 const { requireSession } = require('../server/session.cjs')
 
-const limit = 3 * 1024 * 1024
-const signatures = {
-  'application/pdf': file => file.subarray(0, 5).toString() === '%PDF-',
-  'image/png': file => file.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])),
-  'image/jpeg': file => file.subarray(0, 3).equals(Buffer.from([255, 216, 255])),
-  'image/webp': file => file.subarray(0, 4).toString() === 'RIFF' && file.subarray(8, 12).toString() === 'WEBP',
-}
-const fileId = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/
+const { signatures, fileId, storeAttachment } = require('../server/gestoria-attachments.cjs')
 
 module.exports = async function handler(req, res) {
   if (!['GET', 'POST'].includes(req.method)) {
@@ -18,19 +11,12 @@ module.exports = async function handler(req, res) {
     if (!(await requireSession(req, res))) return
     const blob = await import('@vercel/blob')
     if (req.method === 'POST') {
-      const { name, mime, base64 } = req.body || {}
-      if (!/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '') ||
-          typeof name !== 'string' || !name.trim() || name.length > 160 ||
-          !Object.hasOwn(signatures, mime) || typeof base64 !== 'string' || base64.length > Math.ceil(limit / 3) * 4) {
-        return res.status(400).json({ error: 'Choisis un PDF, JPEG, PNG ou WebP de 3 Mo maximum.' })
+      if (!/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '')) {
+        return res.status(400).json({ error: 'Format du justificatif invalide.' })
       }
-      const bytes = Buffer.from(base64, 'base64')
-      if (bytes.length > limit || !signatures[mime](bytes)) return res.status(400).json({ error: 'Le format du fichier ne correspond pas à son contenu.' })
-      const id = require('node:crypto').randomUUID()
-      await blob.put('mi-gestoria/personal/v1/files/' + id, bytes, {
-        access: 'private', addRandomSuffix: false, contentType: mime,
-      })
-      return res.status(201).json({ id, name: name.trim(), mime })
+      const attachment = await storeAttachment(blob, req.body)
+      if (!attachment) return res.status(400).json({ error: 'Choisis un PDF, JPEG, PNG ou WebP de 3 Mo maximum.' })
+      return res.status(201).json(attachment)
     }
     const { id, name } = req.query || {}
     if (typeof id !== 'string' || !fileId.test(id)) return res.status(400).end()

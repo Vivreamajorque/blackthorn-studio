@@ -1,5 +1,25 @@
 const { requireSession } = require('../server/session.cjs')
 const { queryAll, DBS } = require('../server/notion.cjs')
+const supportedYear = year => typeof year === 'string' && /^20(25|26|27)$/.test(year)
+
+async function readStudioSales(year) {
+  const filter = { and: [
+    { property: 'Date', date: { on_or_after: year + '-01-01' } },
+    { property: 'Date', date: { before: (Number(year) + 1) + '-01-01' } },
+  ] }
+  const [{ dateOf, receipts, number, paymentMethod, isDeposit, dataWarnings }, sessions] = await Promise.all([
+    import('../src/lib/finance.mjs'), queryAll(DBS.sessions, { filter }),
+  ])
+  const paid = receipts(sessions.filter(row => dateOf(row).startsWith(year + '-')))
+  return {
+    year: Number(year),
+    receipts: paid.map(row => ({
+      date: dateOf(row), amount: number(row, 'Prix'), method: paymentMethod(row),
+      label: isDeposit(row) ? 'Versement client' : 'Séance',
+    })),
+    reconciliationWarnings: dataWarnings(paid).length,
+  }
+}
 
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'private, no-store')
@@ -11,32 +31,11 @@ module.exports = async (req, res) => {
     const user = await requireSession(req, res)
     if (!user) return
     const year = req.query.year
-    if (!['2025', '2026'].includes(year)) return res.status(400).json({ error: 'Année non prise en charge' })
-
-    const filter = { and: [
-      { property: 'Date', date: { on_or_after: year + '-01-01' } },
-      { property: 'Date', date: { before: (Number(year) + 1) + '-01-01' } },
-    ] }
-    const [{ dateOf, receipts, number, paymentMethod, isDeposit, dataWarnings, unique }, sessions, expenses] = await Promise.all([
-      import('../src/lib/finance.mjs'),
-      queryAll(DBS.sessions, { filter }),
-      queryAll(DBS.expenses, { filter }),
-    ])
-    const withinYear = row => dateOf(row).startsWith(year + '-')
-    const paid = receipts(sessions.filter(withinYear))
-    return res.status(200).json({
-      year: Number(year),
-      receipts: paid.map(row => ({
-        date: dateOf(row), amount: number(row, 'Prix'), method: paymentMethod(row),
-        label: isDeposit(row) ? 'Versement client' : 'Séance',
-      })),
-      expenses: unique(expenses.filter(withinYear)).map(row => ({
-        date: dateOf(row), amount: number(row, 'Montant'),
-        label: row.properties?.['Catégorie']?.select?.name || 'Autre',
-      })),
-      reconciliationWarnings: dataWarnings(paid).length,
-    })
+    if (!supportedYear(year)) return res.status(400).json({ error: 'Année non prise en charge' })
+    return res.status(200).json(await readStudioSales(year))
   } catch {
-    return res.status(503).json({ error: 'Les données du studio sont momentanément indisponibles.' })
+    return res.status(503).json({ error: 'Les ventes du studio sont momentanément indisponibles.' })
   }
 }
+module.exports.readStudioSales = readStudioSales
+module.exports.supportedYear = supportedYear

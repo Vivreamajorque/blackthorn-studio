@@ -60,7 +60,7 @@ export default function GestoriaTaxDashboard({ dossier, year, entries, settings,
       </table></div>
       <p className="mg-muted">Un solde de TVA en ta faveur peut généralement être reporté. Les conditions de remboursement dépendent de ta situation.</p>
       <p className="mg-muted">Le Modelo 130 se calcule pour le contribuable. Si plusieurs activités relèvent du même NIF, rapproche leurs écritures dans une seule déclaration.</p>
-      {id === 'blackthorn' && <p className="mg-muted">Les estimations du studio partent des écritures fiscales ajoutées dans Mi Gestoría et des réglages de ce dossier. Le Hub reste la source des graphiques d’activité.</p>}
+      {id === 'blackthorn' && <p className="mg-muted">Les estimations du studio partent des écritures fiscales ajoutées dans Mi Gestoría et des réglages de ce dossier. Le Hub alimente le graphique des encaissements. Les charges viennent du registre Mi Gestoría.</p>}
       <button type="button" onClick={() => onOpen(id, 'tasks', 'all', true)}>Enregistrer une déclaration ou son justificatif →</button>
     </section>
     <section className="mg-panel" aria-labelledby="mg-actions">

@@ -13,7 +13,7 @@ const money = cents => euro.format(cents / 100)
 const months = Array.from({ length: 12 }, (_, i) => monthFormat.format(new Date(Date.UTC(2000, i, 1))))
 const ledgers = {
   independent: { income: 'Facturé hors TVA renseigné', expenses: 'Dépenses saisies', source: 'Factures et dépenses ajoutées dans Mi Gestoría' },
-  blackthorn: { income: 'Encaissé', expenses: 'Dépenses saisies', source: 'Données du Hub Blackthorn en lecture seule' },
+  blackthorn: { income: 'Encaissé', expenses: 'Dépenses saisies', source: 'Ventes du Hub · charges de Mi Gestoría' },
 }
 const horizons = [{ id: 30, title: '30 jours' }, { id: 90, title: '90 jours' }, { id: 0, title: 'Tout voir' }]
 
@@ -153,7 +153,8 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
     independent: personal ? ledgerSummary(personalEntries, year, false, personalStart) : null,
     blackthorn: studio.data ? ledgerSummary([
       ...studio.data.receipts,
-      ...studio.data.expenses.map(row => ({ ...row, kind: 'expense' })),
+      ...entries.filter(row => row.entity === 'blackthorn' && row.kind === 'expense' && (!row.currency || row.currency === 'EUR'))
+        .map(row => ({ ...row, amount: row.amountCents / 100 })),
     ], year, true) : null,
   }
 
@@ -210,7 +211,7 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
         <div><dt>{ledgers[activity].expenses}</dt><dd>{money(summaries[activity].expenses)}</dd></div>
       </dl>}
       <p className="mg-muted">{activity === 'blackthorn'
-        ? 'Encaissements et dépenses issus du Hub Blackthorn.'
+        ? 'Encaissements du Hub Blackthorn et charges enregistrées dans Mi Gestoría.'
         : 'Chiffre d’affaires hors TVA renseigné et total des dépenses saisies dans Mi Gestoría.'}</p>
       {activity === 'independent' && summaries[activity]?.missingIncome > 0 && <p className="mg-card-note">
         Montant hors TVA à compléter sur {summaries[activity].missingIncome} facture(s).

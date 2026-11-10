@@ -3,6 +3,7 @@ import { inActivityYear, todayInSpain } from '../lib/gestoria-calendar.mjs'
 import { parseGestoriaCsv } from '../lib/gestoria-import.mjs'
 import GestoriaInvoice from './GestoriaInvoice'
 import { attachmentUrl, uploadFile } from '../lib/gestoria-files.mjs'
+import GestoriaTonyAccess from './GestoriaTonyAccess'
 import GestoriaExpenseGuide from './GestoriaExpenseGuide'
 import GestoriaVatFields, { editVat, saveVat } from './GestoriaVatFields'
 
@@ -46,7 +47,10 @@ export function useStudioLedger(year) {
   const [refresh, setRefresh] = useState(0)
   useEffect(() => {
     const controller = new AbortController()
-    const load = async () => {
+    let active = false
+    const load = async (background = false) => {
+      if (active) return
+      active = true
       try {
         const response = await fetch('/api/gestoria-studio?year=' + year, { cache: 'no-store', signal: controller.signal })
         if (response.status === 401 && !controller.signal.aborted) window.dispatchEvent(new Event('gestoria-auth-expired'))
@@ -54,11 +58,20 @@ export function useStudioLedger(year) {
         const data = await response.json()
         if (!controller.signal.aborted) setState({ year, status: 'ready', data })
       } catch {
-        if (!controller.signal.aborted) setState({ year, status: 'error' })
+        if (!controller.signal.aborted && !background) setState({ year, status: 'error' })
+      } finally {
+        active = false
       }
     }
     load()
-    return () => controller.abort()
+    const whenVisible = () => { if (!document.hidden) load(true) }
+    window.addEventListener('focus', whenVisible)
+    const timer = window.setInterval(whenVisible, 60000)
+    return () => {
+      controller.abort()
+      window.removeEventListener('focus', whenVisible)
+      window.clearInterval(timer)
+    }
   }, [year, refresh])
 
   const current = state.year === year ? state : { status: 'loading' }
@@ -72,18 +85,19 @@ export function useStudioLedger(year) {
 export function StudioData({ ledger }) {
   const { data, status, reload } = ledger
   return <section className="mg-panel mg-ledger-panel">
-    <h2 style={{ fontSize: 18, marginTop: 0 }}>Blackthorn Tattoo · Compta du Hub</h2>
-    <p style={muted}>Données Notion en lecture seule. Les rendez-vous prévus sont hors encaissements. Les dépenses reflètent le registre du studio.</p>
-    <button disabled={status === 'loading'} onClick={reload}>Actualiser depuis le Hub</button>
-    {status === 'loading' && <p role="status">Chargement des données du studio…</p>}
-    {status === 'error' && <p role="alert">Lecture du Hub indisponible. Réessaie depuis une session propriétaire connectée.</p>}
+    <p className="mg-section-label">VENTES DU HUB</p>
+    <h2>Encaissements Blackthorn</h2>
+    <p style={muted}>Les ventes confirmées viennent du Hub. Les charges ci-dessous viennent du registre Mi Gestoría.</p>
+    <button disabled={status === 'loading'} onClick={reload}>Actualiser les ventes</button>
+    {status === 'loading' && <p role="status">Chargement des ventes du studio…</p>}
+    {status === 'error' && <p role="alert">Lecture des ventes indisponible.</p>}
     {data && <>
-      <Amounts values={[['Encaissements enregistrés', total(data.receipts)], ['Dépenses saisies', total(data.expenses)]]} />
-      {!data.receipts.length && !data.expenses.length && <p>Aucun mouvement trouvé pour cette année.</p>}
+      <Amounts values={[['Encaissements enregistrés', total(data.receipts)]]} />
+      {!data.receipts.length && <p>Aucun encaissement trouvé pour cette année.</p>}
       {data.reconciliationWarnings > 0 && <p role="status">{data.reconciliationWarnings} ligne(s) à rapprocher avant d’utiliser les totaux.</p>}
       <Movements title="Encaissements" rows={data.receipts} />
-      <Movements title="Dépenses" rows={data.expenses} />
     </>}
+    <GestoriaTonyAccess />
   </section>
 }
 
@@ -300,7 +314,7 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
       <div className="mg-panel-heading mg-ledger-heading">
         <div><p className="mg-section-label">REGISTRE ET JUSTIFICATIFS</p>
           <h2>{entity === 'blackthorn' ? 'Factures et tickets de Blackthorn' : 'Factures et dépenses'}</h2>
-          {entity === 'blackthorn' && <p className="mg-muted">Les graphiques du studio utilisent les données du Hub.</p>}</div>
+          {entity === 'blackthorn' && <p className="mg-muted">Ces charges alimentent le suivi Blackthorn dans Mi Gestoría et dans l’onglet de Tony.</p>}</div>
         <div className="mg-actions">
           <button className="mg-primary" disabled={!canSave || !canAdd} onClick={() => start('invoice')}>Ajouter une facture émise</button>
           <button disabled={!canSave || !canAdd} onClick={() => start('expense')}>Ajouter une dépense</button>

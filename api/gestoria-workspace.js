@@ -198,3 +198,6 @@ module.exports = async function handler(req, res) {
     return res.status(503).json({ error: 'Le dossier privé est momentanément inaccessible. Réessaie dans un instant.' })
   }
 }
+
+module.exports.readWorkspace = readWorkspace
+module.exports.validEntry = validEntry
