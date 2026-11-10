@@ -90,8 +90,30 @@ export function StudioData({ ledger }) {
 const sources = { direct: 'Direct ou autre', malt: 'Malt', livementor: 'LiveMentor' }
 const payments = { unknown: 'Paiement à vérifier', pending: 'En attente', paid: 'Payé' }
 
+function QuickPayment({ row, disabled, onSave, onCancel }) {
+  const [paid, setPaid] = useState(row.payment === 'paid')
+  const [date, setDate] = useState(row.paymentDate || '')
+  async function submit(event) {
+    event.preventDefault()
+    const { paymentDate, expectedPaymentDate, ...entry } = row
+    const changes = paid ? { payment: 'paid', paymentDate: date } : {
+      payment: row.payment === 'unknown' ? 'unknown' : 'pending',
+      ...(expectedPaymentDate && { expectedPaymentDate }),
+    }
+    await onSave({ ...entry, ...changes })
+  }
+  return <form className="mg-actions mg-quick-payment" onSubmit={submit}>
+    <label><input type="checkbox" checked={paid} onChange={event => setPaid(event.target.checked)} /> Payé</label>
+    {paid && <label>Date de paiement <input type="date" required max={todayInSpain()} value={date}
+      onChange={event => setDate(event.target.value)} /></label>}
+    <button type="submit" disabled={disabled || (paid && !date)}>Enregistrer le paiement</button>
+    <button type="button" onClick={onCancel}>Annuler</button>
+  </form>
+}
+
 export function PersonalData({ entity = 'independent', year, startDate, entries, canSave, canAdd, onEntries, bank, onBank }) {
   const [draft, setDraft] = useState(null)
+  const [pointingId, setPointingId] = useState(null)
   const [fileMessage, setFileMessage] = useState('')
   const [uploading, setUploading] = useState(false)
   const [sourceFilter, setSourceFilter] = useState('all')
@@ -119,6 +141,7 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
 
   function edit(row, { amountCents, taxAmountCents, withholdingCents, vat }) {
     setFileMessage('')
+    setPointingId(null)
     setDraft({ ...row, source: row.source || 'direct', amount: String(amountCents / 100),
       currency: row.currency || 'EUR', vatDraft: editVat(vat, row.date),
       taxAmount: taxAmountCents == null ? '' : String(taxAmountCents / 100),
@@ -127,6 +150,7 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
   }
 
   function start(kind, values = {}) {
+    setPointingId(null)
     const date = inActivityYear(today, year, startDate) ? today : minDate
     setFileMessage('')
     setDraft({ id: crypto.randomUUID(), kind, source: sourceFilter === 'all' ? 'direct' : sourceFilter, date,
@@ -338,6 +362,8 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
         {row.taxReview && <p className="mg-card-note">{row.taxReview}</p>}
         <div className="mg-actions">{row.attachment && <a className="mg-soft-action" href={attachmentUrl(row.attachment)}
           target="_blank" rel="noopener noreferrer">Voir le PDF ↗</a>}
+        <button type="button" disabled={!canSave || uploading || Boolean(draft)} aria-expanded={pointingId === row.id}
+          onClick={() => setPointingId(pointingId === row.id ? null : row.id)}>Pointer le paiement</button>
         <button type="button" disabled={!canSave || uploading} aria-expanded={draftId === row.id}
           aria-controls={draftId === row.id ? 'mg-entry-editor' : undefined}
           onClick={() => edit(row, { amountCents, taxAmountCents, withholdingCents, vat })}>Modifier</button>{' '}
@@ -345,6 +371,11 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
           if (window.confirm('Retirer cette ligne de ton dossier ?') &&
               await onEntries(entries.filter(entry => entry.id !== row.id)) && draft?.id === row.id) setDraft(null)
         }}>Retirer</button></div>
+        {pointingId === row.id && <QuickPayment key={row.id} row={{ ...row, amountCents,
+          ...(taxAmountCents != null && { taxAmountCents }), ...(withholdingCents != null && { withholdingCents }), ...(vat && { vat }) }}
+          disabled={!canSave} onCancel={() => setPointingId(null)} onSave={async changed => {
+            if (await onEntries(entries.map(item => item.id === changed.id ? changed : item))) setPointingId(null)
+          }} />}
         {draftId === row.id && editor}
       </article>)}
     </section>

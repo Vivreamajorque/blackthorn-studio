@@ -337,3 +337,5 @@
   .mg-ledger-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .mg-work-row > div:first-child { flex-basis: 100%; }
 }
+.mg-quick-payment { padding: 10px; margin-top: 10px; border-radius: 10px; background: var(--mg-cream, #f6f7f1); }
+.mg-quick-payment label { font-size: .88rem; font-weight: 650; }
