@@ -1,4 +1,3 @@
-const { validPortalChecks } = require('../src/lib/gestoria-portal.mjs')
 const { requireSession } = require('../server/session.cjs')
 
 const empty = { entries: [], records: {} }
@@ -95,7 +94,8 @@ function validFilingDetails(details) {
     (item.amountCents === undefined || validAmount(item.amountCents)))
 }
 
-function validWorkspace(data) {
+async function validWorkspace(data) {
+  const { validPortalChecks } = await import('../src/lib/gestoria-portal.mjs')
   return isObject(data) && Object.keys(data).every(key => ['entries', 'records', 'irpf'].includes(key)) &&
     (data.irpf === undefined || validIrpf(data.irpf)) && isObject(data.records) &&
     Array.isArray(data.entries) && data.entries.length <= 1000 && data.entries.every(validEntry) &&
@@ -116,12 +116,12 @@ async function readWorkspace(blob, path) {
     const previous = await blob.get('mi-gestoria/preview/v1/workspace.json', { access: 'private', useCache: false })
     if (previous) {
       const data = await new Response(previous.stream).json()
-      if (!validWorkspace(data)) throw new Error('Invalid previous workspace')
+      if (!(await validWorkspace(data))) throw new Error('Invalid previous workspace')
       return { revision: null, data }
     }
     const seed = process.env.GESTORIA_INITIAL_WORKSPACE
     const data = seed ? JSON.parse(seed) : empty
-    if (!validWorkspace(data)) throw new Error('Invalid initial workspace')
+    if (!(await validWorkspace(data))) throw new Error('Invalid initial workspace')
     return { revision: null, data }
   }
   const normalizeEtag = value => value?.replace(/^W\//, '').replace(/^"|"$/g, '')
@@ -143,7 +143,7 @@ async function readWorkspace(blob, path) {
     if (!stable || !revision) throw new Error('Ledger changed while reading')
   }
   const data = await new Response(content.stream).json()
-  if (!validWorkspace(data)) throw new Error('Invalid saved workspace')
+  if (!(await validWorkspace(data))) throw new Error('Invalid saved workspace')
   return { revision, data }
 }
 
@@ -162,7 +162,7 @@ module.exports = async function handler(req, res) {
     }
     const { revision, data } = req.body || {}
     if (req.method === 'PUT' && ((revision !== null && (typeof revision !== 'string' || revision.length > 128)) ||
-        !validWorkspace(data))) return res.status(400).json({ error: 'Saisie invalide ou limite de 1 000 écritures atteinte.' })
+        !(await validWorkspace(data)))) return res.status(400).json({ error: 'Saisie invalide ou limite de 1 000 écritures atteinte.' })
 
     const blob = await import('@vercel/blob')
     const path = 'mi-gestoria/personal/v1/workspace.json'
