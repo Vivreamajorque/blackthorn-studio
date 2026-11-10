@@ -1,6 +1,7 @@
 import React from 'react'
 import { formatDate, inActivityYear, monthEnd } from '../lib/gestoria-calendar.mjs'
 import { forecastPayments, irpfForecast, minoracion } from '../lib/gestoria-irpf.mjs'
+import { rentWithholdings } from '../lib/gestoria-filing-audit.mjs'
 import { models, vatSummary } from '../lib/gestoria-models.mjs'
 import { studioEstimateEntries } from '../lib/gestoria-quarter-estimates.mjs'
 import GestoriaIrpf from './GestoriaIrpf'
@@ -14,11 +15,11 @@ function vatLabel(cents) {
   return money(Math.abs(cents)) + (cents > 0 ? ' à payer' : ' de solde en ta faveur')
 }
 
-function TaxCell({ official, estimate, filed, vat, paid, qualification }) {
+function TaxCell({ official, estimate, filed, vat, paid, proof, qualification }) {
   const format = vat ? vatLabel : value => value == null ? 'À calculer' : value < 0
     ? money(Math.abs(value)) + ' de résultat négatif' : money(value)
   if (filed) return <><strong>{official == null ? 'Montant à renseigner' : format(official)}</strong>
-    <small>{paid ? 'Déposé · paiement confirmé' : 'Déposé'}</small></>
+    <small>{proof ? 'Déclaré · pièce jointe' : 'Dépôt indiqué · reçu à joindre'}{paid && ' · paiement pointé'}</small></>
   return <><strong>{format(estimate)}</strong><small>{estimate == null ? 'Données à compléter' : qualification || 'Estimation'}</small></>
 }
 
@@ -39,6 +40,9 @@ export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, 
   const current = filings.filter(row => row.quarter === quarter)
   const irpf = current.find(row => row.model === '130')
   const vat = current.find(row => row.model === '303')
+  const rentFiling = current.find(row => row.model === '115')
+  const rent = rentFiling && rentFiling.status !== 'not_applicable'
+    ? rentWithholdings(entries, { year, quarter, startDate, today }) : null
   const calculation = vatSummary(scenario.entries, { year, quarter, startDate, today })
   const tax = forecast.quarters[quarter - 1]
   const archivedDraft303 = dossier.record.archives?.some(item =>
@@ -98,7 +102,7 @@ export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, 
       <p className="mg-muted">Les dates concernent le dépôt. Les estimations évoluent avec tes écritures et les justificatifs que tu ajoutes.</p>
       {knownTaxAmounts.length > 0 && <div className="mg-quarter-reserve">
         <span>À mettre de côté pour Hacienda · 130 + 303</span><strong>{money(reserve)}</strong>
-        <small>{knownTaxAmounts.length < taxAmounts.length ? 'Total partiel · montant d’un modèle à compléter' : 'Montants déclarés ou estimés · paiements confirmés déduits'}</small>
+        <small>{knownTaxAmounts.length < taxAmounts.length ? 'Total partiel · montant d’un modèle à compléter' : 'Montants déclarés ou estimés · paiements pointés déduits'}</small>
       </div>}
       {!irpf && !vat && <p className="mg-muted">Aucune échéance de déclaration suivie pour ce trimestre dans ce dossier.</p>}
       <div className="mg-quarter-tax">
@@ -106,7 +110,7 @@ export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, 
           <h3>Acompte sur le revenu · 130</h3>
           {irpf.status === 'not_applicable' ? <span>Non applicable</span> : <>
             <TaxCell official={actual130} estimate={estimate130}
-              filed={filed130} paid={irpf.evidence?.paid}
+              filed={filed130} paid={irpf.evidence?.paid} proof={irpf.evidence?.attachment}
               qualification={priorMissing ? 'Estimation · case 13 à vérifier' : 'Estimation · case 13 incluse'} />
             {reductionScenario != null && <small>Si la réduction de 100 € s’applique · {money(reductionScenario)} à payer</small>}
             {!filed130 && estimate130 != null && earlierIrpfEstimated &&
@@ -119,7 +123,7 @@ export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, 
         {vat && <article>
           <h3>TVA · 303</h3>
           {vat.status === 'not_applicable' ? <span>Non applicable</span> : <>
-            <TaxCell vat official={actual303} estimate={estimate303} filed={filed303} paid={vat.evidence?.paid}
+            <TaxCell vat official={actual303} estimate={estimate303} filed={filed303} paid={vat.evidence?.paid} proof={vat.evidence?.attachment}
               qualification={calculation.missing.length ? 'Estimation partielle · lignes à vérifier' : 'Estimation avant reports'} />
             <FilingDate row={vat} onOpen={() => onOpen(id, 'tasks', '303', true)} />
             {archivedDraft303 && vat.status !== 'filed' && <small>Brouillon archivé · dépôt à vérifier</small>}
@@ -153,6 +157,13 @@ export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, 
           <a href={models.RETA.url} target="_blank" rel="noreferrer">Voir les reçus Importass ↗</a>
         </article>}
       </div>
+      {rent && (rent.documented > 0 || rent.missing > 0) && <div className="mg-card-note">
+        <strong>Retenues sur le loyer · Modelo 115</strong>
+        {rent.documented > 0 && <p>{money(rent.documented)} de retenues sur les factures. {money(rent.confirmed)} rattachés à un paiement pointé et daté.</p>}
+        {rent.pending > 0 && <p>Rapproche les paiements du bailleur avant d’affecter la retenue au trimestre.</p>}
+        {rent.missing > 0 && <p>{rent.missing} loyer(s) dont le justificatif ou la retenue reste à renseigner.</p>}
+        <FilingDate row={rentFiling} onOpen={() => onOpen(id, 'tasks', '115', true)} />
+      </div>}
       {otherModels.length > 0 && <details className="mg-more">
         <summary>Autres modèles du trimestre, selon tes obligations</summary>
         <ul className="mg-action-list">
@@ -172,7 +183,7 @@ export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, 
         {contributions.projectedRows.some(row => row.date <= quarterEnd) &&
           ' L’estimation IRPF inclut les cotisations projetées jusqu’à la fin du trimestre.'}</p>}
       <div className="mg-card-actions">
-        <button type="button" onClick={() => onOpen(id, 'tasks', 'all', true)}>Voir les déclarations →</button>
+        <button type="button" onClick={() => onOpen(id, 'tasks', 'all', true)}>Vérifier avant un dépôt →</button>
         <button type="button" onClick={() => onOpen(id, 'archives')}>Ouvrir les archives →</button>
       </div>
     </section>

@@ -90,6 +90,7 @@ const FORMS = [
 ]
 
 const EXTRA_FORMS = [
+  { id: '180', title: 'Modelo 180 · Retenues annuelles sur les loyers', detail: 'Vérifier le récapitulatif annuel des retenues déclarées sur les loyers professionnels.' },
   { id: '390', title: 'Modelo 390 · Récapitulatif annuel de TVA', detail: 'Vérifier si tu dois le déposer ou si tu es dispensée.' },
   { id: '100', title: 'Modelo 100 · Renta annuelle', detail: 'Vérifier les revenus, la situation familiale et les acomptes IRPF.' },
   { id: 'RETA', title: 'Cotisations Seguridad Social', detail: 'Prélèvement habituel le dernier jour ouvrable du mois. Vérifier le montant et le reçu dans Importass.' },
@@ -388,7 +389,7 @@ export default function MiGestoria() {
           <div><strong>{row.title}</strong><div style={muted}>{row.detail}
             {row.date && ' · ' + formatDate(row.date)}{row.indicative && ' · date à confirmer'}</div>
             <ModelPreparation key={'prep:' + scope + ':' + row.key} row={row} year={year} entries={taskEntries}
-              startDate={current.startDate} settings={settings} personal={entity === 'independent' || entries.length > 0} onFinance={() => setTab('finance')} />
+              startDate={current.startDate} settings={settings} filings={filings} personal={entity === 'independent' || entries.length > 0} onFinance={() => setTab('finance')} />
             <GestoriaFilingDetails key={scope + ':' + row.key + ':' + row.status} row={row} canSave={canSave}
               declaredBoxes={row.model === '130' ? settings?.filed?.[row.quarter] : undefined} onSave={saveFilingDetails} />
           </div>

@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
 import { forecastPayments, irpfForecast } from '../lib/gestoria-irpf.mjs'
 import { contributionInputs } from '../lib/gestoria-quarter-estimates.mjs'
+import { preparationChecks, rentWithholdings } from '../lib/gestoria-filing-audit.mjs'
 import { debtUrl, models, vatSummary } from '../lib/gestoria-models.mjs'
 
 const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
@@ -21,27 +22,47 @@ function BoxTable({ fields, rates, labels }) {
   </table></div>
 }
 
-export function ModelPreparation({ row, year, entries, startDate, settings, personal, onFinance }) {
+export function ModelPreparation({ row, year, entries, startDate, settings, filings, personal, onFinance }) {
   const [open, setOpen] = useState(false)
   const model = models[row.model]
   const today = todayInSpain()
   const irpf = open && personal && row.model === '130' ? irpfForecast(entries, { year, startDate, today, settings }) : null
   const vat = open && personal && ['303', '349', '390'].includes(row.model)
     ? vatSummary(entries, { year, startDate, today, quarter: row.quarter }) : null
+  const checks = open ? preparationChecks({ row, year, entries, startDate, settings, filings, vat, today }) : []
+  const rent = open && ['115', '180'].includes(row.model) ? rentWithholdings(entries, { year, quarter: row.quarter, startDate, today }) : null
   return <details className="mg-filing-evidence" onToggle={e => setOpen(e.currentTarget.open)}>
     <summary>Préparer {row.model === 'RETA' ? 'le contrôle du prélèvement' : 'le Modelo ' + row.model}</summary>
     {open && <div className="mg-preparation">
       <p>{model.sources}</p>
       <p>Exercice {year}{row.quarter ? ' · ' + row.quarter + 'T' : ''}
         {row.date ? ' · échéance ' + formatDate(row.date) : ' · échéance à confirmer'}</p>
-      {irpf && <>
-        <BoxTable fields={irpf.quarters[row.quarter - 1].fields} labels={irpfLabels} />
+      {row.status === 'filed' && !row.evidence?.attachment && <p className="mg-card-note">
+        Dépôt indiqué dans le dossier. Joins le justificatif Hacienda pour le vérifier.
+      </p>}
+      {checks.length > 0 && row.model !== 'RETA' && <section aria-label="Contrôles avant déclaration" className="mg-card-note">
+        <strong>Vérifications avant déclaration</strong>
+        <ul>{checks.map(check => <li key={check}>{check}</li>)}</ul>
+      </section>}
+      {rent && row.status !== 'not_applicable' && <>
+        <p>Retenues figurant sur les pièces de la période · <strong>{money(rent.documented)}</strong></p>
+        <p>Retenues sur des loyers pointés payés et datés · <strong>{money(rent.confirmed)}</strong></p>
+        {rent.pending > 0 && <p className="mg-card-note">{money(rent.pending)} de retenues à rapprocher de la date de paiement du loyer.</p>}
+        {rent.missing > 0 && <p className="mg-card-note">{rent.missing} loyer(s) dont la facture ou la retenue reste à renseigner.</p>}
+      </>}
+      {irpf && row.status !== 'not_applicable' && <>
+        {checks.length ? <details><summary>Voir le calcul partiel</summary>
+          <BoxTable fields={irpf.quarters[row.quarter - 1].fields} labels={irpfLabels} />
+        </details> : <BoxTable fields={irpf.quarters[row.quarter - 1].fields} labels={irpfLabels} />}
         <p className="mg-muted">Vérifie les cases des trimestres déposés et les écritures qui restent à compléter dans « IRPF à prévoir ».</p>
       </>}
-      {vat && <>
+      {vat && row.status !== 'not_applicable' && <>
         {vat.missing.length > 0 && <p className="mg-card-note">{vat.missing.length} écriture(s) du registre à qualifier pour la TVA.</p>}
         {row.model === '303' && <>
-          <BoxTable fields={vat.boxes} rates={vat.rates} />
+          {checks.length ? <details><summary>Voir le calcul partiel du registre</summary>
+            <BoxTable fields={vat.boxes} rates={vat.rates} />
+          </details> : <BoxTable fields={vat.boxes} rates={vat.rates} />}
+          <p className="mg-card-note">La case 46 est le résultat du régime général. Rapproche le résultat à déclarer avec Pre303, notamment les cases 78 et 110 pour les crédits de TVA antérieurs.</p>
           <p className="mg-muted">Régime général, opérations courantes saisies. Vérifie les reports, rectifications, régularisations et autres cases dans Pre303.</p>
         </>}
         {row.model === '349' && <>
@@ -86,9 +107,9 @@ export function GestoriaPayments({ year, dossier, data, onOpen }) {
   const lastReceipt = dossier.record.portalChecks?.receipts?.rows
     .filter(row => row.period <= today.slice(0, 7))
     .sort((a, b) => b.period.localeCompare(a.period))[0]?.amountCents
-  const rows = filings.filter(row => row.status !== 'not_applicable' && !['349', '390'].includes(row.model) &&
+  const rows = filings.filter(row => row.status !== 'not_applicable' && !['349', '390', '180'].includes(row.model) &&
     (row.status !== 'filed' || (row.evidence?.amountCents > 0 && !row.evidence.paid))).map(row => {
-    let amount = row.evidence?.amountCents
+    let amount = row.status === 'filed' || row.model === 'RETA' ? row.evidence?.amountCents : undefined
     let caption = 'Montant à vérifier'
     if (amount != null) caption = row.status === 'filed' && row.model === 'RETA' ? 'Prélevé' : 'Montant saisi · paiement à rapprocher'
     else if (row.model === '130' && irpf && row.status !== 'filed') {
@@ -100,6 +121,12 @@ export function GestoriaPayments({ year, dossier, data, onOpen }) {
       const vat = vatSummary(entries, { year, startDate, today, quarter: row.quarter })
       amount = vat.balance
       caption = 'Estimation IVA avant reports' + (vat.missing.length ? ' · ' + vat.missing.length + ' écriture(s) à qualifier' : '')
+    } else if (row.model === '115' && row.status !== 'filed') {
+      const rent = rentWithholdings(entries, { year, startDate, quarter: row.quarter, today })
+      if (rent.documented > 0) {
+        amount = rent.documented
+        caption = rent.pending > 0 ? 'Retenues facturées · dates de paiement à rapprocher' : 'Retenues sur loyers pointés payés'
+      }
     } else if (row.model === 'RETA' && row.date >= today && (lastReceipt != null || historical != null)) {
       amount = lastReceipt ?? historical
       caption = lastReceipt != null ? 'Projection · dernier reçu émis dans Importass' : 'Projection · dernier prélèvement renseigné'

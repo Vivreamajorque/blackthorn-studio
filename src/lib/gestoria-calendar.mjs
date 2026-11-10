@@ -25,6 +25,9 @@ export function monthEnd(year, month) {
 }
 
 export function trackedFilingDeadline(year, filing) {
+  if (filing.model === '180') return {
+    date: businessDay(year + 1, 0, 31), indicative: year !== 2025,
+  }
   if (filing.model === '100') {
     return year === 2025 ? { date: '2026-06-30', indicative: false } : { date: '', indicative: true }
   }

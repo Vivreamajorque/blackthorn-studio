@@ -5,7 +5,7 @@ const empty = { entries: [], records: {} }
 const entryKeys = ['id', 'kind', 'date', 'label', 'reference', 'amountCents', 'payment']
 const optionalEntryKeys = ['source', 'taxDate', 'paymentDate', 'taxAmountCents', 'withholdingCents', 'currency', 'vat', 'attachment', 'expectedPaymentDate', 'entity', 'expenseCategory', 'documentAmounts', 'taxReview']
 const taskStatuses = ['unknown', 'in_progress', 'blocked', 'complete', 'not_applicable']
-const filingKey = /^(?:T[1-4]:(?:303|130|115|111|349)|A:(?:390|100)|M(?:0[1-9]|1[0-2]):RETA)$/
+const filingKey = /^(?:T[1-4]:(?:303|130|115|111|349)|A:(?:390|180|100)|M(?:0[1-9]|1[0-2]):RETA)$/
 const filingStatuses = ['unknown', 'missing', 'to_prepare', 'filed', 'not_applicable']
 
 function isObject(value) {

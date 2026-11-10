@@ -10,6 +10,7 @@ export const models = {
   390: { url: aeat + '/iva/modelo-390-iva-declaracion-resumen-anual.html', sources: 'Vérifie l’obligation, puis réunis les quatre 303 déposés, les totaux annuels par taux et les opérations intracommunautaires.' },
   100: { url: aeat + '/Renta.html', sources: 'Vérifie les données fiscales, les revenus d’activité et salariés, les revenus étrangers, les acomptes 130 et les données familiales.' },
   111: { url: aeat + '/procedimientos/GH01.shtml', sources: 'Rassemble les salaires et honoraires soumis à retenue, les bases, retenues et nombres de bénéficiaires par catégorie.' },
+  180: { url: aeat + '/procedimientos/GI00.shtml', sources: 'Rapproche les paiements au bailleur, les retenues effectuées et les Modelo 115 de l’exercice.' },
   115: { url: aeat + '/procedimientos/GH02.shtml', sources: 'Vérifie le bail professionnel et la retenue, puis rassemble les bases, les retenues et le nombre de bailleurs concernés.' },
   RETA: { url: importass + '/Categorias/Consulta%2Bde%2Bpagos%2By%2Bdeudas/ConsultaRecibos', sources: 'Vérifie le reçu du mois et rapproche le débit bancaire. Consulte les dettes séparément dans Importass.' },
 }
@@ -43,8 +44,8 @@ export function vatSummary(entries, { year, quarter, startDate, today }) {
     if (row.taxReview) missing.push(row)
     if (!row.vat) { if (!row.taxReview) missing.push(row); continue }
     const { category, baseCents, quotaCents, deductibleCents, country, id, rate } = row.vat
-    count++
     if (category === 'excluded') continue
+    count++
     if (category === 'sale_es') {
       const [base, percent, quota] = domesticRates[rate]
       add(base, baseCents)
