@@ -33,8 +33,9 @@ export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, 
   const { id, name, startDate, filings } = dossier
   const fiscalEntries = [...entries, ...contributions.confirmedRows]
   const scenario = studioEstimateEntries(fiscalEntries, studio?.data?.receipts, { year, startDate, today })
-  const forecast = irpfForecast([...forecastPayments(scenario.entries, today), ...contributions.projectedRows],
-    { year, startDate, today: year + '-12-31', settings })
+  const irpfEntries = [...forecastPayments(scenario.entries, today), ...contributions.projectedRows]
+  const forecastOptions = { year, startDate, today: year + '-12-31' }
+  const forecast = irpfForecast(irpfEntries, { ...forecastOptions, settings })
   const current = filings.filter(row => row.quarter === quarter)
   const irpf = current.find(row => row.model === '130')
   const vat = current.find(row => row.model === '303')
@@ -57,6 +58,23 @@ export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, 
     inActivityYear(row.date, year, startDate) && row.date <= quarterEnd)
   const estimate130 = studio && !studioRevenue ? null : tax.due
   const estimate303 = studio && !studioRevenue ? null : calculation.balance
+  const priorMissing = settings?.priorNetCents == null
+  const reductionScenario = priorMissing && !filed130 && estimate130 != null
+    ? irpfForecast(irpfEntries, { ...forecastOptions, settings: { ...settings, priorNetCents: 900000 } }).quarters[quarter - 1].due
+    : null
+  const earlierIrpfEstimated = forecast.quarters.slice(0, quarter - 1).some(prior =>
+    prior.fields['07'] > 0 && !prior.filed &&
+    filings.some(row => row.model === '130' && row.quarter === prior.quarter && row.status !== 'not_applicable'))
+  const vatPending = entries.filter(row => {
+    if (row.kind !== 'expense' || !row.vat?.category.startsWith('buy_') ||
+        !(row.vat.quotaCents > row.vat.deductibleCents) || ['personal', 'social'].includes(row.expenseCategory)) return false
+    const date = row.vat.date || row.date
+    return inActivityYear(date, year, startDate) && date <= today && Math.ceil(Number(date.slice(5, 7)) / 3) === quarter
+  })
+  const outstandingVat = row => row.vat.quotaCents - row.vat.deductibleCents
+  const pendingVatTotal = vatPending.reduce((sum, row) => sum + outstandingVat(row), 0)
+  const pendingRentVat = id === 'blackthorn' ? vatPending.filter(row => row.vat.category === 'buy_es' &&
+    row.attachment && row.documentAmounts?.rentWithholdingCents != null).reduce((sum, row) => sum + outstandingVat(row), 0) : 0
   const taxAmounts = [
     irpf && irpf.status !== 'not_applicable' && { paid: irpf.evidence?.paid, amount: filed130 ? actual130 : estimate130 },
     vat && vat.status !== 'not_applicable' && { paid: vat.evidence?.paid, amount: filed303 ? actual303 : estimate303 },
@@ -70,7 +88,6 @@ export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, 
   const noProof = active.filter(row => row.kind === 'expense' && row.taxAmountCents !== 0 && !row.attachment)
   const vatToCheck = active.filter(row => row.kind === 'expense' && row.vat?.quotaCents > 0 && !row.taxReview &&
     row.vat?.deductibleCents === 0 && !['personal', 'social'].includes(row.expenseCategory))
-  const priorMissing = settings?.priorNetCents == null
   const notEntered = filings.filter(row => ['130', '303'].includes(row.model) && row.status === 'filed' &&
     row.evidence?.amountCents == null && (row.model !== '130' || !settings?.filed?.[row.quarter]))
   const registered130 = filings.some(row => row.model === '130' && row.status !== 'not_applicable')
@@ -91,6 +108,11 @@ export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, 
             <TaxCell official={actual130} estimate={estimate130}
               filed={filed130} paid={irpf.evidence?.paid}
               qualification={priorMissing ? 'Estimation · case 13 à vérifier' : 'Estimation · case 13 incluse'} />
+            {reductionScenario != null && <small>Si la réduction de 100 € s’applique · {money(reductionScenario)} à payer</small>}
+            {!filed130 && estimate130 != null && earlierIrpfEstimated &&
+              <small>Les acomptes précédents sont estimés. Renseigne les cases des 130 déposés pour fiabiliser ce montant.</small>}
+            {!filed130 && estimate130 != null && tax.fields['02'] != null &&
+              <small>Charges et forfait retenus depuis janvier · {money(tax.fields['02'])}</small>}
             <FilingDate row={irpf} onOpen={() => onOpen(id, 'tasks', '130', true)} />
           </>}
         </article>}
@@ -101,7 +123,17 @@ export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, 
               qualification={calculation.missing.length ? 'Estimation partielle · lignes à vérifier' : 'Estimation avant reports'} />
             <FilingDate row={vat} onOpen={() => onOpen(id, 'tasks', '303', true)} />
             {archivedDraft303 && vat.status !== 'filed' && <small>Brouillon archivé · dépôt à vérifier</small>}
-            {calculation.balance != null && <small>TVA due brute {money(calculation.boxes['27'])} · TVA déductible {money(calculation.boxes['45'])}</small>}
+            {calculation.balance != null && <small>TVA collectée {money(calculation.boxes['27'])} · TVA déductible retenue {money(calculation.boxes['45'])}</small>}
+            {pendingVatTotal > 0 && <details className="mg-chart-details">
+              <summary>{money(pendingVatTotal)} de TVA sur les dépenses à vérifier</summary>
+              <ul>{vatPending.map(row => <li key={row.id}>
+                <strong>{row.label} · {money(outstandingVat(row))}</strong>
+                <small>{row.taxReview || 'Vérifie la part récupérable sur la facture.'}</small>
+              </li>)}</ul>
+              <button type="button" onClick={() => onOpen(id, 'finance')}>Ouvrir les dépenses →</button>
+            </details>}
+            {!filed303 && estimate303 != null && pendingRentVat > 0 &&
+              <small>Si la TVA du loyer est récupérable · {vatLabel(estimate303 - pendingRentVat)} avec {money(pendingRentVat)} de déduction supplémentaire.</small>}
           </>}
         </article>}
         {quarterContributions.length > 0 && <article>
