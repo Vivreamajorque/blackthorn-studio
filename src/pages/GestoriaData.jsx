@@ -125,7 +125,7 @@ function QuickPayment({ row, disabled, onSave, onCancel }) {
   </form>
 }
 
-export function PersonalData({ entity = 'independent', year, startDate, entries, canSave, canAdd, onEntries, bank, onBank }) {
+export function PersonalData({ entity = 'independent', year, startDate, entries, canSave, canAdd, onEntries, bank, onBank, initialAction }) {
   const [draft, setDraft] = useState(null)
   const [pointingId, setPointingId] = useState(null)
   const [fileMessage, setFileMessage] = useState('')
@@ -146,11 +146,13 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
   const expenses = rows.filter(row => row.kind === 'expense')
   const sum = items => items.filter(row => !row.currency || row.currency === 'EUR').reduce((value, row) => value + row.amountCents, 0) / 100
 
+  const editorRef = useRef(null)
   const paymentField = useRef(null)
   const draftId = draft?.id
   const editingVisible = visibleRows.some(row => row.id === draftId)
   useEffect(() => {
     if (draftId && editingVisible) paymentField.current?.focus()
+    else if (draftId) { editorRef.current?.scrollIntoView({ block: 'start' }); editorRef.current?.querySelector('input')?.focus({ preventScroll: true }) }
   }, [draftId, editingVisible])
 
   function edit(row, { amountCents, taxAmountCents, withholdingCents, vat }) {
@@ -171,6 +173,11 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
       label: '', reference: '', amount: '', currency: 'EUR', payment: 'unknown', taxAmount: '', taxDate: '', paymentDate: '', expectedPaymentDate: '', withholding: '',
       ...values, vatDraft: editVat(undefined, values.date || date) })
   }
+
+  useEffect(() => {
+    if (initialAction === 'expense') start('expense')
+    if (initialAction === 'payments') setPaymentFilter('all')
+  }, [initialAction])
 
   async function submit(event) {
     event.preventDefault()
@@ -234,7 +241,7 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
     }
   }
 
-  const editor = draft && <form key={draft.id} id="mg-entry-editor" onSubmit={submit} className="mg-entry-editor">
+  const editor = draft && <form ref={editorRef} key={draft.id} id="mg-entry-editor" onSubmit={submit} className="mg-entry-editor">
     <h3>{editingVisible ? 'Modifier · ' + draft.label : draft.kind === 'invoice' ? 'Facture émise' : 'Dépense'}</h3>
     {draft.taxReview && <div className="mg-doc-amounts">
       <strong>Justificatif fiscal à vérifier</strong>
@@ -316,7 +323,7 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
           <h2>{entity === 'blackthorn' ? 'Factures et tickets de Blackthorn' : 'Factures et dépenses'}</h2>
           {entity === 'blackthorn' && <p className="mg-muted">Ces charges alimentent le suivi Blackthorn dans Mi Gestoría et dans l’onglet de Tony.</p>}</div>
         <div className="mg-actions">
-          <button className="mg-primary" disabled={!canSave || !canAdd} onClick={() => start('invoice')}>Ajouter une facture émise</button>
+          <button disabled={!canSave || !canAdd} onClick={() => start('invoice')}>Enregistrer une facture existante</button>
           <button disabled={!canSave || !canAdd} onClick={() => start('expense')}>Ajouter une dépense</button>
         </div>
       </div>
@@ -338,7 +345,7 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
           disabled={!canSave || uploading || Boolean(draft)} onChange={attachBatch} /></label>
         {!draft && fileMessage && <p role="status">{fileMessage}</p>}
       </details>
-      <GestoriaInvoice date={inActivityYear(today, year, startDate) ? today : minDate}
+      <GestoriaInvoice initiallyOpen={initialAction === 'create-invoice'} date={inActivityYear(today, year, startDate) ? today : minDate}
         onPrepare={values => start('invoice', { ...values, source: 'direct' })} />
       {rows.some(row => row.currency && row.currency !== 'EUR') &&
         <p style={muted}>Les écritures en devise sont affichées séparément. Pour les calculs fiscaux, renseigne leur montant vérifié en euros.</p>}

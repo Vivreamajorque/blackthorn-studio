@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
 const escape = value => String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]))
@@ -9,8 +9,12 @@ const textFields = [
   ['reference', 'Numéro et série à vérifier'], ['description', 'Description de la prestation'],
 ]
 
-export default function GestoriaInvoice({ date, onPrepare }) {
+export default function GestoriaInvoice({ date, onPrepare, initiallyOpen = false }) {
   const [draft, setDraft] = useState({ date, rate: '21', serviceDate: '', note: '', withholding: '' })
+  const panel = useRef(null)
+  useEffect(() => {
+    if (initiallyOpen) { panel.current?.scrollIntoView({ block: 'start' }); panel.current?.querySelector('input')?.focus({ preventScroll: true }) }
+  }, [initiallyOpen])
   const [preview, setPreview] = useState('')
   function update(key, value) { setDraft(previous => ({ ...previous, [key]: value })) }
   const base = Math.round(Number(draft.base || 0) * 100)
@@ -36,8 +40,8 @@ export default function GestoriaInvoice({ date, onPrepare }) {
     setPreview(URL.createObjectURL(new Blob([doc], { type: 'text/html;charset=utf-8' })))
   }
 
-  return <details className="mg-chart-details">
-    <summary>Créer un brouillon de facture imprimable</summary>
+  return <details ref={panel} open={initiallyOpen || undefined} className="mg-chart-details mg-invoice-composer">
+    <summary>＋ Créer une facture · préparer le brouillon</summary>
     <form className="mg-tax-settings" onSubmit={renderDraft}>
       <p className="mg-muted">Le brouillon peut être enregistré en PDF depuis l’impression du navigateur. Vérifie la série, le régime et les mentions avant émission.</p>
       <div className="mg-tax-boxes">

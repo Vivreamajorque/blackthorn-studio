@@ -179,6 +179,7 @@ export default function MiGestoria() {
   }, [])
   const studio = useStudioLedger(year)
   const [bank, setBank] = useState([])
+  const [quickAction, setQuickAction] = useState(null)
   const { data, personalStart, loadState, saving, feedback: saveFeedback, save, reload } = useGestoriaWorkspace()
   const canSave = loadState === 'ready' && !saving
   const [formFilter, setFormFilter] = useState('all')
@@ -200,11 +201,17 @@ export default function MiGestoria() {
   const fileBase = 'mi-gestoria-' + entity + '-' + year
 
   function openDossier(nextEntity, nextTab, model = 'all', declarationsOnly = false) {
+    setQuickAction(null)
     setEntity(nextEntity)
     setTab(nextTab)
     setFormFilter(declarationsOnly && model === 'all' ? 'declarations' : model)
     setFeedback(null)
     window.scrollTo(0, 0)
+  }
+
+  function launchQuickAction(nextEntity, kind) {
+    openDossier(nextEntity, 'finance')
+    setQuickAction({ kind, nonce: Date.now() })
   }
 
   function updateRecord(changes) {
@@ -303,6 +310,7 @@ export default function MiGestoria() {
       <nav className="mg-main-nav" aria-label="Sections de Mi Gestoría">
         {sections.map(([id, label, icon]) =>
           <button type="button" key={id} aria-pressed={tab === id} onClick={() => {
+            setQuickAction(null)
             setTab(id)
             if (id === 'inbox') setEntity('blackthorn')
             if (id === 'tasks') setFormFilter('all')
@@ -325,7 +333,7 @@ export default function MiGestoria() {
     </header>}
     {tab === 'overview' && loadState === 'ready' && <GestoriaDashboard
       year={year} dossiers={dossiers} personalStart={personalStart} entries={data.entries} studio={studio} onOpen={openDossier}
-      irpf={data.irpf?.[year]} canSave={canSave} selectedActivity={entity} onActivity={setEntity} inboxCount={data.inbox?.length || 0}
+      irpf={data.irpf?.[year]} canSave={canSave} selectedActivity={entity} onActivity={setEntity} inboxCount={data.inbox?.length || 0} onQuickAction={launchQuickAction}
       onIrpf={saveIrpf} />}
     {loadState === 'loading' && <p role="status">Chargement de ton dossier privé…</p>}
     {loadState === 'error' && <div role="alert">
@@ -358,7 +366,7 @@ export default function MiGestoria() {
         })} onTasks={() => setTab('tasks')} />}
     {tab === 'finance' && loadState === 'ready' && <>
       {entity === 'blackthorn' && <StudioData ledger={studio} />}
-      <PersonalData key={scope} entity={entity} year={year} startDate={current.startDate} entries={entries}
+      <PersonalData key={scope + (quickAction?.nonce || '')} initialAction={quickAction?.kind} entity={entity} year={year} startDate={current.startDate} entries={entries}
         canSave={canSave} canAdd={data.entries.length < 1000}
         onEntries={updated => save(workspace => ({ ...workspace, entries: [
           ...workspace.entries.filter(row => (row.entity || 'independent') !== entity),

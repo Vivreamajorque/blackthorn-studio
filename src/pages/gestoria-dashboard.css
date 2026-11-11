@@ -412,3 +412,26 @@
   .mg-main-nav { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; padding-bottom: 8px; }
   .mg-main-nav button { flex-shrink: 0; min-height: 44px; }
 }
+
+/* Fast daily cockpit: compact context, immediate actions, progressive detail. */
+.mg-hero { padding: 26px 30px; border-radius: 19px; gap: 28px; }
+.mg-hero h1 { font-size: clamp(1.5rem,3vw,2.3rem); margin: 10px 0; }
+.mg-hero-description { font-size: .95rem; }
+.mg-hero-next { padding: 16px 20px; }
+.mg-dashboard-filter { padding: 16px 22px; }
+.mg-fast-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 4px 0; }
+.mg-fast-bar button { min-height: 46px; padding: 12px 20px; border-radius: 12px; font-weight: 700; background: white; border: 1px solid var(--mg-line); }
+.mg-fast-bar button.mg-primary { background: #203e36; color: white; border-color: #203e36; }
+.mg-fast-bar button:hover { box-shadow: 0 3px 12px #203e3618; border-color: #688877; }
+.mg-fast-bar > span { margin-left: auto; color: var(--mg-muted); font-size: .8rem; }
+.mg-action-plan > summary { cursor: pointer; font-weight: 700; padding: 3px 0; }
+.mg-action-plan > div { padding-top: 20px; }
+.mg-invoice-composer { scroll-margin-top: 24px; border: 1px solid #b8cec1; border-radius: 14px; padding: 18px; background: #f5f9f5; }
+.mg-invoice-composer > summary { cursor: pointer; font-weight: 750; font-size: 1rem; }
+.mg-invoice-composer[open] > summary { margin-bottom: 20px; }
+@media(max-width: 760px) {
+  .mg-fast-bar { display: grid; grid-template-columns: 1fr 1fr; }
+  .mg-fast-bar button { padding: 12px; font-size: .85rem; }
+  .mg-fast-bar > span { grid-column: 1/-1; margin-left: 0; }
+  .mg-hero { padding: 22px; grid-template-columns: 1fr; }
+}
