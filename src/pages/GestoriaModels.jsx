@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import GestoriaCalendar from './GestoriaCalendar'
 import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
 import { forecastPayments, irpfForecast } from '../lib/gestoria-irpf.mjs'
 import { contributionInputs, studioEstimateEntries, withTaxProjections } from '../lib/gestoria-quarter-estimates.mjs'
@@ -140,6 +141,8 @@ export function GestoriaPayments({ year, dossier, data, onOpen, studio }) {
     .sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'))
   const debts = notices.filter(item => item.kind === 'debt' && !item.done)
   return <>
+    <GestoriaCalendar key={id + ':' + year} year={year} dossier={dossier} rows={rows} ledger={ledger} settings={settings} today={today} onOpen={onOpen} />
+    <details className="mg-panel" style={{ marginTop: 16 }}><summary>Voir le tableau détaillé des montants et de leur origine</summary>
     <section className="mg-panel">
       <div className="mg-panel-heading"><div><p className="mg-section-label">TRÉSORERIE</p><h2>Ce que je dois prévoir</h2></div></div>
       <p className="mg-muted">Les projections incluent les hypothèses fiscales signalées dans Compta, ainsi que les encaissements et paiements prévus pour l’IRPF. Les dates indicatives et les échéances passées restent à vérifier. Le statut du dépôt et le paiement se rapprochent séparément.</p>
@@ -152,6 +155,7 @@ export function GestoriaPayments({ year, dossier, data, onOpen, studio }) {
         </tr>)}</tbody>
       </table></div>
     </section>
+    </details>
     <section className="mg-panel" style={{ marginTop: 16 }}>
       <h2>Retards et dettes Seguridad Social</h2>
       <p className="mg-muted">Montants enregistrés. Vérifie le solde et les délais dans Importass avant de t’appuyer dessus.</p>
