@@ -15,16 +15,23 @@ export default function GestoriaCalendar({ year, dossier, rows, ledger, settings
   const [listView, setListView] = useState(false)
   const date = new Date(Date.UTC(year, month, 1))
   const prefix = iso(date).slice(0, 7)
-  const events = dossier.filings.filter(row => row.status !== 'not_applicable').map(row => {
+  const paymentPlans = dossier.record?.paymentPlans || []
+  const installments = paymentPlans.flatMap(plan => Array.from({ length: plan.count }, (_, index) => {
+    const date = new Date(plan.firstDate + 'T00:00:00Z'); date.setUTCMonth(date.getUTCMonth() + index)
+    return { key: plan.id + '-' + index, model: plan.model, title: 'Échelonnement ' + plan.model + ' · mensualité ' + (index + 1) + '/' + plan.count, date: iso(date),
+      amount: Math.floor(plan.principalCents / plan.count) + (index < plan.principalCents % plan.count ? 1 : 0),
+      status: 'unknown', tentative: plan.status === 'requested', caption: 'Date demandée · montant indicatif hors intérêts et majorations · accord Hacienda à joindre' }
+  }))
+  const events = [...dossier.filings.filter(row => row.status !== 'not_applicable').map(row => {
     const forecast = rows.find(item => item.key === row.key)
     return forecast || { ...row, amount: row.evidence?.amountCents, caption: row.status === 'filed' ? 'Dépôt enregistré' : 'Applicabilité et montant à vérifier' }
-  })
+  }), ...installments]
   const lastMonth = Math.max(12, ...events.filter(row => row.date).map(row => (Number(row.date.slice(0, 4)) - year) * 12 + Number(row.date.slice(5, 7)) - 1))
   const visible = events.filter(row => row.date?.startsWith(prefix))
-  const overdue = events.filter(row => row.date && row.date < today && !isPaid(row) && row.status !== 'filed')
+  const overdue = events.filter(row => row.date && row.date < today && !row.tentative && !isPaid(row) && row.status !== 'filed')
   const awaitingPayment = events.filter(row => row.status === 'filed' && !isPaid(row) && row.amount > 0)
   const undated = events.filter(row => !row.date)
-  const outstanding = visible.filter(row => !isPaid(row) && row.amount >= 0)
+  const outstanding = visible.filter(row => !isPaid(row) && !row.tentative && row.amount >= 0)
   const total = outstanding.reduce((sum, row) => sum + row.amount, 0)
   const missing = visible.filter(row => !isPaid(row) && row.amount == null && !['349', '390', '180'].includes(row.model)).length
   const credit = visible.filter(row => !isPaid(row) && row.amount < 0).reduce((sum, row) => sum - row.amount, 0)
@@ -41,6 +48,15 @@ export default function GestoriaCalendar({ year, dossier, rows, ledger, settings
   ]
   function move(next) { setMonth(next); setSelectedDay(null) }
   return <>
+    {paymentPlans.map(plan => <section className="mg-panel mg-calendar-alert" key={plan.id}>
+      <p className="mg-section-label">MODELO {plan.model} · T{plan.quarter} · DEMANDE D’ÉCHELONNEMENT</p>
+      <h2>{money(plan.principalCents)} · {plan.count} mensualités demandées</h2>
+      <p><strong>{plan.status === 'requested' ? 'En cours de traitement — aucun prélèvement encore confirmé' : 'Accord renseigné'}</strong></p>
+      <p>Demande du {formatDate(plan.requestedDate)} · référence {plan.reference}. Premier terme demandé : {formatDate(plan.firstDate)}.</p>
+      <p>Prévois environ {money(Math.round(plan.principalCents / plan.count))} par mois, hors intérêts et majorations éventuels. Les dates demandées apparaissent dans le calendrier et sont exclues du total à payer tant que l’accord n’est pas enregistré.</p>
+      <a href={'/api/gestoria-file?id=' + plan.attachment.id} target="_blank" rel="noopener noreferrer">Ouvrir le justificatif de demande ↗</a>
+      <p><a href="https://sede.agenciatributaria.gob.es/Sede/recaudacion/aplazamientos-fraccionamientos/aplazamiento-fraccionamiento-deudas/gestiones.html" target="_blank" rel="noopener noreferrer">Consulter la décision et les dates accordées sur Hacienda ↗</a></p>
+    </section>)}
     <section className="mg-panel mg-calendar" aria-label={'Calendrier de ' + dossier.name}>
       <div className="mg-panel-heading"><div><p className="mg-section-label">{dossier.name} · ÉCHÉANCES DE L’EXERCICE {year}</p><h2>Mon calendrier à prévoir</h2></div>
         <button type="button" onClick={() => setListView(value => !value)}>{listView ? 'Vue calendrier' : 'Vue liste'}</button></div>
@@ -57,7 +73,7 @@ export default function GestoriaCalendar({ year, dossier, rows, ledger, settings
           </button> })}</div></>}
       <p className="mg-muted">Vert : paiement confirmé · Ambre : applicabilité à vérifier · Bleu : montant saisi ou estimé. Clique sur un jour pour voir ses détails.</p>
       <div className="mg-calendar-events" aria-live="polite"><h3>{selectedDay ? 'Le ' + formatDate(selectedDay) : 'Détails du mois'}</h3>
-        {dayEvents.length ? dayEvents.map(row => <article key={row.key}><div><strong>{row.title}</strong><p>{formatDate(row.date)}{row.indicative ? ' · date indicative' : ''} · {row.status === 'unknown' ? 'Applicabilité à vérifier' : row.status === 'filed' ? 'Dépôt enregistré' : 'À préparer / vérifier'}</p><small>{row.caption}</small></div><div><strong>{isPaid(row) ? 'Paiement confirmé' : amountLabel(row)}</strong><button type="button" onClick={() => onOpen(dossier.id, 'tasks', row.model)}>Ouvrir le suivi →</button></div></article>) : <p className="mg-muted">Aucune échéance enregistrée {selectedDay ? 'ce jour' : 'ce mois'}. Cela ne confirme pas l’absence d’obligations officielles.</p>}</div>
+        {dayEvents.length ? dayEvents.map(row => <article key={row.key}><div><strong>{row.title}</strong>{row.tentative && <span className="mg-tag warning">Demandé · non accordé</span>}<p>{formatDate(row.date)}{row.indicative ? ' · date indicative' : ''} · {row.status === 'unknown' ? 'Applicabilité à vérifier' : row.status === 'filed' ? 'Dépôt enregistré' : 'À préparer / vérifier'}</p><small>{row.caption}</small></div><div><strong>{isPaid(row) ? 'Paiement confirmé' : amountLabel(row)}</strong><button type="button" onClick={() => onOpen(dossier.id, 'tasks', row.model)}>Ouvrir le suivi →</button></div></article>) : <p className="mg-muted">Aucune échéance enregistrée {selectedDay ? 'ce jour' : 'ce mois'}. Cela ne confirme pas l’absence d’obligations officielles.</p>}</div>
       {(overdue.length > 0 || awaitingPayment.length > 0 || undated.length > 0) && <details className="mg-calendar-alert"><summary>{overdue.length} échéance(s) passée(s) à vérifier · {awaitingPayment.length} paiement(s) à rapprocher · {undated.length} date(s) manquante(s)</summary><p>Un justificatif peut manquer dans l’outil alors que la démarche a déjà été faite. Vérifie le portail avant de conclure à un retard.</p>{[...overdue, ...awaitingPayment, ...undated].map(row => <p key={row.key}><button type="button" onClick={() => onOpen(dossier.id, 'tasks', row.model)}>{row.title} · {row.date ? formatDate(row.date) : 'Date à confirmer'} →</button></p>)}</details>}
     </section>
     <section className="mg-panel mg-recommendations"><p className="mg-section-label">MES POINTS DE CONTRÔLE · {dossier.name}</p><h2>Mieux préparer, sans déduire au hasard</h2><p className="mg-muted">Pistes basées sur les informations enregistrées, à vérifier avant toute modification fiscale. Ajouter une charge représente une dépense réelle, pas une économie du même montant.</p>

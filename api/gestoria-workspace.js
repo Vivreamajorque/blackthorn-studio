@@ -140,6 +140,16 @@ function validArchives(archives) {
     new Set(archives.map(item => item.id)).size === archives.length
 }
 
+function validPaymentPlans(plans) {
+  return Array.isArray(plans) && plans.length <= 20 && plans.every(plan =>
+    isObject(plan) && Object.keys(plan).every(key => ['id', 'model', 'quarter', 'reference', 'requestedDate', 'firstDate', 'count', 'principalCents', 'status', 'attachment'].includes(key)) &&
+    typeof plan.id === 'string' && /^[\w-]{1,64}$/.test(plan.id) && /^\d{3}$/.test(plan.model) &&
+    [1,2,3,4].includes(plan.quarter) && typeof plan.reference === 'string' && plan.reference.length <= 120 &&
+    validDate(plan.requestedDate) && validDate(plan.firstDate) && Number.isInteger(plan.count) && plan.count > 0 && plan.count <= 60 &&
+    validAmount(plan.principalCents) && plan.principalCents > 0 && ['requested', 'approved'].includes(plan.status) && validAttachment(plan.attachment)) &&
+    new Set(plans.map(plan => plan.id)).size === plans.length
+}
+
 async function validWorkspace(data) {
   const { validPortalChecks } = await import('../src/lib/gestoria-portal.mjs')
   const { validInboxItem } = await import('../src/lib/gestoria-inbox.mjs')
@@ -151,8 +161,9 @@ async function validWorkspace(data) {
     new Set(data.entries.map(entry => entry.id)).size === data.entries.length &&
     Object.entries(data.records).every(([key, record]) =>
       /^(independent|blackthorn):20(25|26|27)$/.test(key) && isObject(record) &&
-      Object.keys(record).every(field => ['tasks', 'filings', 'notices', 'filingDetails', 'portalChecks', 'irpf', 'archives'].includes(field)) &&
+      Object.keys(record).every(field => ['tasks', 'filings', 'notices', 'filingDetails', 'portalChecks', 'irpf', 'archives', 'paymentPlans'].includes(field)) &&
       (record.archives === undefined || validArchives(record.archives)) &&
+      (record.paymentPlans === undefined || validPaymentPlans(record.paymentPlans)) &&
       (record.filingDetails === undefined || validFilingDetails(record.filingDetails)) &&
       (record.irpf === undefined || validIrpfSettings(record.irpf)) &&
       (record.portalChecks === undefined || validPortalChecks(record.portalChecks)) &&
