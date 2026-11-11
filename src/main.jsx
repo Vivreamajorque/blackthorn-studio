@@ -88,6 +88,7 @@ function App() {
     <p className="eyebrow">Mon espace privé</p>
     <h1>Mi Gestoría</h1>
     <p>Retrouve tes échéances, ton activité et le dossier Blackthorn Tattoo.</p>
+    <p>Sur cet appareil personnel, ta connexion est conservée 90 jours et renouvelée quand tu utilises l’outil. Sur un appareil partagé, pense à te déconnecter.</p>
     <form onSubmit={submit}>
       {!token && <label>Ton adresse e-mail
         <input type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} />

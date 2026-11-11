@@ -1,5 +1,5 @@
 const { createHash, randomBytes, timingSafeEqual } = require('node:crypto')
-const { appOrigin, allowedRequest, session } = require('../server/session.cjs')
+const { appOrigin, allowedRequest, session, renewSession } = require('../server/session.cjs')
 const { readVersionedBlob } = require('../server/private-blob.cjs')
 
 const path = 'mi-gestoria/personal/v1/access.json'
@@ -110,6 +110,7 @@ async function signIn(req, res, token) {
   }
   const user = await session(req, res)
   user.role = 'owner'
+  user.renewedAt = Date.now()
   await user.save()
   return res.status(200).json({ connected: true })
 }
@@ -120,6 +121,7 @@ module.exports = async function handler(req, res) {
     if (!allowedRequest(req)) return res.status(403).json({ error: 'Origine non autorisée' })
     if (req.method === 'GET') {
       const user = await session(req, res)
+      await renewSession(user)
       return res.status(200).json({ connected: user.role === 'owner' })
     }
     if (req.method === 'DELETE') {
