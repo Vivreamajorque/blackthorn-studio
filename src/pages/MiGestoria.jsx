@@ -21,12 +21,12 @@ const ENTITIES = [
 
 const sections = [
   ['overview', 'Aujourd’hui', 'M3 12l9-8 9 8v8h-6v-6H9v6H3z'],
-  ['finance', 'Compta', 'M4 4h16v16H4zM4 9h16M9 9v11m4-7h4m-4 3h4'],
-  ['payments', 'Prévisions', 'M4 4v16h16M7 15l4-5 3 2 6-7'],
-  ['tasks', 'Démarches', 'M7 4h10l3 3v13H7zM10 10h7m-7 4h7m-7 3h5'],
+  ['finance', 'Factures & dépenses', 'M4 4h16v16H4zM4 9h16M9 9v11m4-7h4m-4 3h4'],
+  ['payments', 'À prévoir', 'M4 4v16h16M7 15l4-5 3 2 6-7'],
+  ['tasks', 'Déclarations & suivi', 'M7 4h10l3 3v13H7zM10 10h7m-7 4h7m-7 3h5'],
   ['inbox', 'Pièces à trier', 'M3 12l3-6h12l3 6v7H3zM3 12h5l2 3h4l2-3h5'],
   ['archives', 'Archives', 'M3 7h18v4H3zM5 11v9h14v-9m-9 4h4'],
-  ['guide', 'Courriers', 'M4 6h16v12H4zM4 7l8 6 8-6'],
+  ['guide', 'Courriers à traiter', 'M4 6h16v12H4zM4 7l8 6 8-6'],
   ['portals', 'Portails officiels', 'M5 20h14M7 20V9m5 11V9m5 11V9M3 8l9-4 9 4z'],
 ]
 const pageCopy = {
@@ -325,7 +325,7 @@ export default function MiGestoria() {
     </header>}
     {tab === 'overview' && loadState === 'ready' && <GestoriaDashboard
       year={year} dossiers={dossiers} personalStart={personalStart} entries={data.entries} studio={studio} onOpen={openDossier}
-      irpf={data.irpf?.[year]} canSave={canSave}
+      irpf={data.irpf?.[year]} canSave={canSave} selectedActivity={entity} onActivity={setEntity} inboxCount={data.inbox?.length || 0}
       onIrpf={saveIrpf} />}
     {loadState === 'loading' && <p role="status">Chargement de ton dossier privé…</p>}
     {loadState === 'error' && <div role="alert">

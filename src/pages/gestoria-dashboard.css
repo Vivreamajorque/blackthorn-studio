@@ -381,3 +381,34 @@
 .mg-inbox-item > summary { cursor: pointer; overflow-wrap: anywhere; }
 .mg-inbox-item > summary span { display: inline-block; font-size: .85rem; margin-inline-start: .65rem; color: var(--mg-muted); }
 .mg-inbox-body { padding: .75rem 0; }
+
+/* Guided daily workflow, with the same activity selection across pages. */
+.mg-action-plan h2 { margin: 5px 0; font-size: clamp(1.35rem, 3vw, 1.8rem); }
+.mg-action-list { list-style: none; margin: 22px 0 12px; padding: 0; display: grid; gap: 0; }
+.mg-action-list li { display: grid; grid-template-columns: 38px minmax(0,1fr) auto; align-items: start; gap: 18px; padding: 22px 0; border-top: 1px solid var(--mg-line); }
+.mg-step-number { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: #203e36; color: white; font-weight: 750; }
+.mg-action-list h3 { margin: 7px 0; font-size: 1rem; }
+.mg-action-list p { margin: 0 0 12px; color: var(--mg-muted); line-height: 1.6; max-width: 70ch; }
+.mg-action-list button { align-self: center; }
+.mg-entity-label { color: #30594b; font-size: .72rem; font-weight: 750; text-transform: uppercase; letter-spacing: .05em; }
+.mg-entity-label.blackthorn { color: #92542d; }
+.mg-quick-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; }
+.mg-quick-actions button { display: grid; gap: 10px; text-align: left; padding: 22px; border: 1px solid var(--mg-line); border-radius: 17px; background: #fff; color: var(--mg-ink); }
+.mg-quick-actions button:hover { background: #f1f6f1; border-color: #537b69; }
+.mg-quick-actions span { font-weight: 400; font-size: .85rem; line-height: 1.6; color: var(--mg-muted); }
+.mg-help-strip { background: #fff8e9; border-color: #ead6ab; }
+.mg-help-strip p { line-height: 1.6; }
+.mg-plain-guide summary { cursor: pointer; font-weight: 650; line-height: 1.6; }
+.mg-plain-guide p { line-height: 1.7; color: var(--mg-muted); }
+.mg-glossary { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px 30px; padding-top: 20px; }
+.mg-glossary h3 { margin-bottom: 4px; font-size: 1rem; }
+.mg-main-nav button:focus-visible,.mg-quick-actions button:focus-visible,.mg-action-list button:focus-visible { outline: 3px solid #b7783a; outline-offset: 3px; }
+@media (min-width: 1400px) { .mg-shell { width: min(1380px,calc(100% - 80px)); } }
+@media (max-width: 760px) {
+  .mg-quick-actions,.mg-glossary { grid-template-columns: 1fr; }
+  .mg-action-list li { grid-template-columns: 30px minmax(0,1fr); gap: 12px; }
+  .mg-step-number { width: 30px; height: 30px; }
+  .mg-action-list li > button { grid-column: 2; justify-self: start; }
+  .mg-main-nav { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; padding-bottom: 8px; }
+  .mg-main-nav button { flex-shrink: 0; min-height: 44px; }
+}

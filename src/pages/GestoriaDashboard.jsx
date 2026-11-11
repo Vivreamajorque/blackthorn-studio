@@ -116,10 +116,9 @@ function MonthlyChart({ ledger, activity, startMonth }) {
   </>
 }
 
-export default function GestoriaDashboard({ year, dossiers, personalStart, entries, studio, onOpen, irpf, canSave, onIrpf }) {
+export default function GestoriaDashboard({ year, dossiers, personalStart, entries, studio, onOpen, irpf, canSave, onIrpf, selectedActivity, onActivity, inboxCount = 0 }) {
   const [showDetails, setShowDetails] = useState(false)
   const [horizon, setHorizon] = useState(90)
-  const [selectedActivity, setActivity] = useState('independent')
   const [quarters, setQuarters] = useState({})
   const personal = dossiers.find(dossier => dossier.id === 'independent')
   const selected = dossiers.find(dossier => dossier.id === selectedActivity) || dossiers[0]
@@ -169,12 +168,17 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
     (!personalStart || row.date >= personalStart) && Math.ceil(Number(row.date.slice(5, 7)) / 3) === quarter
   ).length
 
+  const firstActions = [...priorities, ...upcoming.filter(item => item.days <= 30)]
+    .filter((item, index, all) => all.findIndex(other => other.key === item.key) === index).slice(0, 4)
+  const expenseChecks = activityEntries.filter(row => row.kind === 'expense' && row.date?.startsWith(year + '-') &&
+    (row.taxAmountCents == null || !row.vat || row.taxReview)).length
+
   return <div className="mg-dashboard">
     <section className="mg-hero" aria-labelledby="mg-home-title">
       <div>
         <p className="mg-eyebrow"><span /> {longDate.format(new Date(today)).toUpperCase()} · EXERCICE {year}</p>
-        <h1 id="mg-home-title">Mon trimestre</h1>
-        <p className="mg-hero-description">{'Tes recettes, tes dépenses et les échéances Hacienda.'}</p>
+        <h1 id="mg-home-title">Tout est plus clair,<br />une étape à la fois.</h1>
+        <p className="mg-hero-description">{'Tes deux activités, tes prochaines actions et l’argent à prévoir. Tu n’as pas besoin de tout faire aujourd’hui.'}</p>
       </div>
       <div className="mg-hero-next">
         <span className="mg-hero-label">PAR QUOI COMMENCER</span>
@@ -184,10 +188,27 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
       </div>
     </section>
 
+    <section className="mg-panel mg-action-plan" aria-labelledby="mg-plan-title">
+      <div className="mg-panel-heading"><div><p className="mg-section-label">TES DEUX ACTIVITÉS · {year}</p>
+        <h2 id="mg-plan-title">À faire dans cet ordre</h2></div><span className="mg-tag calm">Pas à pas</span></div>
+      <p className="mg-muted">Les délais proches et les points anciens à vérifier passent en premier. « À vérifier » ne veut pas dire que tu es forcément en retard.</p>
+      {firstActions.length ? <ol className="mg-action-list">{firstActions.map((item, index) => <li key={item.key}>
+        <span className="mg-step-number" aria-hidden="true">{index + 1}</span>
+        <div><span className={'mg-entity-label ' + item.entity}>{item.entityName}</span><h3>{item.title}</h3>
+          <p>{item.reviewOnly ? 'On ne dispose pas encore d’une confirmation. Vérifie si cette déclaration te concerne et joins le reçu si tu l’as déjà déposée.' :
+            item.kind === 'notice' ? 'Ouvre le courrier, regarde ce qui est demandé et conserve la preuve de ta réponse.' :
+            item.kind === 'contribution' ? 'Compare ce montant avec Importass et ton compte bancaire avant de confirmer le paiement.' :
+            'Ouvre le suivi pour vérifier les pièces, préparer les informations et enregistrer le justificatif.'}</p>
+          <span className={'mg-tag ' + deadlineTone(item)}>{deadlineLabel(item)}{item.date && ' · ' + formatDate(item.date)}</span>
+        </div><button type="button" onClick={() => onOpen(item.entity, item.tab, item.model)}>Je m’en occupe →</button>
+      </li>)}</ol> : <p className="mg-empty">Aucune action urgente détectée dans les informations enregistrées. Tu peux compléter tes pièces ci-dessous.</p>}
+      <p className="mg-muted">Ce suivi utilise les pièces enregistrées. Il ne confirme pas automatiquement ta situation auprès des administrations.</p>
+    </section>
+
     <section className="mg-panel mg-dashboard-filter">
       <div><p className="mg-section-label">DOSSIER AFFICHÉ</p><h2>{selected.name}</h2></div>
       <div className="mg-switch" role="group" aria-label="Choisir l’activité du tableau de bord">
-        {dossiers.map(({ id, name }) => <button type="button" key={id} aria-pressed={id === activity} onClick={() => setActivity(id)}>{name}</button>)}
+        {dossiers.map(({ id, name }) => <button type="button" key={id} aria-pressed={id === activity} onClick={() => onActivity(id)}>{name}</button>)}
       </div>
     </section>
     <section className="mg-panel mg-dashboard-filter" aria-label="Trimestre affiché">
@@ -198,6 +219,24 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
       </div>
     </section>
 
+    <section className="mg-quick-actions" aria-label="Actions courantes du dossier">
+      <button type="button" onClick={() => onOpen(activity, 'finance')}><strong>1 · Ajouter mes factures et dépenses</strong><span>Dépose la pièce, vérifie les informations proposées.</span></button>
+      <button type="button" onClick={() => onOpen(activity, 'finance')}><strong>2 · Pointer les paiements</strong><span>Indique ce qui est payé et la date du paiement.</span></button>
+      <button type="button" onClick={() => onOpen(activity, 'tasks')}><strong>3 · Préparer mes déclarations</strong><span>Retrouve les montants, puis joins le reçu de dépôt.</span></button>
+    </section>
+    {(expenseChecks > 0 || activity === 'blackthorn' && inboxCount > 0) && <aside className="mg-panel mg-help-strip">
+      <strong>Pour rendre tes estimations plus précises</strong>
+      <p>{expenseChecks > 0 && `${expenseChecks} dépense(s) ont encore un traitement fiscal à vérifier. `}
+      {activity === 'blackthorn' && inboxCount > 0 && `${inboxCount} pièce(s) attendent dans la boîte de réception du studio.`}</p>
+      <button type="button" onClick={() => onOpen(activity, activity === 'blackthorn' && inboxCount > 0 ? 'inbox' : 'finance')}>Compléter mon dossier →</button>
+    </aside>}
+    <details className="mg-panel mg-plain-guide"><summary>Je découvre la compta espagnole : comment lire ces chiffres ?</summary>
+      <div className="mg-glossary"><article><h3>Ce que je gagne</h3><p>Le chiffre d’affaires correspond aux ventes ou prestations. Ce n’est pas ce qu’il te reste après les charges et les impôts.</p></article>
+      <article><h3>TVA / IVA · Modelo 303</h3><p>La TVA facturée aux clients et la TVA récupérable sur les dépenses sont suivies séparément. Un crédit de TVA ne signifie pas qu’un remboursement immédiat est prévu.</p></article>
+      <article><h3>Impôt sur le revenu / IRPF · Modelo 130</h3><p>C’est un acompte sur ton impôt annuel. Le montant final sera calculé dans la Renta avec l’ensemble des revenus et ta situation familiale.</p></article>
+      <article><h3>Sécurité sociale / RETA</h3><p>Ce sont les cotisations d’autónomo, suivies mois par mois. Un montant prévu doit encore être comparé au prélèvement réel.</p></article></div>
+      <p><strong>Estimation</strong> : calcul qui évolue avec les pièces. <strong>Déposée</strong> : déclaration enregistrée avec son justificatif. <strong>Payée</strong> : paiement confirmé séparément.</p>
+    </details>
     <section className="mg-start-grid mg-quarter-grid" aria-label="Chiffres du trimestre">
       <article className="mg-start-card mg-start-estimate">
         <span className="mg-section-label">{ledgers[activity].income.toUpperCase()}</span>
