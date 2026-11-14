@@ -200,7 +200,8 @@ export default function MiGestoria() {
   const completed = tasks.filter(task => isComplete(task.status)).length
   const fileBase = 'mi-gestoria-' + entity + '-' + year
 
-  function openDossier(nextEntity, nextTab, model = 'all', declarationsOnly = false) {
+  function openDossier(nextEntity, nextTab, model = 'all', declarationsOnly = false, taxYear) {
+    if (taxYear && YEARS.includes(taxYear)) setYear(taxYear)
     setQuickAction(null)
     setEntity(nextEntity)
     setTab(nextTab)

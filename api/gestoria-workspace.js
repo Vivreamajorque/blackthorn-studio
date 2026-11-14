@@ -142,11 +142,17 @@ function validArchives(archives) {
 
 function validPaymentPlans(plans) {
   return Array.isArray(plans) && plans.length <= 20 && plans.every(plan =>
-    isObject(plan) && Object.keys(plan).every(key => ['id', 'model', 'quarter', 'reference', 'requestedDate', 'firstDate', 'count', 'principalCents', 'status', 'attachment'].includes(key)) &&
+    isObject(plan) && Object.keys(plan).every(key => ['id', 'model', 'quarter', 'reference', 'requestedDate', 'firstDate', 'count', 'principalCents', 'status', 'attachment', 'agreementReference', 'approvedDate', 'schedule'].includes(key)) &&
     typeof plan.id === 'string' && /^[\w-]{1,64}$/.test(plan.id) && /^\d{3}$/.test(plan.model) &&
     [1,2,3,4].includes(plan.quarter) && typeof plan.reference === 'string' && plan.reference.length <= 120 &&
     validDate(plan.requestedDate) && validDate(plan.firstDate) && Number.isInteger(plan.count) && plan.count > 0 && plan.count <= 60 &&
-    validAmount(plan.principalCents) && plan.principalCents > 0 && ['requested', 'approved'].includes(plan.status) && validAttachment(plan.attachment)) &&
+    validAmount(plan.principalCents) && plan.principalCents > 0 && ['requested', 'approved'].includes(plan.status) && validAttachment(plan.attachment) &&
+    (plan.agreementReference === undefined || typeof plan.agreementReference === 'string' && plan.agreementReference.length <= 120) &&
+    (plan.approvedDate === undefined || validDate(plan.approvedDate)) &&
+    (plan.schedule === undefined || Array.isArray(plan.schedule) && plan.schedule.length === plan.count && plan.schedule.every(item =>
+      isObject(item) && Object.keys(item).every(key => ['date', 'principalCents', 'interestCents', 'amountCents'].includes(key)) && validDate(item.date) &&
+      [item.principalCents, item.interestCents, item.amountCents].every(value => validAmount(value) && value >= 0) &&
+      item.amountCents === item.principalCents + item.interestCents) && plan.schedule.reduce((sum, item) => sum + item.principalCents, 0) === plan.principalCents)) &&
     new Set(plans.map(plan => plan.id)).size === plans.length
 }
 

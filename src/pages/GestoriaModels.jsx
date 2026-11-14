@@ -139,9 +139,10 @@ export function GestoriaPayments({ year, dossier, data, onOpen, studio }) {
     return { ...row, amount, caption }
   }).filter(row => row.status !== 'filed' || row.model !== 'RETA')
     .sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'))
+  const paymentPlans = Object.entries(data.records).filter(([key]) => key.startsWith(id + ':')).flatMap(([key, record]) => (record.paymentPlans || []).map(plan => ({ ...plan, taxYear: Number(key.slice(-4)) })))
   const debts = notices.filter(item => item.kind === 'debt' && !item.done)
   return <>
-    <GestoriaCalendar key={id + ':' + year} year={year} dossier={dossier} rows={rows} ledger={ledger} settings={settings} today={today} onOpen={onOpen} />
+    <GestoriaCalendar key={id + ':' + year} year={year} dossier={{ ...dossier, record: { ...dossier.record, paymentPlans } }} rows={rows} ledger={ledger} settings={settings} today={today} onOpen={onOpen} />
     <details className="mg-panel" style={{ marginTop: 16 }}><summary>Voir le tableau détaillé des montants et de leur origine</summary>
     <section className="mg-panel">
       <div className="mg-panel-heading"><div><p className="mg-section-label">TRÉSORERIE</p><h2>Ce que je dois prévoir</h2></div></div>
