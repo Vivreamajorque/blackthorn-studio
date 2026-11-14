@@ -30,7 +30,7 @@ function FilingDate({ row, onOpen }) {
   </button>
 }
 
-export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, settings, today, contributions, studio, canSave, onSave, onOpen }) {
+export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, settings, today, contributions, studio, canSave, onSave, onOpen, compact = false }) {
   const { id, name, startDate, filings } = dossier
   const fiscalEntries = [...entries, ...contributions.confirmedRows]
   const scenario = studioEstimateEntries(fiscalEntries, studio?.data?.receipts, { year, startDate, today })
@@ -102,6 +102,12 @@ export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, 
   const notEntered = filings.filter(row => ['130', '303'].includes(row.model) && row.status === 'filed' &&
     row.evidence?.amountCents == null && (row.model !== '130' || !settings?.filed?.[row.quarter]))
   const registered130 = filings.some(row => row.model === '130' && row.status !== 'not_applicable')
+  if (compact) return <article className="mg-start-card mg-clean-tax">
+    <span className="mg-section-label">IMPÔTS DU TRIMESTRE · 130 + 303</span>
+    <strong>{knownTaxAmounts.length ? money(reserve) : 'À compléter'}</strong>
+    <p>{knownTaxAmounts.length < taxAmounts.length || unqualified.length > 0 || assumptions.length > 0 ? 'Estimation partielle · pièces à vérifier' : 'Déclarés ou estimés · paiements confirmés déduits'}</p>
+    <small>Hors cotisations et autres modèles. Un échelonnement peut répartir ce montant.</small>
+  </article>
   return <>
     <section className="mg-panel" aria-labelledby="mg-quarterly-tax">
       <div className="mg-panel-heading"><div><p className="mg-section-label">{name.toUpperCase()}</p>

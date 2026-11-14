@@ -118,6 +118,7 @@ function MonthlyChart({ ledger, activity, startMonth }) {
 
 export default function GestoriaDashboard({ year, dossiers, personalStart, entries, studio, onOpen, irpf, canSave, onIrpf, selectedActivity, onActivity, inboxCount = 0, onQuickAction }) {
   const [showDetails, setShowDetails] = useState(false)
+  const [showCalculations, setShowCalculations] = useState(false)
   const [horizon, setHorizon] = useState(90)
   const [quarters, setQuarters] = useState({})
   const personal = dossiers.find(dossier => dossier.id === 'independent')
@@ -173,48 +174,17 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
   const expenseChecks = activityEntries.filter(row => row.kind === 'expense' && row.date?.startsWith(year + '-') &&
     (row.taxAmountCents == null || !row.vat || row.taxReview)).length
 
-  return <div className="mg-dashboard">
-    <section className="mg-hero" aria-labelledby="mg-home-title">
-      <div>
-        <p className="mg-eyebrow"><span /> {longDate.format(new Date(today)).toUpperCase()} · EXERCICE {year}</p>
-        <h1 id="mg-home-title">Mon activité, en un coup d’œil.</h1>
-        <p className="mg-hero-description">{selected.name + ' · T' + quarter + ' ' + year + ' · ' + quarterLabels[quarter - 1]}</p>
-      </div>
-      <div className="mg-hero-next">
-        <span className="mg-hero-label">PROCHAINE ACTION</span>
-        <strong>{action.title}</strong>
-        <span>{action.note}</span>
-        <button type="button" onClick={() => onOpen(focus.id, action.tab, action.model)}>Ouvrir mon suivi <span aria-hidden="true">→</span></button>
-      </div>
+  return <div className="mg-dashboard mg-clean-dashboard">
+    <header className="mg-clean-heading"><div><p className="mg-section-label">MON ESPACE DE GESTION</p><h1>Mon trimestre</h1></div><span>{quarterLabels[quarter - 1]} {year}</span></header>
+    <section className="mg-clean-context" aria-label="Activité et trimestre affichés">
+      <div className="mg-switch" role="group" aria-label="Choisir l’activité">{dossiers.map(({id,name}) => <button type="button" key={id} aria-pressed={id === activity} onClick={() => onActivity(id)}>{name}</button>)}</div>
+      <div className="mg-switch" role="group" aria-label="Choisir le trimestre">{quarterLabels.map((label,index) => <button type="button" key={label} aria-label={'T' + (index + 1) + ' · ' + label} aria-pressed={quarter === index + 1} onClick={() => setQuarters(previous => ({...previous,[year]:index+1}))}>T{index+1}</button>)}</div>
     </section>
-
-    <section className="mg-panel mg-dashboard-filter">
-      <div><p className="mg-section-label">DOSSIER AFFICHÉ</p><h2>{selected.name}</h2></div>
-      <div className="mg-switch" role="group" aria-label="Choisir l’activité du tableau de bord">
-        {dossiers.map(({ id, name }) => <button type="button" key={id} aria-pressed={id === activity} onClick={() => onActivity(id)}>{name}</button>)}
-      </div>
-    </section>
-    <section className="mg-panel mg-dashboard-filter" aria-label="Trimestre affiché">
-      <div><p className="mg-section-label">T{quarter} · {year}</p><h2>{quarterLabels[quarter - 1]}</h2></div>
-      <div className="mg-switch" role="group" aria-label="Choisir le trimestre">
-        {quarterLabels.map((label, index) => <button type="button" key={label} aria-label={'T' + (index + 1) + ' · ' + label}
-          aria-pressed={quarter === index + 1} onClick={() => setQuarters(previous => ({ ...previous, [year]: index + 1 }))}>T{index + 1}</button>)}
-      </div>
-    </section>
-
     <section className="mg-fast-bar" aria-label="Actions rapides du dossier">
       {activity === 'independent' && <button type="button" className="mg-primary" onClick={() => onQuickAction(activity, 'create-invoice')}>＋ Créer une facture</button>}
       <button type="button" onClick={() => onQuickAction(activity, 'expense')}>＋ Ajouter une dépense</button>
-      <button type="button" onClick={() => onOpen(activity, 'finance')}>Voir les paiements</button>
       {activity === 'blackthorn' && <button type="button" onClick={() => onOpen(activity, 'inbox')}>Déposer des justificatifs{inboxCount > 0 ? ' (' + inboxCount + ')' : ''}</button>}
-      <span>{selected.name} · {year}</span>
     </section>
-    {(expenseChecks > 0 || activity === 'blackthorn' && inboxCount > 0) && <aside className="mg-panel mg-help-strip">
-      <strong>Pour rendre tes estimations plus précises</strong>
-      <p>{expenseChecks > 0 && `${expenseChecks} dépense(s) ont encore un traitement fiscal à vérifier. `}
-      {activity === 'blackthorn' && inboxCount > 0 && `${inboxCount} pièce(s) attendent dans la boîte de réception du studio.`}</p>
-      <button type="button" onClick={() => onOpen(activity, activity === 'blackthorn' && inboxCount > 0 ? 'inbox' : 'finance')}>Compléter mon dossier →</button>
-    </aside>}
     <section className="mg-start-grid mg-quarter-grid" aria-label="Chiffres du trimestre">
       <article className="mg-start-card mg-start-estimate">
         <span className="mg-section-label">{ledgers[activity].income.toUpperCase()}</span>
@@ -226,9 +196,17 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
         <strong>{money(quarterExpenses + confirmedQuarterExpenses)}</strong>
         <p>Dépenses en euros, cotisations confirmées comprises.</p>
       </article>
-    </section>
-    <GestoriaTaxDashboard key={activity + ':' + year} dossier={selected} year={year} quarter={quarter} entries={activityEntries}
+    <GestoriaTaxDashboard compact key={activity + ':' + year} dossier={selected} year={year} quarter={quarter} entries={activityEntries}
       settings={activityIrpf} today={today} contributions={contributions} studio={activity === 'blackthorn' ? studio : undefined} canSave={canSave} onSave={settings => onIrpf(activity, settings)} onOpen={onOpen} />
+    </section>
+    <section className="mg-clean-next" aria-label="Prochaine action"><div><p className="mg-section-label">PROCHAINE ÉTAPE</p><strong>{action.title}</strong><p>{action.note}</p></div><button type="button" onClick={() => onOpen(focus.id, action.tab, action.model)}>Voir →</button></section>
+    <div className="mg-clean-links"><button type="button" onClick={() => onOpen(activity,'payments')}>Calendrier & prélèvements →</button><button type="button" onClick={() => onOpen(activity,'finance')}>Factures & paiements →</button></div>
+    <details className="mg-clean-detail" onToggle={event => setShowCalculations(event.currentTarget.open)}><summary>Comprendre les montants et vérifier les calculs</summary>
+      {showCalculations && <GestoriaTaxDashboard dossier={selected} year={year} quarter={quarter} entries={activityEntries} settings={activityIrpf} today={today} contributions={contributions} studio={activity === 'blackthorn' ? studio : undefined} canSave={canSave} onSave={settings => onIrpf(activity, settings)} onOpen={onOpen} />}
+    </details>
+    <details className="mg-clean-detail"><summary>Mes points à compléter & mon aide</summary><div className="mg-clean-extra">
+    {(expenseChecks > 0 || activity === 'blackthorn' && inboxCount > 0) && <p className="mg-muted">{expenseChecks} dépense(s) à vérifier{activity === 'blackthorn' && ` · ${inboxCount} pièce(s) à trier`}. <button type="button" onClick={() => onOpen(activity,'finance')}>Compléter le dossier →</button></p>}
+
 
     <details className="mg-panel mg-plain-guide"><summary>Je découvre la compta espagnole : comment lire ces chiffres ?</summary>
       <div className="mg-glossary"><article><h3>Ce que je gagne</h3><p>Le chiffre d’affaires correspond aux ventes ou prestations. Ce n’est pas ce qu’il te reste après les charges et les impôts.</p></article>
@@ -315,5 +293,6 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
 
       </div>}
     </details>
+    </div></details>
   </div>
 }

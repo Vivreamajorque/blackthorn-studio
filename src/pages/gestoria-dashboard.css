@@ -471,3 +471,32 @@
   .mg-calendar-events article { flex-direction:column; gap:12px; }
   .mg-calendar-nav h3 { min-width:0; flex:1; font-size:1.05rem; }
 }
+
+/* Quiet overview: three figures, one next step, detail on demand. */
+.mg-clean-dashboard { gap:20px; }
+.mg-clean-heading { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:8px 0 2px; }
+.mg-clean-heading h1 { margin:7px 0 0; font-size:clamp(1.8rem,3vw,2.45rem); font-weight:550; letter-spacing:-.045em; }
+.mg-clean-heading > span { font-size:.9rem; color:var(--mg-muted); }
+.mg-clean-context { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; }
+.mg-clean-dashboard > .mg-fast-bar { margin:0; }
+.mg-clean-dashboard > .mg-quarter-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+.mg-clean-dashboard .mg-start-card { background:#fff; border:1px solid #e0e7df; padding:26px; box-shadow:none; min-height:180px; }
+.mg-clean-dashboard .mg-start-card > strong { font-size:clamp(1.6rem,2.7vw,2.35rem); letter-spacing:-.05em; }
+.mg-clean-dashboard .mg-start-card p { font-size:.81rem; line-height:1.6; color:var(--mg-muted); margin-bottom:0; }
+.mg-clean-dashboard .mg-start-card small { font-size:.75rem; color:var(--mg-muted); line-height:1.5; }
+.mg-clean-dashboard .mg-clean-tax { background:#eef4ed; border-color:#d8e4d5; }
+.mg-clean-next { display:flex; justify-content:space-between; align-items:center; gap:24px; border:1px solid #e0e7df; background:#fff; border-radius:16px; padding:22px 26px; }
+.mg-clean-next strong { display:block; margin-top:8px; font-size:1.05rem; }
+.mg-clean-next p:not(.mg-section-label) { color:var(--mg-muted); margin:6px 0 0; font-size:.85rem; line-height:1.6; max-width:80ch; }
+.mg-clean-links { display:flex; justify-content:flex-start; gap:24px; flex-wrap:wrap; }
+.mg-clean-links button { background:transparent; border:0; padding:6px 0; color:#305747; font-weight:650; }
+.mg-clean-detail { border-top:1px solid #dce5dd; padding:16px 0 0; }
+.mg-clean-detail > summary { cursor:pointer; color:var(--mg-muted); font-size:.9rem; font-weight:600; padding:4px 0; }
+.mg-clean-detail > .mg-panel,.mg-clean-extra { margin-top:20px; }
+.mg-clean-extra { display:grid; gap:16px; }
+@media(max-width:760px) {
+  .mg-clean-dashboard > .mg-quarter-grid { grid-template-columns:1fr; gap:10px; }
+  .mg-clean-dashboard .mg-start-card { min-height:0; padding:20px; }
+  .mg-clean-heading { align-items:flex-start; flex-direction:column; gap:10px; }
+  .mg-clean-next { padding:20px; gap:14px; }
+}
