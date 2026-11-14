@@ -156,6 +156,17 @@ function validPaymentPlans(plans) {
     new Set(plans.map(plan => plan.id)).size === plans.length
 }
 
+function validSocialReview(value) {
+  return isObject(value) && Object.keys(value).every(key => ['date','paymentMode','nextChargeMonth','lastMonthlyCents','quarterBudgetCents','lastDebtCents','sections'].includes(key)) &&
+    validDate(value.date) && value.paymentMode === 'quarterly' && /^20\d{2}-\d{2}$/.test(value.nextChargeMonth) &&
+    [value.lastMonthlyCents,value.quarterBudgetCents,value.lastDebtCents].every(amount => validAmount(amount) && amount >= 0) &&
+    Array.isArray(value.sections) && value.sections.length <= 12 && value.sections.every(section => isObject(section) &&
+      Object.keys(section).every(key => ['title','items'].includes(key)) && typeof section.title === 'string' && section.title.length <= 160 &&
+      Array.isArray(section.items) && section.items.length <= 20 && section.items.every(item => isObject(item) &&
+        Object.keys(item).every(key => ['label','detail','status'].includes(key)) && typeof item.label === 'string' && item.label.length <= 180 &&
+        typeof item.detail === 'string' && item.detail.length <= 1800 && ['confirmed','reported','pending'].includes(item.status)))
+}
+
 async function validWorkspace(data) {
   const { validPortalChecks } = await import('../src/lib/gestoria-portal.mjs')
   const { validInboxItem } = await import('../src/lib/gestoria-inbox.mjs')
@@ -167,9 +178,10 @@ async function validWorkspace(data) {
     new Set(data.entries.map(entry => entry.id)).size === data.entries.length &&
     Object.entries(data.records).every(([key, record]) =>
       /^(independent|blackthorn):20(25|26|27)$/.test(key) && isObject(record) &&
-      Object.keys(record).every(field => ['tasks', 'filings', 'notices', 'filingDetails', 'portalChecks', 'irpf', 'archives', 'paymentPlans'].includes(field)) &&
+      Object.keys(record).every(field => ['tasks', 'filings', 'notices', 'filingDetails', 'portalChecks', 'irpf', 'archives', 'paymentPlans', 'socialReview'].includes(field)) &&
       (record.archives === undefined || validArchives(record.archives)) &&
       (record.paymentPlans === undefined || validPaymentPlans(record.paymentPlans)) &&
+      (record.socialReview === undefined || validSocialReview(record.socialReview)) &&
       (record.filingDetails === undefined || validFilingDetails(record.filingDetails)) &&
       (record.irpf === undefined || validIrpfSettings(record.irpf)) &&
       (record.portalChecks === undefined || validPortalChecks(record.portalChecks)) &&

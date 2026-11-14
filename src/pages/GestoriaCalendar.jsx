@@ -23,7 +23,7 @@ export default function GestoriaCalendar({ year, dossier, rows, ledger, settings
     title: 'Échelonnement ' + plan.model + ' · T' + plan.quarter + ' ' + (plan.taxYear || year) + ' · mensualité ' + (index + 1) + '/' + plan.count,
     date: term.date, amount: term.amountCents, status: plan.status === 'approved' ? 'to_prepare' : 'unknown', tentative: plan.status !== 'approved',
     caption: plan.status === 'approved' ? 'Prélèvement prévu par l’accord · intérêts inclus · paiement à confirmer après débit' : 'Date demandée · montant indicatif hors intérêts · accord à joindre' })))
-  const events = [...dossier.filings.filter(row => row.status !== 'not_applicable').map(row => {
+  const events = [...dossier.filings.filter(row => row.status !== 'not_applicable' && !(dossier.record?.socialReview?.paymentMode === 'quarterly' && row.model === 'RETA' && row.date >= today && row.status !== 'filed')).map(row => {
     const forecast = rows.find(item => item.key === row.key)
     const scheduled = paymentPlans.some(plan => plan.status === 'approved' && plan.model === row.model && plan.quarter === row.quarter && (!plan.taxYear || plan.taxYear === year))
     return forecast ? { ...forecast, scheduled } : { ...row, scheduled, amount: row.evidence?.amountCents, caption: row.status === 'filed' ? 'Dépôt enregistré' : 'Applicabilité et montant à vérifier' }

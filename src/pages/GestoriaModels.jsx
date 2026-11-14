@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import GestoriaCalendar from './GestoriaCalendar'
+import GestoriaSocialReview from './GestoriaSocialReview'
 import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
 import { forecastPayments, irpfForecast } from '../lib/gestoria-irpf.mjs'
 import { contributionInputs, studioEstimateEntries, withTaxProjections } from '../lib/gestoria-quarter-estimates.mjs'
@@ -139,10 +140,12 @@ export function GestoriaPayments({ year, dossier, data, onOpen, studio }) {
     return { ...row, amount, caption }
   }).filter(row => row.status !== 'filed' || row.model !== 'RETA')
     .sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'))
+  const socialReview = Object.entries(data.records).filter(([key, record]) => key.startsWith(id + ':') && record.socialReview).map(([,record]) => record.socialReview).sort((a,b) => b.date.localeCompare(a.date))[0]
   const paymentPlans = Object.entries(data.records).filter(([key]) => key.startsWith(id + ':')).flatMap(([key, record]) => (record.paymentPlans || []).map(plan => ({ ...plan, taxYear: Number(key.slice(-4)) })))
   const debts = notices.filter(item => item.kind === 'debt' && !item.done)
   return <>
-    <GestoriaCalendar key={id + ':' + year} year={year} dossier={{ ...dossier, record: { ...dossier.record, paymentPlans } }} rows={rows} ledger={ledger} settings={settings} today={today} onOpen={onOpen} />
+    <GestoriaSocialReview review={socialReview} onOpen={onOpen} entity={id} />
+    <GestoriaCalendar key={id + ':' + year} year={year} dossier={{ ...dossier, record: { ...dossier.record, paymentPlans, socialReview } }} rows={rows} ledger={ledger} settings={settings} today={today} onOpen={onOpen} />
     <details className="mg-panel" style={{ marginTop: 16 }}><summary>Voir le tableau détaillé des montants et de leur origine</summary>
     <section className="mg-panel">
       <div className="mg-panel-heading"><div><p className="mg-section-label">TRÉSORERIE</p><h2>Ce que je dois prévoir</h2></div></div>
