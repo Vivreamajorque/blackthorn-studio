@@ -92,8 +92,12 @@ function cleanCrm(data) {
     nom: str(e.nom, 120), activite: str(e.activite, 160), nif: str(e.nif, 40), adresse: str(e.adresse, 400),
     email: str(e.email, 160), iban: str(e.iban, 60), serie: str(e.serie, 12).replace(/[^\w]/g, '') || 'A',
   }
+  const objectifs = {}
+  for (const [year, value] of Object.entries(d.objectifs && typeof d.objectifs === 'object' ? d.objectifs : {})) {
+    if (/^20\d{2}$/.test(year) && cents(value) > 0) objectifs[year] = cents(value)
+  }
   return {
-    version: 1, emetteur, clients, projets, liens, factures, journal,
+    version: 1, emetteur, objectifs, clients, projets, liens, factures, journal,
     prospects: (Array.isArray(d.prospects) ? d.prospects : []).slice(0, 600).map(cleanProspect),
   }
 }
@@ -107,6 +111,7 @@ function seedCrm() {
   const miriam = c('Miriam · Symphōnie d’essences', { type: 'particulier', canal: 'Réseau' })
   const p = (client, nom, extra) => cleanProject({ clientId: client.id, nom, ...extra })
   return cleanCrm({
+    objectifs: { 2027: 20000000 },
     emetteur: { nom: 'Amely Attias', activite: 'Consultante en organisation et communication', email: 'amely.attias@gmail.com' },
     clients: [decathlon, livementor, nisha, miriam],
     projets: [

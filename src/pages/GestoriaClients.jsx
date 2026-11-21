@@ -475,7 +475,7 @@ export default function GestoriaClients({ crm, entries, saveCrm, saveWorkspace, 
 
   return <>
     <div className="mgc-hero">
-      <div><div className="mgc-eyebrow">Ton atelier · Amely</div><h1>Tes projets, en bonne compagnie.</h1><p>Un endroit pour suivre, partager, facturer et avancer ensemble.</p></div>
+      <div><div className="mgc-eyebrow">Tes clients · Amely</div><h1>Tes projets, en bonne compagnie.</h1><p>Un endroit pour suivre, partager, facturer et avancer ensemble.</p></div>
       <div className="mgc-row">
         <button disabled={!canSave} onClick={() => setEditEmetteur(true)}>Mes infos de facturation</button>
         <button disabled={!canSave} onClick={() => setNewClient({ nom: '', statut: 'actif', type: 'entreprise', pays: 'Espagne' })}>+ Nouveau client</button>

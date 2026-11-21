@@ -78,11 +78,11 @@ function App() {
     }
   }
 
-  if (status === 'loading') return <main className="login"><p role="status">Chargement de l’Atelier…</p></main>
+  if (status === 'loading') return <main className="login"><p role="status">Chargement du QG…</p></main>
   if (status === 'connected' && connectRequest) return <GestoriaConnect request={connectRequest} onDone={() => setConnectRequest(null)} />
   if (status === 'connected') return <>
     <header className="app-header">
-      <strong className="app-brand"><span aria-hidden="true">a.</span> Atelier Amely</strong>
+      <strong className="app-brand"><span aria-hidden="true">QG</span> Le QG</strong>
       <button onClick={logout} disabled={busy}>Se déconnecter</button>
     </header>
     {feedback && <p className="auth-feedback" role="alert">{feedback.text}</p>}
@@ -91,8 +91,8 @@ function App() {
 
   return <main className="login">
     <p className="eyebrow">Mon espace privé</p>
-    <h1>Atelier Amely</h1>
-    <p>Tes clients, ta prospection et ta compta Mi Gestoría (avec le dossier Blackthorn Tattoo), au même endroit.</p>
+    <h1>Le QG</h1>
+    <p>Ton pilotage, tes clients, ta prospection et ta compta (avec le dossier Blackthorn Tattoo), au même endroit.</p>
     <p>Sur cet appareil personnel, ta connexion est conservée 90 jours et renouvelée quand tu utilises l’outil. Sur un appareil partagé, pense à te déconnecter.</p>
     <form onSubmit={submit}>
       {!token && <label>Ton adresse e-mail
