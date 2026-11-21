@@ -118,13 +118,10 @@ function App() {
       </label>
       <button disabled={busy || pin.length < 4}>Entrer avec mon code</button>
     </form>}
-    <form onSubmit={submit}>
-      {!token && <label>Ton adresse e-mail
-        <input type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} />
-      </label>}
-      <button disabled={busy}>{token ? 'Ouvrir mon dossier' : 'Recevoir mon lien de connexion'}</button>
-      {token && <button type="button" onClick={() => { setToken(null); setFeedback(null) }}>Demander un autre lien</button>}
-    </form>
+    {token && <form onSubmit={submit}>
+      <button disabled={busy}>Ouvrir mon dossier</button>
+      <button type="button" onClick={() => { setToken(null); setFeedback(null) }}>Utiliser mon code</button>
+    </form>}
     {feedback && <p role={feedback.error ? 'alert' : 'status'}>{feedback.text}</p>}
   </main>
 }
