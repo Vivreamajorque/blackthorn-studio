@@ -23,9 +23,9 @@ const ENTITIES = [
 ]
 
 const sections = [
-  ['overview', 'Aujourd’hui', 'M3 12l9-8 9 8v8h-6v-6H9v6H3z'],
   ['clients', 'Clients', 'M8 11a4 4 0 100-8 4 4 0 000 8zM2 21v-1a6 6 0 0112 0v1M16 3.5a4 4 0 010 7M22 21v-1a6 6 0 00-4-5.6'],
   ['prospection', 'Prospection', 'M3 4h18l-7 8v6l-4 2v-8z'],
+  ['overview', 'Aujourd’hui', 'M3 12l9-8 9 8v8h-6v-6H9v6H3z'],
   ['finance', 'Factures & dépenses', 'M4 4h16v16H4zM4 9h16M9 9v11m4-7h4m-4 3h4'],
   ['payments', 'À prévoir', 'M4 4v16h16M7 15l4-5 3 2 6-7'],
   ['tasks', 'Déclarations & suivi', 'M7 4h10l3 3v13H7zM10 10h7m-7 4h7m-7 3h5'],
@@ -169,7 +169,7 @@ export default function MiGestoria() {
   const [selectedEntity, setEntity] = useState('independent')
   const [year, setYear] = useState(() => Math.min(2027, Math.max(2025, Number(todayInSpain().slice(0, 4)))))
   const [capture, setCapture] = useState(readPortalCapture)
-  const [tab, setTab] = useState(() => capture ? 'portals' : 'overview')
+  const [tab, setTab] = useState(() => capture ? 'portals' : 'clients')
   useEffect(() => {
     function receiveCapture() {
       const incoming = readPortalCapture()
@@ -316,14 +316,16 @@ export default function MiGestoria() {
   return <main className="mg-shell">
     <div className="mg-toolbar">
       <nav className="mg-main-nav" aria-label="Sections de Mi Gestoría">
-        {sections.map(([id, label, icon]) =>
-          <button type="button" key={id} aria-pressed={tab === id} onClick={() => {
+        {sections.map(([id, label, icon]) => <React.Fragment key={id}>
+          {id === 'clients' && <span className="mg-nav-group">Atelier</span>}
+          {id === 'overview' && <span className="mg-nav-group">Compta · Mi Gestoría</span>}
+          <button type="button" aria-pressed={tab === id} onClick={() => {
             setQuickAction(null)
             setClientToOpen(null)
             setTab(id)
             if (id === 'inbox') setEntity('blackthorn')
             if (id === 'tasks') setFormFilter('all')
-          }}><svg aria-hidden="true" viewBox="0 0 24 24"><path d={icon} /></svg>{label}{id === 'inbox' && data.inbox?.length > 0 && ' (' + data.inbox.length + ')'}</button>)}
+          }}><svg aria-hidden="true" viewBox="0 0 24 24"><path d={icon} /></svg>{label}{id === 'inbox' && data.inbox?.length > 0 && ' (' + data.inbox.length + ')'}</button></React.Fragment>)}
       </nav>
       <div className="mg-toolbar-filters">
         {!['overview', 'inbox', 'clients', 'prospection'].includes(tab) && <label>Dossier <select value={entity} onChange={event => { setEntity(event.target.value); setFeedback(null) }}>

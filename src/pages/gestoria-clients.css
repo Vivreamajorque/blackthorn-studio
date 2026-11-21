@@ -77,3 +77,6 @@
   .mgc-lines select { grid-column: 2; }
   .mgc-docs { grid-template-columns: 1fr 30px; }
 }
+/* Regroupement du menu : Atelier / Compta */
+.mg-nav-group { flex-basis: 100%; font-size: .68rem; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; color: #6a7d75; padding: 6px 8px 0; }
+.mg-nav-group:first-child { padding-top: 0; }
