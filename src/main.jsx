@@ -4,6 +4,7 @@ import MiGestoria from './pages/MiGestoria'
 import GestoriaEspace from './pages/GestoriaEspace'
 import GestoriaConnect, { pendingConnect } from './pages/GestoriaConnect'
 import './style.css'
+import './atelier-theme.css'
 
 const api = '/api/gestoria-auth'
 

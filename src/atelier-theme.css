@@ -1,0 +1,57 @@
+/* Thème Atelier Amely : fond crème, titres à empattement, menu latéral sur grand écran.
+   Uniquement de l'apparence : aucune règle de fonctionnement ici. */
+:root { background: #f7f2ea; --mg-serif: Georgia, 'Times New Roman', serif; }
+body { background: #f7f2ea; }
+
+.app-header { background: #efe8dc; border-bottom-color: #e6ded1; }
+.app-brand { font-family: var(--mg-serif); font-weight: 400; font-size: 1.2rem; letter-spacing: -.01em; }
+.app-brand span { background: #1f4b4e; color: #f7f2ea; font-family: var(--mg-serif); font-size: 1rem; letter-spacing: 0; border-radius: 9px; width: 34px; height: 34px; }
+
+.mg-shell h1, .mg-shell h2, .mgc-hero h1, .mgc-panel h2, .mgc-panel h3, .mgc-dialog h2, .mgc-name,
+.mgc-portal-head h1, .login h1, .mgc-tile strong {
+  font-family: var(--mg-serif); font-weight: 400; letter-spacing: -.015em;
+}
+.mg-page-heading { background: #1f4b4e; border-color: #1f4b4e; color: #f7f2ea; }
+.mg-page-heading .mg-section-label, .mg-page-heading p:last-child { color: #f7f2ea; opacity: .8; }
+.mg-page-heading .mg-tag.calm { background: #f6ecd2; color: #1f4b4e; }
+.mgc-hero { background: #1f4b4e; }
+.mg-panel, .mgc-panel, .mgc-card, .mgc-search { background: #fffdf9; border-color: #e6ded1; }
+.mgc-dialog { background: #f7f2ea; }
+.mgc-tile { background: #dfeae4; }
+.mgc-tile:nth-child(2) { background: #f3e3d8; }
+.mgc-tile:nth-child(3) { background: #e6e3f1; }
+.mgc-tile:nth-child(4) { background: #f4ecd9; }
+.mgc-initial { font-family: var(--mg-serif); font-weight: 400; }
+.mgc-primary, .login button[type="submit"] { background: #1f4b4e; border-color: #1f4b4e; }
+.mgc-tabs button[aria-pressed="true"], .mgc-tabs button[aria-pressed="true"]:hover:not(:disabled) { background: #1f4b4e; border-color: #1f4b4e; }
+.mg-main-nav button[aria-pressed="true"], .mg-main-nav button[aria-pressed="true"]:hover:not(:disabled) { background: #dfeae4; color: #1d2a2b; }
+.mg-nav-group { color: #56625f; }
+.login { background: #fffdf9; border-color: #e6ded1; }
+
+/* Menu sur le côté à partir des écrans d'ordinateur */
+@media (min-width: 1000px) {
+  .mg-shell { display: grid; grid-template-columns: 228px minmax(0, 1fr); column-gap: 30px; align-items: start; width: min(1400px, calc(100% - 48px)); }
+  .mg-shell > * { grid-column: 2; min-width: 0; }
+  .mg-shell > .mg-toolbar {
+    grid-column: 1; grid-row: 1 / span 60; position: sticky; top: 16px; margin: 0;
+    flex-direction: column; align-items: stretch; gap: 16px; padding: 16px 12px;
+    background: #efe8dc; border-color: #e6ded1; box-shadow: none; border-radius: 18px;
+  }
+  .mg-shell > .mg-toolbar .mg-main-nav { flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: 2px; }
+  .mg-shell > .mg-toolbar .mg-main-nav button { justify-content: flex-start; width: 100%; padding: 8px 10px; border-radius: 9px; white-space: normal; text-align: left; }
+  .mg-shell > .mg-toolbar .mg-main-nav button:hover:not(:disabled) { background: rgba(31, 75, 78, .07); }
+  .mg-shell > .mg-toolbar .mg-main-nav button[aria-pressed="true"] { background: #dfeae4; }
+  .mg-shell > .mg-toolbar .mg-nav-group { padding: 10px 10px 4px; }
+  .mg-shell > .mg-toolbar .mg-toolbar-filters { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 6px 0; border-top: 1px solid #e0d7c8; }
+  .mg-shell > .mg-toolbar .mg-toolbar-filters label { display: grid; gap: 4px; }
+  .mg-shell > .mg-toolbar .mg-toolbar-filters select { margin: 0; width: 100%; }
+}
+
+/* En-tête aligné sur le menu latéral */
+@media (min-width: 1000px) {
+  .app-header { padding-inline: max(24px, calc((100% - 1400px) / 2)); }
+}
+/* Téléphone : les titres de groupe prennent toute la ligne */
+@media (max-width: 999px) {
+  .mg-main-nav .mg-nav-group { grid-column: 1 / -1; flex-basis: 100%; padding: 6px 4px 2px; }
+}
