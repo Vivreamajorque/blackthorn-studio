@@ -8,6 +8,7 @@ import './gestoria-clients.css'
 const REEL = '#00897b'
 const CIBLE = '#d07a2e'
 const niceMax = v => { const p = Math.pow(10, Math.floor(Math.log10(Math.max(v, 1)))); const m = v / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * p }
+const tickValues = max => { const m = max / Math.pow(10, Math.floor(Math.log10(max))); const n = m === 5 || m === 2.5 ? 5 : 4; return Array.from({ length: n + 1 }, (_, i) => Math.round(max * i / n)) }
 const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.']
 const compact = cents => {
   const e = (cents || 0) / 100
@@ -56,7 +57,7 @@ function LineChart({ months, cumul, target, objectif, currentMonth }) {
   const max = niceMax(Math.max(objectif, ...cumul.filter(v => v != null), 1))
   const x = i => L + i * (W - L - R) / 11
   const y = v => T + (H - T - B) * (1 - v / max)
-  const ticks = [0, .25, .5, .75, 1].map(f => Math.round(max * f))
+  const ticks = tickValues(max)
   const path = values => values.map((v, i) => v == null ? null : (i === 0 || values[i - 1] == null ? 'M' : 'L') + x(i) + ' ' + y(v)).filter(Boolean).join(' ')
   const lastReal = cumul.reduce((last, v, i) => v != null ? i : last, -1)
   return <div style={{ position: 'relative' }}>
@@ -87,7 +88,7 @@ function BarChart({ monthly, months, needed, currentMonth }) {
   const max = niceMax(Math.max(needed, ...monthly, 1))
   const band = (W - L - R) / 12
   const y = v => T + (H - T - B) * (1 - v / max)
-  const ticks = [0, .25, .5, .75, 1].map(f => Math.round(max * f))
+  const ticks = tickValues(max)
   return <div style={{ position: 'relative' }}>
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Chiffre d’affaires facturé par mois">
       {ticks.map(t => <g key={t}><line x1={L} x2={W - R} y1={y(t)} y2={y(t)} stroke="#e9e2d6" />
