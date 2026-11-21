@@ -26,13 +26,23 @@ function Amounts({ values }) {
 }
 
 function Movements({ title, rows }) {
+  const [method, setMethod] = useState('all')
   if (!rows.length) return null
+  const methods = [...new Set(rows.map(row => row.method || 'inconnu'))]
+  const shown = method === 'all' ? rows : rows.filter(row => (row.method || 'inconnu') === method)
   return <details style={{ marginTop: 10 }}>
     <summary>{title} ({rows.length})</summary>
+    {methods.length > 1 && <p style={{ margin: '8px 0 0' }}>
+      <label>Mode de paiement <select value={method} onChange={e => setMethod(e.target.value)}>
+        <option value="all">Tous</option>
+        {methods.map(key => <option key={key} value={key}>{payment[key] || key}</option>)}
+      </select></label>
+      {method !== 'all' && <span style={muted}> · {shown.length} ligne(s) · {euro.format(total(shown))} (affichage seulement : les totaux gardent tous les modes)</span>}
+    </p>}
     <div style={{ maxHeight: 320, overflow: 'auto', marginTop: 8 }}>
       <table style={{ width: '100%', textAlign: 'left', fontSize: 13 }}>
         <thead><tr><th scope="col">Date</th><th scope="col">Libellé</th><th scope="col">Montant</th></tr></thead>
-        <tbody>{rows.map((row, index) => <tr key={index}>
+        <tbody>{shown.map((row, index) => <tr key={index}>
           <td>{dateLabel(row.date)}</td>
           <td>{row.label}{row.reference && ' · ' + row.reference}{row.method && ' · ' + payment[row.method]}</td>
           <td style={{ whiteSpace: 'nowrap' }}>{euro.format(row.amount)}</td>
