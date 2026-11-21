@@ -81,7 +81,9 @@ function ClientForm({ client, onSave, onClose, saving }) {
 }
 
 function ProjectForm({ project, onSave, onDelete, onClose, saving }) {
-  const [p, setP] = useState({ actions: [], documents: [], ...project, montant: fromCents(project.montantCents) })
+  const [p, setP] = useState({ actions: [], documents: [], plan: [], notesPartagees: [], ...project, montant: fromCents(project.montantCents) })
+  const setStep = (id, key, value) => setP(x => ({ ...x, plan: x.plan.map(e => e.id === id ? { ...e, [key]: value } : e) }))
+  const setNote = (id, key, value) => setP(x => ({ ...x, notesPartagees: x.notesPartagees.map(e => e.id === id ? { ...e, [key]: value } : e) }))
   const f = bind(p, setP)
   const setAction = (id, key, value) => setP(x => ({ ...x, actions: x.actions.map(a => a.id === id ? { ...a, [key]: value } : a) }))
   const setDoc = (id, key, value) => setP(x => ({ ...x, documents: x.documents.map(a => a.id === id ? { ...a, [key]: value } : a) }))
@@ -102,6 +104,35 @@ function ProjectForm({ project, onSave, onDelete, onClose, saving }) {
         <label>Échéance<input type="date" {...f('echeance')} /></label>
       </div>
       <label>Message pour le client (en haut de son espace)<textarea {...f('messageClient')} /></label>
+      <div className="mgc-cols">
+        <label>Prochain rendez-vous<input type="datetime-local" {...f('prochainRdv')} /></label>
+        <label>Rythme des rendez-vous<input placeholder="ex. Une visio par semaine" {...f('rythme')} /></label>
+      </div>
+      <div>
+        <strong style={{ fontSize: '.85rem' }}>Plan par étapes (visible par le client)</strong>
+        {p.plan.map(e => <div key={e.id} className="mgc-note-row">
+          <div className="mgc-cols" style={{ gridTemplateColumns: '1fr 2fr 30px' }}>
+            <input placeholder="Période" value={e.periode} onChange={x => setStep(e.id, 'periode', x.target.value)} />
+            <input placeholder="Étape" value={e.titre} onChange={x => setStep(e.id, 'titre', x.target.value)} />
+            <button type="button" aria-label="Retirer" onClick={() => setP(x => ({ ...x, plan: x.plan.filter(y => y.id !== e.id) }))}>×</button>
+          </div>
+          <input placeholder="Ce que je fais" value={e.amely} onChange={x => setStep(e.id, 'amely', x.target.value)} />
+          <input placeholder="Ce que fait le client" value={e.client} onChange={x => setStep(e.id, 'client', x.target.value)} />
+        </div>)}
+        <button type="button" className="mgc-link" style={{ marginTop: 8 }} onClick={() => setP(x => ({ ...x, plan: [...x.plan, { id: uid('etp'), periode: '', titre: '', amely: '', client: '' }] }))}>+ Ajouter une étape</button>
+      </div>
+      <div>
+        <strong style={{ fontSize: '.85rem' }}>Notes partagées (visibles par le client)</strong>
+        {p.notesPartagees.map(n => <div key={n.id} className="mgc-note-row">
+          <div className="mgc-cols" style={{ gridTemplateColumns: '150px 1fr 30px' }}>
+            <input placeholder="Date" value={n.date} onChange={x => setNote(n.id, 'date', x.target.value)} />
+            <input placeholder="Titre" value={n.titre} onChange={x => setNote(n.id, 'titre', x.target.value)} />
+            <button type="button" aria-label="Retirer" onClick={() => setP(x => ({ ...x, notesPartagees: x.notesPartagees.filter(y => y.id !== n.id) }))}>×</button>
+          </div>
+          <textarea value={n.texte} onChange={x => setNote(n.id, 'texte', x.target.value)} />
+        </div>)}
+        <button type="button" className="mgc-link" style={{ marginTop: 8 }} onClick={() => setP(x => ({ ...x, notesPartagees: [{ id: uid('not'), date: todayInSpain(), titre: '', texte: '' }, ...x.notesPartagees] }))}>+ Ajouter une note</button>
+      </div>
       <label className="mgc-check"><input type="checkbox" checked={p.visibleClient !== false} onChange={e => setP({ ...p, visibleClient: e.target.checked })} /> Visible dans l’espace du client</label>
       <div>
         <strong style={{ fontSize: '.85rem' }}>Actions</strong>
@@ -365,6 +396,8 @@ function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onB
             </div>
           </div>
           {p.etape && <p className="mgc-muted" style={{ margin: '6px 0 0' }}>Étape : {p.etape}</p>}
+          {(p.prochainRdv || p.plan?.length > 0 || p.notesPartagees?.length > 0) && <p className="mgc-muted" style={{ margin: '4px 0 0' }}>
+            {[p.prochainRdv && 'Prochain rendez-vous : ' + p.prochainRdv.replace('T', ' à '), p.plan?.length && p.plan.length + ' étapes au plan', p.notesPartagees?.length && p.notesPartagees.length + ' notes partagées'].filter(Boolean).join(' · ')}</p>}
           {p.actions.length > 0 && <>
             <div className="mgc-bar"><div style={{ width: Math.round(done / p.actions.length * 100) + '%' }} /></div>
             <div className="mgc-muted">{done} / {p.actions.length} actions terminées</div>

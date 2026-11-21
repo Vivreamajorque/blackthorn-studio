@@ -5,6 +5,12 @@ import { ProjectBadge } from './GestoriaClients'
 import './gestoria-clients.css'
 
 const api = '/api/gestoria-espace'
+export const formatRdv = value => {
+  if (!value) return ''
+  const d = new Date(value.length === 10 ? value + 'T12:00:00' : value)
+  if (isNaN(d)) return value
+  return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + (value.length > 10 ? ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '')
+}
 
 export default function GestoriaEspace({ token }) {
   const [view, setView] = useState(null)
@@ -45,20 +51,39 @@ export default function GestoriaEspace({ token }) {
     </div></div>
     <div className="mgc-portal-in" style={{ padding: '0 20px 60px' }}>
       {view.projets.length > 1 && <div className="mgc-tabs">{view.projets.map((p, i) => <button key={p.id} aria-pressed={i === index} onClick={() => setIndex(i)}>{p.nom}</button>)}</div>}
-      <div className="mgc-tabs">{[['actions', 'Mes actions'], ['documents', 'Documents'], ['factures', 'Factures']].map(([k, l]) =>
+      <div className="mgc-tabs">{[['actions', 'Mes actions'], ['avancement', 'Avancement'], ['notes', 'Notes'], ['documents', 'Documents'], ['factures', 'Factures']].map(([k, l]) =>
         <button key={k} aria-pressed={tab === k} onClick={() => setTab(k)}>{l}</button>)}</div>
 
       {!project && tab !== 'factures' && <p className="mg-empty">Ton projet arrive bientôt ici.</p>}
       {project && tab === 'actions' && <section className="mgc-panel">
         <div className="mgc-between"><h2>Une étape à la fois.</h2><ProjectBadge status={project.statut} /></div>
         {actions.length === 0 ? <p className="mgc-muted">Pas encore d’action. {first} les ajoute au fil du projet.</p> :
-          <ul className="mgc-list">{actions.map(a => <li key={a.id}>
+          <ul className="mgc-list">{actions.map((a, i) => <React.Fragment key={a.id}>
+            {a.groupe && a.groupe !== actions[i - 1]?.groupe && <li className="mgc-group-title"><strong>{a.groupe}</strong></li>}
+            <li>
             {a.pour === 'client' ? <input type="checkbox" checked={a.fait} onChange={() => toggle(a)} aria-label={a.label} />
               : <span className={'mgc-badge ' + (a.fait ? 'ok' : '')}>{a.fait ? 'Fait' : first}</span>}
             <div style={{ flex: 1 }}><div className={a.fait ? 'mgc-done' : ''}>{a.label}</div>{a.detail && <div className="mgc-muted">{a.detail}</div>}</div>
             {a.pour === 'client' && <span className="mgc-badge">Pour toi</span>}
-          </li>)}</ul>}
+          </li></React.Fragment>)}</ul>}
       </section>}
+      {project && tab === 'avancement' && <section className="mgc-panel">
+        <h2>Où on en est</h2>
+        {project.prochainRdv && <p className="mgc-note">Prochain rendez-vous : <strong>{formatRdv(project.prochainRdv)}</strong></p>}
+        {project.rythme && <p className="mgc-muted">{project.rythme}</p>}
+        {project.plan.length === 0 ? <p className="mgc-muted">Le plan arrive bientôt.</p> :
+          <ol className="mgc-plan">{project.plan.map(e => <li key={e.id}>
+            <div className="mgc-muted">{e.periode}</div><strong>{e.titre}</strong>
+            {e.amely && <p><span className="mgc-badge ok">{first}</span> {e.amely}</p>}
+            {e.client && <p><span className="mgc-badge">Toi</span> {e.client}</p>}
+          </li>)}</ol>}
+      </section>}
+      {project && tab === 'notes' && (project.notes.length === 0 ? <p className="mg-empty">Pas encore de note partagée.</p> :
+        project.notes.map(n => <section key={n.id} className="mgc-panel">
+          <div className="mgc-muted">{n.date ? formatRdv(n.date) : ''}</div>
+          {n.titre && <h3>{n.titre}</h3>}
+          <div style={{ whiteSpace: 'pre-line', marginTop: 6 }}>{n.texte}</div>
+        </section>))}
       {project && tab === 'documents' && (project.documents.length === 0 ? <p className="mg-empty">Aucun document partagé pour l’instant.</p> :
         <div className="mgc-grid">{project.documents.map((d, i) => <a key={i} className="mgc-panel" style={{ marginTop: 0, textDecoration: 'none' }} href={d.url} target="_blank" rel="noopener noreferrer"><strong>{d.label}</strong> ↗</a>)}</div>)}
       {tab === 'factures' && (view.factures.length === 0 ? <p className="mg-empty">Aucune facture pour l’instant.</p> :

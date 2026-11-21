@@ -35,11 +35,18 @@ function cleanProject(p) {
   return {
     id: id(p.id) || newId('prj'), clientId: id(p.clientId) || '', nom: str(p.nom, 120).trim() || 'Projet',
     statut: oneOf(p.statut, PROJECT_STATUS, 'en_cours'), etape: str(p.etape, 120), montantCents: cents(p.montantCents),
-    echeance: date(p.echeance), messageClient: str(p.messageClient, 1000), visibleClient: p.visibleClient !== false,
-    notes: str(p.notes, 2000),
-    actions: (Array.isArray(p.actions) ? p.actions : []).slice(0, 80).filter(a => a && str(a.label).trim()).map(a => ({
-      id: id(a.id) || newId('act'), label: str(a.label, 200).trim(), detail: str(a.detail, 500),
+    echeance: date(p.echeance), messageClient: str(p.messageClient, 1500), visibleClient: p.visibleClient !== false,
+    notes: str(p.notes, 20000), prochainRdv: str(p.prochainRdv, 30), rythme: str(p.rythme, 400),
+    actions: (Array.isArray(p.actions) ? p.actions : []).slice(0, 120).filter(a => a && str(a.label).trim()).map(a => ({
+      id: id(a.id) || newId('act'), label: str(a.label, 200).trim(), detail: str(a.detail, 1500), groupe: str(a.groupe, 40),
       pour: oneOf(a.pour, ['client', 'amely'], 'client'), fait: a.fait === true, faitLe: date(a.faitLe),
+    })),
+    // Plan par étapes et notes partagées : visibles dans l'espace du client.
+    plan: (Array.isArray(p.plan) ? p.plan : []).slice(0, 20).filter(e => e && (str(e.titre).trim() || str(e.periode).trim())).map(e => ({
+      id: id(e.id) || newId('etp'), periode: str(e.periode, 80), titre: str(e.titre, 140), amely: str(e.amely, 800), client: str(e.client, 800),
+    })),
+    notesPartagees: (Array.isArray(p.notesPartagees) ? p.notesPartagees : []).slice(0, 80).filter(n => n && str(n.texte).trim()).map(n => ({
+      id: id(n.id) || newId('not'), date: str(n.date, 30), titre: str(n.titre, 200), texte: str(n.texte, 12000),
     })),
     documents: (Array.isArray(p.documents) ? p.documents : []).slice(0, 40).filter(d => d && url(d.url)).map(d => ({
       id: id(d.id) || newId('doc'), label: str(d.label, 120).trim() || 'Document', url: url(d.url),

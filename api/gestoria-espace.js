@@ -17,7 +17,8 @@ function view(crm, client, entries) {
     consultante: { nom: crm.emetteur?.nom || 'Amely', email: crm.emetteur?.email || '' },
     projets: crm.projets.filter(p => p.clientId === client.id && p.visibleClient).map(p => ({
       id: p.id, nom: p.nom, statut: p.statut, etape: p.etape, messageClient: p.messageClient,
-      actions: p.actions.map(({ id, label, detail, pour, fait }) => ({ id, label, detail, pour, fait })),
+      actions: p.actions.map(({ id, label, detail, groupe, pour, fait }) => ({ id, label, detail, groupe, pour, fait })),
+      plan: p.plan, notes: p.notesPartagees, prochainRdv: p.prochainRdv, rythme: p.rythme,
       documents: p.documents.map(({ label, url }) => ({ label, url })),
     })),
     factures: invoicesFor(entries, crm, client),

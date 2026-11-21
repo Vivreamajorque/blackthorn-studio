@@ -80,3 +80,9 @@
 /* Regroupement du menu : Atelier / Compta */
 .mg-nav-group { flex-basis: 100%; font-size: .68rem; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; color: #6a7d75; padding: 6px 8px 0; }
 .mg-nav-group:first-child { padding-top: 0; }
+.mgc-group-title { border-bottom: 0 !important; padding: 14px 0 2px !important; text-transform: uppercase; letter-spacing: .1em; font-size: .72rem; color: #56625f; }
+.mgc-plan { margin: 10px 0 0; padding-left: 20px; display: grid; gap: 12px; }
+.mgc-plan p { margin: 4px 0 0; font-size: .9rem; }
+.mgc-plan-row { display: grid; grid-template-columns: 140px 1fr 30px; gap: 6px; margin-top: 8px; }
+.mgc-plan-row textarea { min-height: 50px; }
+.mgc-note-row { border: 1px solid #e6ded1; border-radius: 12px; padding: 10px; margin-top: 8px; background: #fffdf9; display: grid; gap: 6px; }
