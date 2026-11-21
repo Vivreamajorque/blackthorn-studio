@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { money, uid, toCents, fromCents, clientInvoices, baseCents } from '../lib/gestoria-crm'
 import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
 import DevisTab from './GestoriaDevis'
+import { printDocument, missingForInvoice } from '../lib/gestoria-documents.mjs'
 import './gestoria-clients.css'
 
 export const PROJECT_STATUS = {
@@ -183,11 +184,6 @@ const REGIMES = {
   eu: 'Autoliquidation UE (client pro dans l’UE, 0 %)',
   other: 'Hors UE (non soumis, 0 %)',
 }
-const MENTIONS = {
-  es21: '',
-  eu: 'Operación no sujeta a IVA en España. Inversión del sujeto pasivo (art. 69 Ley 37/1992 · art. 196 Directiva 2006/112/CE).',
-  other: 'Operación no sujeta a IVA en España (art. 69 Ley 37/1992).',
-}
 
 function computeInvoice(d) {
   const lines = d.lines.map(l => ({ ...l, cents: Math.round((Number(l.qty) || 0) * toCents(l.price || 0)) }))
@@ -198,27 +194,8 @@ function computeInvoice(d) {
 }
 
 function printInvoice(d, t, client, emetteur) {
-  const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]))
-  const nl = v => esc(v).replace(/\n/g, '<br>')
-  const rows = t.lines.map(l => `<tr><td>${esc(l.description)}</td><td class="n">${esc(l.qty)}</td><td class="n">${money(toCents(l.price || 0))}</td><td class="n">${money(l.cents)}</td></tr>`).join('')
-  const html = `<!doctype html><html lang="es"><meta charset="utf-8"><title>Factura ${esc(d.reference)}</title><style>
-  body{font:15px system-ui,sans-serif;max-width:780px;margin:40px auto;padding:20px;color:#172b26}h1{margin:0;font-weight:600}
-  .top{display:flex;justify-content:space-between;border-top:6px solid #203e36;padding-top:18px}.n{text-align:right}
-  section{display:flex;gap:30px;margin:26px 0}section div{flex:1}small{color:#51635d;text-transform:uppercase;letter-spacing:.08em;font-size:11px}
-  table{border-collapse:collapse;width:100%}th,td{padding:10px;border-bottom:1px solid #d9e2db;text-align:left}th{font-size:12px;color:#51635d}
-  .tot{margin-left:auto;width:300px;margin-top:14px}.tot div{display:flex;justify-content:space-between;padding:4px 0}.tot .g{font-weight:700;border-top:1px solid #172b26;margin-top:4px;padding-top:8px}
-  .m{margin-top:24px;font-size:13px;color:#51635d}@media print{body{margin:0}}</style>
-  <div class="top"><h1>Factura</h1><div class="n">N.º ${esc(d.reference)}<br>Fecha: ${esc(formatDate(d.date))}${d.due ? '<br>Vencimiento: ' + esc(formatDate(d.due)) : ''}</div></div>
-  <section><div><small>Emisor</small><p>${esc(emetteur.nom)}<br>${esc(emetteur.activite)}<br>${emetteur.nif ? 'NIF: ' + esc(emetteur.nif) + '<br>' : ''}${nl(emetteur.adresse)}<br>${esc(emetteur.email)}</p></div>
-  <div><small>Cliente</small><p>${esc(client.raisonSociale || client.nom)}<br>${client.nif ? 'NIF/VAT: ' + esc(client.nif) + '<br>' : ''}${nl(client.adresse)}</p></div></section>
-  <table><thead><tr><th>Concepto</th><th class="n">Cant.</th><th class="n">Precio</th><th class="n">Importe</th></tr></thead><tbody>${rows}</tbody></table>
-  <div class="tot"><div><span>Base imponible</span><span>${money(t.base)}</span></div><div><span>IVA ${d.regime === 'es21' ? '21' : '0'} %</span><span>${money(t.quota)}</span></div>
-  ${t.withholding ? `<div><span>Retención IRPF ${esc(d.irpf)} %</span><span>− ${money(t.withholding)}</span></div>` : ''}<div class="g"><span>Total a pagar</span><span>${money(t.total)}</span></div></div>
-  <div class="m">${esc(MENTIONS[d.regime])}${d.note ? '<br>' + esc(d.note) : ''}${emetteur.iban ? '<br>Pago por transferencia · IBAN ' + esc(emetteur.iban) : ''}</div>
-  <script>window.onload=()=>window.print()</script></html>`
-  const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }))
-  window.open(url, '_blank')
-  setTimeout(() => URL.revokeObjectURL(url), 60000)
+  printDocument({ kind: 'facture', numero: d.reference, date: d.date, due: d.due, regime: d.regime, irpf: Number(d.irpf) || 0, note: d.note,
+    lignes: t.lines.map(l => ({ description: l.description, quantite: Number(l.qty) || 0, prixCents: toCents(l.price || 0) })), client, emetteur })
 }
 
 // Réimprimer une facture émise depuis l'atelier (ou depuis Claude) à partir de son détail enregistré.
@@ -255,6 +232,8 @@ function InvoiceForm({ client, project, projects, entries, emetteur, echeance, o
     if (t.base <= 0) return setError('Le montant est à zéro.')
     if (![2025, 2026, 2027].includes(year)) return setError('Mi Gestoría suit les exercices 2025 à 2027.')
     if (d.regime === 'eu' && !EU_CODES[client.pays]) return setError('Pour l’autoliquidation UE, indique le pays du client dans sa fiche.')
+    const missing = missingForInvoice({ emetteur, client, regime: d.regime })
+    if (missing.length) return setError('Pour que la facture soit conforme, complète : ' + missing.join(', ') + '. Ton NIF et ton adresse sont dans « Mes infos de facturation », ceux du client dans sa fiche.')
     const projet = projects.find(p => p.id === d.projetId)
     const vat = { category: d.regime === 'es21' ? 'sale_es' : d.regime === 'eu' ? 'sale_eu' : 'sale_other', date: d.date, baseCents: t.base, quotaCents: t.quota, deductibleCents: 0,
       ...(d.regime === 'es21' && { rate: 21 }), ...(d.regime === 'eu' && { country: EU_CODES[client.pays] }) }

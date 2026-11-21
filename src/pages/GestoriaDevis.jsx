@@ -2,13 +2,9 @@ import React, { useState } from 'react'
 import { money, uid, toCents, fromCents } from '../lib/gestoria-crm'
 import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
 import { Dialog, bind } from './GestoriaClients'
+import { printDocument } from '../lib/gestoria-documents.mjs'
 
 export const DEVIS_STATUS = { brouillon: ['Brouillon', ''], envoye: ['Envoyé', 'info'], signe: ['Signé', 'ok'], refuse: ['Refusé', 'late'] }
-const MENTIONS = {
-  es21: 'TVA espagnole (IVA 21 %) appliquée.',
-  eu: 'TVA espagnole non facturée. Autoliquidation de la TVA par le preneur (inversión del sujeto pasivo).',
-  other: 'Opération non soumise à la TVA espagnole (art. 69 Ley 37/1992).',
-}
 const REGIMES = { es21: 'IVA 21 %', eu: 'Autoliquidation UE (0 %)', other: 'Hors UE (0 %)' }
 const EU_CODES = ['France', 'Belgique', 'Allemagne', 'Italie', 'Portugal', 'Pays-Bas', 'Luxembourg', 'Irlande', 'Autriche']
 
@@ -38,38 +34,8 @@ export function echeanceState(echeance, entries) {
 }
 
 function printDevis(devis, client, emetteur, echeances) {
-  const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]))
-  const nl = v => esc(v).replace(/\n/g, '<br>')
-  const total = totalOf(devis)
-  const quota = devis.regime === 'es21' ? Math.round(total * 0.21) : 0
-  const rows = devis.lignes.map(l => `<tr><td>${esc(l.description)}</td><td class="n">${esc(l.quantite)}</td><td class="n">${money(l.prixCents)}</td><td class="n">${money(Math.round(l.quantite * l.prixCents))}</td></tr>`).join('')
-  const scope = devis.perimetre.length ? `<h2>Périmètre</h2><ul>${devis.perimetre.map(x => `<li>${esc(x)}</li>`).join('')}</ul><p class="m">Tout ce qui n’est pas listé est chiffré séparément, après accord de la cliente.</p>` : ''
-  const schedule = echeances.length ? `<h2>Échéancier</h2><table><thead><tr><th>Échéance</th><th>Date</th><th class="n">Montant</th></tr></thead><tbody>${
-    echeances.map(e => `<tr><td>${esc(e.label)}</td><td>${e.date ? esc(formatDate(e.date)) : '—'}</td><td class="n">${money(e.montantCents)}</td></tr>`).join('')
-  }<tr><td><strong>Total à régler</strong></td><td></td><td class="n"><strong>${money(echeances.reduce((s, e) => s + e.montantCents, 0))}</strong></td></tr></tbody></table>` : ''
-  const html = `<!doctype html><html lang="fr"><meta charset="utf-8"><title>Devis ${esc(devis.numero)}</title><style>
-  body{font:15px system-ui,sans-serif;max-width:780px;margin:40px auto;padding:20px;color:#172b26;line-height:1.45}h1{margin:0;font-weight:600}h2{font-size:1.05rem;margin:28px 0 6px}
-  .top{display:flex;justify-content:space-between;border-top:6px solid #203e36;padding-top:18px}.n{text-align:right}
-  section{display:flex;gap:30px;margin:26px 0}section div{flex:1}small{color:#51635d;text-transform:uppercase;letter-spacing:.08em;font-size:11px}
-  table{border-collapse:collapse;width:100%}th,td{padding:10px;border-bottom:1px solid #d9e2db;text-align:left}th{font-size:12px;color:#51635d}th.n,td.n{text-align:right}
-  .tot{margin-left:auto;width:300px;margin-top:14px}.tot div{display:flex;justify-content:space-between;padding:4px 0}.tot .g{font-weight:700;border-top:1px solid #172b26;margin-top:4px;padding-top:8px}
-  .m{font-size:13px;color:#51635d}.sig{display:flex;gap:30px;margin-top:20px}.sig div{flex:1;border-top:1px solid #172b26;padding-top:6px;min-height:70px;font-size:13px;color:#51635d}
-  @media print{body{margin:0}}</style>
-  <div class="top"><h1>Devis</h1><div class="n">${esc(devis.numero)}<br>Émis le ${esc(formatDate(devis.date))}${devis.validite ? '<br>Valable jusqu’au ' + esc(formatDate(devis.validite)) : ''}</div></div>
-  <section><div><small>Prestataire</small><p>${esc(emetteur.nom)}<br>${esc(emetteur.activite)}<br>${emetteur.nif ? 'NIF : ' + esc(emetteur.nif) + '<br>' : ''}${nl(emetteur.adresse)}<br>${esc(emetteur.email)}</p></div>
-  <div><small>Cliente</small><p>${esc(client.raisonSociale || client.nom)}<br>${client.nif ? 'TVA : ' + esc(client.nif) + '<br>' : ''}${nl(client.adresse)}</p></div></section>
-  ${devis.intro ? `<p>${nl(devis.intro)}</p>` : ''}
-  <table><thead><tr><th>Prestation</th><th class="n">Qté</th><th class="n">Prix HT</th><th class="n">Montant</th></tr></thead><tbody>${rows}</tbody></table>
-  <div class="tot"><div><span>Total hors TVA</span><span>${money(total)}</span></div><div><span>IVA ${devis.regime === 'es21' ? '21' : '0'} %</span><span>${money(quota)}</span></div><div class="g"><span>Total à régler</span><span>${money(total + quota)}</span></div></div>
-  <p class="m">${esc(MENTIONS[devis.regime])}${client.nif && devis.regime === 'eu' ? ' TVA du client : ' + esc(client.nif) + '.' : ''}${devis.note ? '<br>' + esc(devis.note) : ''}</p>
-  ${scope}${schedule}
-  ${devis.outils ? `<h2>Frais des outils</h2><p>${nl(devis.outils)}</p>` : ''}
-  <h2>Bon pour accord</h2><p class="m">En signant, la cliente accepte les prestations, les prix et les modalités de règlement de ce devis.</p>
-  <div class="sig"><div>Nom et qualité</div><div>Date</div><div>Signature</div></div>
-  <script>window.onload=()=>window.print()</script></html>`
-  const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }))
-  window.open(url, '_blank')
-  setTimeout(() => URL.revokeObjectURL(url), 60000)
+  printDocument({ kind: 'devis', numero: devis.numero, date: devis.date, validite: devis.validite, regime: devis.regime, irpf: 0,
+    lignes: devis.lignes, intro: devis.intro, perimetre: devis.perimetre, note: devis.note, outils: devis.outils, echeances, client, emetteur })
 }
 
 function DevisForm({ devis, client, projects, all, onSave, onDelete, onClose, saving }) {
