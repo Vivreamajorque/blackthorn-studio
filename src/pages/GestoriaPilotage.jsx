@@ -3,6 +3,8 @@ import { money, baseCents, toCents, fromCents } from '../lib/gestoria-crm'
 import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
 import { Dialog } from './GestoriaClients'
 import './gestoria-clients.css'
+import '@fontsource-variable/schibsted-grotesk'
+import './gestoria-board.css'
 
 // Couleurs validées (contraste, daltonisme) sur le fond crème.
 const REEL = '#00897b'
@@ -74,7 +76,7 @@ function LineChart({ months, cumul, target, objectif, currentMonth }) {
       <path d={path(target)} fill="none" stroke={CIBLE} strokeWidth="2" strokeDasharray="6 5" />
       <path d={path(cumul)} fill="none" stroke={REEL} strokeWidth="2.5" strokeLinejoin="round" />
       {cumul.map((v, i) => v != null && <circle key={i} cx={x(i)} cy={y(v)} r="4.5" fill={REEL} stroke="#fffdf9" strokeWidth="2" />)}
-      {lastReal >= 0 && <text x={x(lastReal) + 8} y={y(cumul[lastReal]) - 8} fontSize="12" fill="#1d2a2b" fontWeight="700">Réalisé · {compact(cumul[lastReal])}</text>}
+      {lastReal >= 0 && <text x={lastReal > 8 ? x(lastReal) - 8 : x(lastReal) + 8} y={y(cumul[lastReal]) - 10} textAnchor={lastReal > 8 ? 'end' : 'start'} fontSize="12" fill="#1d2a2b" fontWeight="700">Réalisé · {compact(cumul[lastReal])}</text>}
       <text x={x(11) - 4} y={y(target[11]) - 8} textAnchor="end" fontSize="12" fill="#1d2a2b">Objectif · {compact(objectif)}</text>
       {hover != null && <line x1={x(hover)} x2={x(hover)} y1={T} y2={H - B} stroke="#1d2a2b" strokeOpacity=".25" />}
     </svg>
@@ -147,87 +149,119 @@ export default function GestoriaPilotage({ entries, crm, year, saveCrm, canSave,
   const studioTotal = byMethod.carte + byMethod.cash + byMethod.other
   const canauxActifs = ['instagram', 'linkedin', 'indeed', 'site'].filter(k => crm.canaux?.[k]?.statut === 'actif').length
 
-  return <>
-    <div className="mgc-hero">
-      <div>
-        <div className="mgc-eyebrow">{new Date(today + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
-        <h1>{list.length ? 'Aujourd’hui, ' + Math.min(3, list.length) + ' chose' + (Math.min(3, list.length) > 1 ? 's' : '') + ' à faire.' : 'Rien d’urgent aujourd’hui.'}</h1>
-        <p>{list.length ? 'Commence par la première. Le reste attend.' : 'Profite-en pour prospecter ou avancer un projet.'}</p>
-      </div>
+  const euros = cents => Math.round((cents || 0) / 100).toLocaleString('fr-FR') + ' €'
+  const nextDeadline = [...taxDeadlines(thisYear), ...taxDeadlines(thisYear + 1)].find(d => d.date >= today)
+  const daysToDeadline = nextDeadline ? daysBetween(today, nextDeadline.date) : null
+  const openLeads = crm.prospects.filter(p => !['gagne', 'perdu'].includes(p.statut))
+  const leadsToFollow = openLeads.filter(p => p.relance && p.relance <= today).length
+  const CANAUX = [['instagram', 'Instagram'], ['linkedin', 'LinkedIn'], ['indeed', 'Indeed'], ['site', 'Page web']]
+  const canalLabel = { a_creer: 'À créer', en_cours: 'En cours', actif: 'En ligne' }
+  const [first, ...others] = list
+  const share = v => studioTotal ? Math.round(v / studioTotal * 1000) / 10 : 0
+
+  return <div className="qg-board">
+    <header className="qg-head">
+      <p>{new Date(today + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+      <h1>Où tu en es</h1>
+    </header>
+
+    <section className="qg-now" aria-label="À faire maintenant">
+      {first ? <>
+        <div className="qg-now-main">
+          <span className="qg-now-tag">À faire maintenant</span>
+          <strong>{first.text}</strong>
+          <span className="qg-sub">{first.when}</span>
+          <button className="qg-primary" onClick={() => onGo(first.go)}>Ouvrir</button>
+        </div>
+        {others.length > 0 && <ul className="qg-now-next">
+          {(showAll ? others : others.slice(0, 3)).map((item, i) => <li key={i}>
+            <button onClick={() => onGo(item.go)}><span>{item.text}</span><small>{item.when}</small></button></li>)}
+          {others.length > 3 && <li><button className="qg-more" onClick={() => setShowAll(!showAll)}>{showAll ? 'Réduire' : 'Voir les ' + (others.length - 3) + ' autres'}</button></li>}
+        </ul>}
+      </> : <div className="qg-now-main"><strong>Rien d’urgent aujourd’hui.</strong>
+        <span className="qg-sub">Aucune facture en retard, aucune échéance proche, aucune relance due. Bon moment pour prospecter ou avancer un projet.</span></div>}
+    </section>
+
+    <div className="qg-lanes">
+      <article className="qg-lane qg-clients">
+        <header><h2>Clients</h2><button onClick={() => onGo('clients')}>Ouvrir</button></header>
+        <p className="qg-label">Facturé en {year} (HT)</p>
+        <p className="qg-hero-num">{euros(total)}</p>
+        {objectif > 0 && <>
+          <div className="qg-meter" role="img" aria-label={pct + ' % de l’objectif'}><span style={{ width: pct + '%' }} /></div>
+          <p className="qg-sub">{pct} % de l’objectif de {euros(objectif)}{currentMonth >= 0 && ' · ' + (gap >= 0 ? 'en avance de ' + euros(gap) : 'en retard de ' + euros(-gap))}</p>
+        </>}
+        <dl className="qg-facts">
+          <div><dt>Facturé, pas encore encaissé</dt><dd>{euros(pending)}</dd></div>
+          <div><dt>Pistes ouvertes</dt><dd>{openLeads.length}<small> · {euros(pipeline)}</small></dd></div>
+          <div><dt>À relancer</dt><dd className={leadsToFollow ? 'warn' : ''}>{leadsToFollow}</dd></div>
+          <div><dt>Signées ce mois-ci</dt><dd>{signed}</dd></div>
+        </dl>
+        <button className="qg-link" onClick={() => onGo('prospection')}>Voir la prospection</button>
+      </article>
+
+      <article className="qg-lane qg-compta">
+        <header><h2>Compta</h2><button onClick={() => onGo('tasks')}>Déclarations</button></header>
+        <p className="qg-label">Blackthorn Tattoo · encaissé en {year}</p>
+        <p className="qg-hero-num">{studio?.status === 'ready' ? euros(studioTotal) : studio?.status === 'error' ? 'Indisponible' : '…'}</p>
+        {studio?.status === 'ready' && studioTotal > 0 && <>
+          <div className="qg-split" role="img" aria-label={'Carte ' + share(byMethod.carte) + ' %, espèces ' + share(byMethod.cash) + ' %'}>
+            <span className="carte" style={{ width: share(byMethod.carte) + '%' }} />
+            <span className="cash" style={{ width: share(byMethod.cash) + '%' }} />
+            <span className="other" style={{ width: share(byMethod.other) + '%' }} />
+          </div>
+          <ul className="qg-legend">
+            <li><i className="carte" />Carte <b>{euros(byMethod.carte)}</b></li>
+            <li><i className="cash" />Espèces <b>{euros(byMethod.cash)}</b></li>
+            {byMethod.other > 0 && <li><i className="other" />Autres <b>{euros(byMethod.other)}</b></li>}
+          </ul>
+        </>}
+        <dl className="qg-facts">
+          {studio?.status === 'ready' && studio.data.reconciliationWarnings > 0 &&
+            <div><dt>Lignes à rapprocher</dt><dd className="warn">{studio.data.reconciliationWarnings}</dd></div>}
+          {nextDeadline && <div><dt>Prochain dépôt</dt><dd>{formatDate(nextDeadline.date)}<small> · dans {daysToDeadline} j</small></dd></div>}
+        </dl>
+        <p className="qg-sub">Seules les ventes confirmées dans le Hub sont comptées. Les espèces se déclarent comme le reste.</p>
+        <button className="qg-link" onClick={() => onGo('blackthorn')}>Ouvrir Blackthorn</button>
+      </article>
+
+      <article className="qg-lane qg-comm">
+        <header><h2>Communication</h2><button onClick={() => onGo('prospection')}>Ouvrir</button></header>
+        <p className="qg-label">Canaux en ligne</p>
+        <p className="qg-hero-num">{canauxActifs}<small> sur 4</small></p>
+        <ul className="qg-canaux">
+          {CANAUX.map(([key, name]) => {
+            const c = crm.canaux?.[key] || {}
+            const st = c.statut || 'a_creer'
+            return <li key={key}>
+              <span className={'qg-dot ' + st} aria-hidden="true" />
+              <div><strong>{name}</strong><span className="qg-sub">{canalLabel[st]}{c.action ? ' · ' + c.action : ''}{c.date ? ' · ' + formatDate(c.date) : ''}</span></div>
+            </li>
+          })}
+        </ul>
+        <button className="qg-link" onClick={() => onGo('prospection')}>Gérer les canaux</button>
+      </article>
     </div>
 
-    <section className="mgc-panel">
-      <ol className="mgc-today">
-        {shown.map((item, i) => <li key={i}>
-          <span className={'mgc-badge ' + item.tone}>{i === 0 ? 'D’abord' : i + 1}</span>
-          <div style={{ flex: 1 }}><strong>{item.text}</strong><div className="mgc-muted">{item.when}</div></div>
-          <button onClick={() => onGo(item.go)}>Ouvrir</button>
-        </li>)}
-        {list.length === 0 && <li className="mgc-muted">Aucune facture en retard, aucune échéance proche, aucune relance due.</li>}
-      </ol>
-      {list.length > 3 && <button className="mgc-link" onClick={() => setShowAll(!showAll)}>{showAll ? 'Voir seulement les 3 premières' : 'Voir les ' + (list.length - 3) + ' autres'}</button>}
-    </section>
-
-    <section className="mgc-panel">
-      <div className="mgc-between">
-        <div><p className="mg-section-label">OBJECTIF {year}</p>
-          <h2 style={{ fontSize: '2rem', marginTop: 2 }}>{objectif ? money(total) + ' sur ' + money(objectif) : money(total) + ' facturés'}</h2>
-          {objectif > 0 && <p className="mgc-muted" style={{ margin: '4px 0 0' }}>{pct} % atteint
-            {currentMonth >= 0 && ' · ' + (gap >= 0 ? 'en avance de ' + money(gap) : 'en retard de ' + money(-gap)) + ' sur la trajectoire'}</p>}
-        </div>
+    <section className="qg-trend">
+      <div className="qg-trend-head">
+        <h2>Trajectoire {year}</h2>
         <button disabled={!canSave} onClick={() => { setGoalInput(fromCents(objectif)); setEditGoal(true) }}>{objectif ? 'Modifier l’objectif' : 'Fixer un objectif'}</button>
       </div>
-      {objectif > 0 && <div className="mgc-bar" style={{ height: 10 }}><div style={{ width: pct + '%', background: REEL }} /></div>}
-      <div className="mgc-tiles" style={{ marginTop: 12 }}>
-        <div className="mgc-tile"><strong>{remainingMonths > 0 && objectif ? compact(neededPerMonth) : '—'}</strong><span>À facturer par mois d’ici décembre</span></div>
-        <div className="mgc-tile"><strong>{signed}</strong><span>Missions signées ce mois (cap : 4 à 5)</span></div>
-        <div className="mgc-tile"><strong>{compact(pipeline)}</strong><span>En prospection (valeur estimée)</span></div>
-        <div className="mgc-tile"><strong>{compact(pending)}</strong><span>Facturé, pas encore encaissé</span></div>
+      <div className="qg-charts">
+        {objectif > 0 && <div><h3>Chiffre d’affaires cumulé</h3>
+          <LineChart months={MONTHS} cumul={cumul} target={target} objectif={objectif} currentMonth={currentMonth} /></div>}
+        <div><h3>Facturé par mois{neededPerMonth > 0 && ' · rythme visé ' + compact(neededPerMonth)}</h3>
+          <BarChart monthly={monthly} months={MONTHS} needed={neededPerMonth} currentMonth={currentMonth} />
+          <details className="mgc-muted" style={{ marginTop: 6 }}><summary>Voir les chiffres</summary>
+            <table className="mgc-table"><tbody>{monthly.map((v, i) => <tr key={i}><td>{MONTHS[i]}</td><td className="mgc-num">{money(v)}</td><td className="mgc-num">{cumul[i] != null ? money(cumul[i]) : ''}</td></tr>)}</tbody></table>
+          </details></div>
       </div>
     </section>
-
-    <section className="mgc-panel">
-      <div className="mgc-between">
-        <div><p className="mg-section-label">BLACKTHORN TATTOO · {year}</p>
-          <h3 style={{ margin: '2px 0' }}>{studio?.status === 'ready' ? money(studioTotal) + ' encaissés' : studio?.status === 'error' ? 'Ventes du studio indisponibles' : 'Chargement des ventes du studio…'}</h3></div>
-        <button onClick={() => onGo('blackthorn')}>Ouvrir Blackthorn</button>
-      </div>
-      {studio?.status === 'ready' && <div className="mgc-tiles" style={{ marginTop: 10 }}>
-        <div className="mgc-tile"><strong>{compact(byMethod.carte)}</strong><span>Par carte</span></div>
-        <div className="mgc-tile"><strong>{compact(byMethod.cash)}</strong><span>En espèces</span></div>
-        {byMethod.other > 0 && <div className="mgc-tile"><strong>{compact(byMethod.other)}</strong><span>Autres modes</span></div>}
-        {studio.data.reconciliationWarnings > 0 && <div className="mgc-tile"><strong>{studio.data.reconciliationWarnings}</strong><span>Ligne(s) à rapprocher</span></div>}
-      </div>}
-      <p className="mgc-muted" style={{ margin: '8px 0 0' }}>Seules les ventes confirmées dans le Hub sont comptées. Les espèces restent à déclarer comme le reste.</p>
-    </section>
-
-    <section className="mgc-panel">
-      <div className="mgc-between">
-        <div><p className="mg-section-label">COMMUNICATION</p><h3 style={{ margin: '2px 0' }}>{canauxActifs} canal{canauxActifs > 1 ? 'ux' : ''} en ligne sur 4</h3></div>
-        <button onClick={() => onGo('prospection')}>Voir les canaux</button>
-      </div>
-      <p className="mgc-muted" style={{ margin: '8px 0 0' }}>Instagram, LinkedIn, Indeed et ta page web. Les actions prévues aujourd’hui apparaissent plus haut.</p>
-    </section>
-
-    {objectif > 0 && <section className="mgc-panel">
-      <div className="mgc-between"><h3>Chiffre d’affaires cumulé et trajectoire</h3>
-        <div className="mgc-legend"><span><i style={{ background: REEL }} />Réalisé (HT)</span><span><i className="dash" style={{ borderColor: CIBLE }} />Trajectoire de l’objectif</span></div></div>
-      <LineChart months={MONTHS} cumul={cumul} target={target} objectif={objectif} currentMonth={currentMonth} />
-    </section>}
-
-    <section className="mgc-panel">
-      <div className="mgc-between"><h3>Facturé par mois</h3>
-        {neededPerMonth > 0 && <div className="mgc-legend"><span><i style={{ background: REEL }} />Facturé (HT)</span><span><i className="dash" style={{ borderColor: CIBLE }} />Rythme visé</span></div>}</div>
-      <BarChart monthly={monthly} months={MONTHS} needed={neededPerMonth} currentMonth={currentMonth} />
-      <details className="mgc-muted" style={{ marginTop: 6 }}><summary>Voir les chiffres</summary>
-        <table className="mgc-table"><tbody>{monthly.map((v, i) => <tr key={i}><td>{MONTHS[i]}</td><td className="mgc-num">{money(v)}</td><td className="mgc-num">{cumul[i] != null ? money(cumul[i]) : ''}</td></tr>)}</tbody></table>
-      </details>
-    </section>
-
     {editGoal && <Dialog title={'Objectif ' + year} onClose={() => setEditGoal(false)}
       footer={<><span /><button className="mgc-primary" disabled={!canSave} onClick={() => saveCrm(data => ({ ...data, objectifs: { ...data.objectifs, [year]: toCents(goalInput || 0) } }), 'Objectif enregistré.').then(ok => ok && setEditGoal(false))}>Enregistrer</button></>}>
       <div className="mgc-form"><label>Chiffre d’affaires visé sur l’année (€ HT)<input type="number" min="0" step="1000" autoFocus value={goalInput} onChange={e => setGoalInput(e.target.value)} /></label>
         <p className="mgc-muted">Compte toutes les factures de Mon activité (Malt, LiveMentor, clients directs), hors TVA.</p></div>
     </Dialog>}
-  </>
+  </div>
 }
