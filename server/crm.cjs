@@ -21,6 +21,7 @@ const PROJECT_STATUS = ['a_demarrer', 'en_cours', 'suivi', 'en_pause', 'livre']
 const PROSPECT_STATUS = ['nouveau', 'contacte', 'rdv', 'devis', 'gagne', 'perdu']
 const CANAUX = ['instagram', 'linkedin', 'indeed', 'site']
 const CANAL_STATUS = ['a_creer', 'en_cours', 'actif']
+const DEVIS_STATUS = ['brouillon', 'envoye', 'signe', 'refuse']
 
 function cleanClient(c) {
   return {
@@ -74,6 +75,27 @@ function cleanCanaux(raw) {
   }))
 }
 
+function cleanDevis(d) {
+  return {
+    id: id(d.id) || newId('dev'), clientId: id(d.clientId) || '', projetId: id(d.projetId) || '',
+    numero: str(d.numero, 40).trim(), date: date(d.date), validite: date(d.validite),
+    statut: oneOf(d.statut, DEVIS_STATUS, 'brouillon'), signeLe: date(d.signeLe),
+    regime: oneOf(d.regime, ['es21', 'eu', 'other'], 'es21'), irpf: Math.min(Math.max(Number(d.irpf) || 0, 0), 50),
+    intro: str(d.intro, 1500), perimetre: (Array.isArray(d.perimetre) ? d.perimetre : []).slice(0, 30).map(x => str(x, 300).trim()).filter(Boolean),
+    note: str(d.note, 800), outils: str(d.outils, 800),
+    lignes: (Array.isArray(d.lignes) ? d.lignes : []).slice(0, 30).map(l => ({
+      description: str(l && l.description, 200), quantite: Math.max(0, Math.min(Number(l && l.quantite) || 0, 100000)), prixCents: cents(l && l.prixCents),
+    })).filter(l => l.description.trim()),
+  }
+}
+
+function cleanEcheance(e) {
+  return {
+    id: id(e.id) || newId('ech'), clientId: id(e.clientId) || '', label: str(e.label, 200).trim() || 'Échéance',
+    date: date(e.date), montantCents: cents(e.montantCents), factureId: id(e.factureId) || '',
+  }
+}
+
 function cleanCrm(data) {
   const d = data && typeof data === 'object' ? data : {}
   const clients = (Array.isArray(d.clients) ? d.clients : []).slice(0, 300).map(cleanClient)
@@ -96,6 +118,8 @@ function cleanCrm(data) {
       })),
     }
   }
+  const devis = (Array.isArray(d.devis) ? d.devis : []).slice(0, 300).map(cleanDevis).filter(x => ids.has(x.clientId) && x.numero)
+  const echeances = (Array.isArray(d.echeances) ? d.echeances : []).slice(0, 600).map(cleanEcheance).filter(x => ids.has(x.clientId))
   const journal = (Array.isArray(d.journal) ? d.journal : []).slice(0, 200)
     .filter(j => j && typeof j.texte === 'string').map(j => ({ date: str(j.date, 30), texte: str(j.texte, 300) }))
   const e = d.emetteur && typeof d.emetteur === 'object' ? d.emetteur : {}
@@ -108,7 +132,7 @@ function cleanCrm(data) {
     if (/^20\d{2}$/.test(year) && cents(value) > 0) objectifs[year] = cents(value)
   }
   return {
-    version: 1, emetteur, objectifs, clients, projets, liens, factures, journal, canaux: cleanCanaux(d.canaux),
+    version: 1, emetteur, objectifs, clients, projets, liens, factures, devis, echeances, journal, canaux: cleanCanaux(d.canaux),
     prospects: (Array.isArray(d.prospects) ? d.prospects : []).slice(0, 600).map(cleanProspect),
   }
 }

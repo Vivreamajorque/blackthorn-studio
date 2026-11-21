@@ -86,6 +86,11 @@ export default function GestoriaEspace({ token }) {
         </section>))}
       {project && tab === 'documents' && (project.documents.length === 0 ? <p className="mg-empty">Aucun document partagé pour l’instant.</p> :
         <div className="mgc-grid">{project.documents.map((d, i) => <a key={i} className="mgc-panel" style={{ marginTop: 0, textDecoration: 'none' }} href={d.url} target="_blank" rel="noopener noreferrer"><strong>{d.label}</strong> ↗</a>)}</div>)}
+      {tab === 'factures' && view.echeancier?.length > 0 && <section className="mgc-panel"><h3 style={{ marginTop: 0 }}>Échéancier</h3>
+        <table className="mgc-table"><tbody>{view.echeancier.map((e, i) => <tr key={i}>
+          <td>{e.label}</td><td className="mgc-muted">{e.date ? formatDate(e.date) : '—'}</td>
+          <td><span className={'mgc-badge ' + (e.statut === 'payee' ? 'ok' : e.statut === 'facturee' ? 'info' : '')}>{e.statut === 'payee' ? 'Réglée' : e.statut === 'facturee' ? 'À régler' : 'À venir'}</span></td>
+          <td className="mgc-num">{money(e.montantCents)}</td></tr>)}</tbody></table></section>}
       {tab === 'factures' && (view.factures.length === 0 ? <p className="mg-empty">Aucune facture pour l’instant.</p> :
         <section className="mgc-panel"><table className="mgc-table"><tbody>{view.factures.map((f, i) => <tr key={i}>
           <td>{f.reference}</td><td className="mgc-muted">{formatDate(f.date)}</td>

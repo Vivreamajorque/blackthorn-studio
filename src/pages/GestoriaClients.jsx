@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { money, uid, toCents, fromCents, clientInvoices, baseCents } from '../lib/gestoria-crm'
 import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
+import DevisTab from './GestoriaDevis'
 import './gestoria-clients.css'
 
 export const PROJECT_STATUS = {
@@ -230,13 +231,14 @@ function reprint(entry, detail, client, emetteur) {
   printInvoice(d, { lines, base, quota, withholding, total: base + quota - withholding }, client, emetteur)
 }
 
-function InvoiceForm({ client, project, projects, entries, emetteur, onCreate, onClose, saving }) {
+function InvoiceForm({ client, project, projects, entries, emetteur, echeance, onCreate, onClose, saving }) {
   const today = todayInSpain()
   const due = new Date(today + 'T12:00:00Z'); due.setUTCDate(due.getUTCDate() + 15)
   const [d, setD] = useState(() => ({
-    date: today, due: due.toISOString().slice(0, 10), reference: nextReference(entries, emetteur.serie || 'A', today.slice(0, 4)),
+    date: today, due: (echeance?.date && echeance.date >= today ? echeance.date : due.toISOString().slice(0, 10)), reference: nextReference(entries, emetteur.serie || 'A', today.slice(0, 4)),
     projetId: project?.id || '', ...defaultRegime(client), note: '',
-    lines: [{ id: uid('l'), description: project ? project.nom : '', qty: '1', price: fromCents(client.tarifJourCents) }],
+    lines: echeance ? [{ id: uid('l'), description: echeance.label, qty: '1', price: fromCents(echeance.montantCents) }]
+      : [{ id: uid('l'), description: project ? project.nom : '', qty: '1', price: fromCents(client.tarifJourCents) }],
   }))
   const [error, setError] = useState('')
   const [created, setCreated] = useState(false)
@@ -264,7 +266,7 @@ function InvoiceForm({ client, project, projects, entries, emetteur, onCreate, o
     }
     const detail = { regime: d.regime, irpf: Number(d.irpf) || 0, note: d.note, echeance: d.due,
       lignes: t.lines.map(l => ({ description: l.description, quantite: Number(l.qty) || 0, prixCents: toCents(l.price || 0) })) }
-    onCreate(entry, d.projetId, detail).then(ok => ok && setCreated(true))
+    onCreate(entry, d.projetId, detail, echeance?.id).then(ok => ok && setCreated(true))
   }
 
   if (created) return <Dialog title={'Facture ' + d.reference + ' émise'} onClose={onClose}
@@ -346,11 +348,12 @@ function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onB
   const toggle = (p, a) => saveCrm(data => ({ ...data, projets: data.projets.map(x => x.id !== p.id ? x : {
     ...x, actions: x.actions.map(y => y.id === a.id ? { ...y, fait: !y.fait, faitLe: !y.fait ? todayInSpain() : '' } : y) }) }), 'Action mise à jour.')
 
-  async function createInvoice(entry, projetId, detail) {
+  async function createInvoice(entry, projetId, detail, echeanceId) {
     const ok = await saveWorkspace(workspace => ({ ...workspace, entries: [...workspace.entries, entry] }))
     if (!ok) return false
     await saveCrm(data => ({ ...data, liens: { ...data.liens, [entry.id]: { clientId: client.id, ...(projetId && { projetId }) } },
       factures: { ...data.factures, [entry.id]: detail },
+      ...(echeanceId && { echeances: (data.echeances || []).map(e => e.id === echeanceId ? { ...e, factureId: entry.id } : e) }),
       journal: [{ date: new Date().toISOString(), texte: 'Facture ' + entry.reference + ' émise pour ' + client.nom }, ...data.journal] }), 'Facture ajoutée au registre.')
     return true
   }
@@ -374,7 +377,7 @@ function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onB
     </section>
     <div className="mgc-between" style={{ marginTop: 12 }}>
       <div className="mgc-tabs" style={{ margin: 0 }}>
-        {[['projets', 'Projets'], ['factures', 'Factures (' + invoices.length + ')'], ['espace', 'Espace client'], ['infos', 'Infos']].map(([k, l]) =>
+        {[['projets', 'Projets'], ['devis', 'Devis (' + (crm.devis || []).filter(d => d.clientId === client.id).length + ')'], ['factures', 'Factures (' + invoices.length + ')'], ['espace', 'Espace client'], ['infos', 'Infos']].map(([k, l]) =>
           <button key={k} aria-pressed={tab === k} onClick={() => setTab(k)}>{l}</button>)}
       </div>
       <div className="mgc-row">
@@ -413,6 +416,9 @@ function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onB
       <button style={{ marginTop: 12 }} disabled={!canSave} onClick={() => setEditProject({ clientId: client.id, nom: '', statut: 'a_demarrer', actions: [], documents: [] })}>+ Ajouter un projet</button>
     </>}
 
+    {tab === 'devis' && <DevisTab client={client} crm={crm} entries={entries} saveCrm={saveCrm} canSave={canSave} saving={saving}
+      projects={projects} onInvoice={echeance => setInvoiceFor({ echeance })} />}
+
     {tab === 'factures' && <section className="mgc-panel">
       {invoices.length === 0 ? <p className="mg-empty">Pas encore de facture pour ce client.</p> :
         <table className="mgc-table"><thead><tr><th>N°</th><th>Date</th><th>Statut</th><th className="mgc-num">Total</th><th /></tr></thead>
@@ -450,7 +456,7 @@ function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onB
       onSave={c => saveCrm(data => ({ ...data, clients: data.clients.map(x => x.id === c.id ? c : x) }), 'Fiche enregistrée.').then(ok => ok && setEditClient(false))} />}
     {editProject && <ProjectForm project={editProject} saving={saving} onClose={() => setEditProject(null)} onSave={saveProject}
       onDelete={id => saveCrm(data => ({ ...data, projets: data.projets.filter(p => p.id !== id) }), 'Projet supprimé.').then(ok => ok && setEditProject(null))} />}
-    {invoiceFor && <InvoiceForm client={client} project={invoiceFor.project} projects={projects} entries={entries} emetteur={crm.emetteur || {}}
+    {invoiceFor && <InvoiceForm client={client} project={invoiceFor.project} echeance={invoiceFor.echeance} projects={projects} entries={entries} emetteur={crm.emetteur || {}}
       saving={saving} onClose={() => setInvoiceFor(null)} onCreate={createInvoice} />}
   </>
 }

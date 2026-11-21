@@ -11,6 +11,15 @@ function invoicesFor(entries, crm, client) {
     .map(e => ({ reference: e.reference, date: e.date, amountCents: e.amountCents, payment: e.payment }))
 }
 
+function echeancesFor(crm, client, entries) {
+  return (crm.echeances || []).filter(e => e.clientId === client.id)
+    .sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'))
+    .map(e => {
+      const facture = e.factureId && entries.find(x => x.id === e.factureId)
+      return { label: e.label, date: e.date, montantCents: e.montantCents, statut: !facture ? 'a_venir' : facture.payment === 'paid' ? 'payee' : 'facturee' }
+    })
+}
+
 function view(crm, client, entries) {
   return {
     client: { nom: client.nom, contact: client.contact },
@@ -22,6 +31,7 @@ function view(crm, client, entries) {
       documents: p.documents.map(({ label, url }) => ({ label, url })),
     })),
     factures: invoicesFor(entries, crm, client),
+    echeancier: echeancesFor(crm, client, entries),
   }
 }
 

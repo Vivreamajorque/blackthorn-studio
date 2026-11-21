@@ -50,6 +50,12 @@ test('espace client : ne montre que le dossier du client et protège les actions
   const text = JSON.stringify(r.data)
   assert.ok(!text.includes('SECRET') && !text.includes('Decathlon') && !text.includes('Loyer') && !text.includes('portalToken'))
 
+  crm.echeances = [{ id: 'ech_1', clientId: nisha.id, label: 'Novembre', date: '2026-11-21', montantCents: 75000, factureId: 'inv_n' },
+    { id: 'ech_2', clientId: nisha.id, label: 'Décembre', date: '2026-12-05', montantCents: 75000 }, { id: 'ech_3', clientId: decathlon.id, label: 'Autre', montantCents: 1 }]
+  espace.blobForTests = fakeBlob({ [CRM_PATH]: crm, 'mi-gestoria/personal/v1/workspace.json': workspace })
+  r = await call({ method: 'GET', query: { t: nisha.portalToken } })
+  assert.deepEqual(r.data.echeancier.map(e => [e.label, e.statut]), [['Novembre', 'facturee'], ['Décembre', 'a_venir']], 'échéancier propre au client')
+
   r = await call({ method: 'GET', query: { t: decathlon.portalToken } })
   assert.deepEqual(r.data.factures.map(f => f.reference), ['ESRE01'], 'les factures Malt vont à Decathlon')
 

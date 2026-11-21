@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 const path = '/api/gestoria-crm'
-const empty = { clients: [], projets: [], prospects: [], liens: {}, factures: {}, journal: [], canaux: {} }
+const empty = { clients: [], projets: [], prospects: [], liens: {}, factures: {}, devis: [], echeances: [], journal: [], canaux: {} }
 
 export const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
 export const money = cents => euro.format((cents || 0) / 100)

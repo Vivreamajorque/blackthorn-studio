@@ -50,3 +50,24 @@ test('les canaux de communication sont nettoyés : 4 canaux fixes, liens https, 
   assert.equal(crm.canaux.linkedin.lien, '')
   assert.equal(crm.canaux.site.statut, 'a_creer')
 })
+
+test('les devis et les échéances sont nettoyés et rattachés à un client existant', () => {
+  const crm = cleanCrm({
+    clients: [{ id: 'cli_a', nom: 'A' }],
+    devis: [
+      { id: 'dev_1', clientId: 'cli_a', numero: 'DEV-2026-002', date: '2026-11-21', statut: 'signe', regime: 'eu', pirate: 'x',
+        lignes: [{ description: 'App', quantite: 1, prixCents: 125000 }, { description: '', quantite: 1, prixCents: 5 }], perimetre: ['a', '', 'b'] },
+      { id: 'dev_2', clientId: 'cli_inconnu', numero: 'DEV-2026-003' },
+      { id: 'dev_3', clientId: 'cli_a', numero: '' },
+    ],
+    echeances: [{ id: 'ech_1', clientId: 'cli_a', label: 'Novembre', date: '2026-11-21', montantCents: 75000, factureId: 'inv_x' }, { clientId: 'cli_inconnu', montantCents: 5 }],
+  })
+  assert.equal(crm.devis.length, 1)
+  assert.equal(crm.devis[0].pirate, undefined)
+  assert.equal(crm.devis[0].lignes.length, 1)
+  assert.deepEqual(crm.devis[0].perimetre, ['a', 'b'])
+  assert.equal(crm.devis[0].regime, 'eu')
+  assert.equal(crm.echeances.length, 1)
+  assert.equal(crm.echeances[0].factureId, 'inv_x')
+  assert.deepEqual(cleanCrm({}).devis, [])
+})
