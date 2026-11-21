@@ -39,3 +39,14 @@ test('une facture créée depuis une fiche client est acceptée par le registre 
   const { expectedPaymentDate, ...rest } = base
   assert.ok(validEntry({ ...rest, amountCents: 93775, payment: 'paid', paymentDate: '2026-11-25' }), 'pointage payé valide')
 })
+
+test('les canaux de communication sont nettoyés : 4 canaux fixes, liens https, états connus', () => {
+  const crm = cleanCrm({ canaux: { instagram: { statut: 'actif', lien: 'https://instagram.com/x', action: 'Publier', date: '2026-11-25', pirate: 1 },
+    linkedin: { statut: 'nimporte', lien: 'javascript:alert(1)' }, inconnu: { statut: 'actif' } } })
+  assert.deepEqual(Object.keys(crm.canaux), ['instagram', 'linkedin', 'indeed', 'site'])
+  assert.equal(crm.canaux.instagram.statut, 'actif')
+  assert.equal(crm.canaux.instagram.pirate, undefined)
+  assert.equal(crm.canaux.linkedin.statut, 'a_creer')
+  assert.equal(crm.canaux.linkedin.lien, '')
+  assert.equal(crm.canaux.site.statut, 'a_creer')
+})

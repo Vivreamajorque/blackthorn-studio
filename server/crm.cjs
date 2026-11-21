@@ -19,6 +19,8 @@ const newToken = () => crypto.randomBytes(24).toString('base64url')
 const CLIENT_STATUS = ['actif', 'pause', 'termine', 'archive']
 const PROJECT_STATUS = ['a_demarrer', 'en_cours', 'suivi', 'en_pause', 'livre']
 const PROSPECT_STATUS = ['nouveau', 'contacte', 'rdv', 'devis', 'gagne', 'perdu']
+const CANAUX = ['instagram', 'linkedin', 'indeed', 'site']
+const CANAL_STATUS = ['a_creer', 'en_cours', 'actif']
 
 function cleanClient(c) {
   return {
@@ -63,6 +65,15 @@ function cleanProspect(p) {
   }
 }
 
+function cleanCanaux(raw) {
+  const d = raw && typeof raw === 'object' ? raw : {}
+  return Object.fromEntries(CANAUX.map(key => {
+    const c = d[key] && typeof d[key] === 'object' ? d[key] : {}
+    return [key, { statut: oneOf(c.statut, CANAL_STATUS, 'a_creer'), lien: url(c.lien), action: str(c.action, 200),
+      date: date(c.date), notes: str(c.notes, 3000) }]
+  }))
+}
+
 function cleanCrm(data) {
   const d = data && typeof data === 'object' ? data : {}
   const clients = (Array.isArray(d.clients) ? d.clients : []).slice(0, 300).map(cleanClient)
@@ -97,7 +108,7 @@ function cleanCrm(data) {
     if (/^20\d{2}$/.test(year) && cents(value) > 0) objectifs[year] = cents(value)
   }
   return {
-    version: 1, emetteur, objectifs, clients, projets, liens, factures, journal,
+    version: 1, emetteur, objectifs, clients, projets, liens, factures, journal, canaux: cleanCanaux(d.canaux),
     prospects: (Array.isArray(d.prospects) ? d.prospects : []).slice(0, 600).map(cleanProspect),
   }
 }

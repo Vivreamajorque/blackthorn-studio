@@ -43,6 +43,10 @@ export function todayList({ entries, crm, today }) {
   for (const p of crm.prospects.filter(p => !['gagne', 'perdu'].includes(p.statut) && p.relance && p.relance <= today)) {
     items.push({ rank: 2, tone: 'wait', text: 'Relancer ' + p.nom + (p.entreprise ? ' (' + p.entreprise + ')' : ''), when: p.relance < today ? 'prévu le ' + formatDate(p.relance) : 'aujourd’hui', go: 'prospection' })
   }
+  for (const [key, name] of [['instagram', 'Instagram'], ['linkedin', 'LinkedIn'], ['indeed', 'Indeed'], ['site', 'Page web']]) {
+    const c = (crm.canaux || {})[key]
+    if (c && c.action && c.date && c.date <= today) items.push({ rank: 2, tone: 'wait', text: name + ' · ' + c.action, when: c.date < today ? 'prévu le ' + formatDate(c.date) : 'aujourd’hui', go: 'prospection' })
+  }
   for (const p of crm.projets.filter(p => ['en_cours', 'a_demarrer'].includes(p.statut))) {
     const a = p.actions.find(a => a.pour === 'amely' && !a.fait)
     const c = crm.clients.find(x => x.id === p.clientId)
@@ -110,7 +114,7 @@ function BarChart({ monthly, months, needed, currentMonth }) {
   </div>
 }
 
-export default function GestoriaPilotage({ entries, crm, year, saveCrm, canSave, onGo }) {
+export default function GestoriaPilotage({ entries, crm, year, saveCrm, canSave, onGo, studio }) {
   const [editGoal, setEditGoal] = useState(false)
   const [goalInput, setGoalInput] = useState('')
   const [showAll, setShowAll] = useState(false)
@@ -137,6 +141,11 @@ export default function GestoriaPilotage({ entries, crm, year, saveCrm, canSave,
   const pending = independent.filter(e => e.kind === 'invoice' && e.payment !== 'paid').reduce((s, e) => s + e.amountCents, 0)
   const list = todayList({ entries: independent, crm, today })
   const shown = showAll ? list : list.slice(0, 3)
+  const receipts = studio?.data?.receipts || []
+  const byMethod = { carte: 0, cash: 0, other: 0 }
+  for (const r of receipts) byMethod[r.method === 'carte' || r.method === 'cash' ? r.method : 'other'] += Math.round(r.amount * 100)
+  const studioTotal = byMethod.carte + byMethod.cash + byMethod.other
+  const canauxActifs = ['instagram', 'linkedin', 'indeed', 'site'].filter(k => crm.canaux?.[k]?.statut === 'actif').length
 
   return <>
     <div className="mgc-hero">
@@ -175,6 +184,29 @@ export default function GestoriaPilotage({ entries, crm, year, saveCrm, canSave,
         <div className="mgc-tile"><strong>{compact(pipeline)}</strong><span>En prospection (valeur estimée)</span></div>
         <div className="mgc-tile"><strong>{compact(pending)}</strong><span>Facturé, pas encore encaissé</span></div>
       </div>
+    </section>
+
+    <section className="mgc-panel">
+      <div className="mgc-between">
+        <div><p className="mg-section-label">BLACKTHORN TATTOO · {year}</p>
+          <h3 style={{ margin: '2px 0' }}>{studio?.status === 'ready' ? money(studioTotal) + ' encaissés' : studio?.status === 'error' ? 'Ventes du studio indisponibles' : 'Chargement des ventes du studio…'}</h3></div>
+        <button onClick={() => onGo('blackthorn')}>Ouvrir Blackthorn</button>
+      </div>
+      {studio?.status === 'ready' && <div className="mgc-tiles" style={{ marginTop: 10 }}>
+        <div className="mgc-tile"><strong>{compact(byMethod.carte)}</strong><span>Par carte</span></div>
+        <div className="mgc-tile"><strong>{compact(byMethod.cash)}</strong><span>En espèces</span></div>
+        {byMethod.other > 0 && <div className="mgc-tile"><strong>{compact(byMethod.other)}</strong><span>Autres modes</span></div>}
+        {studio.data.reconciliationWarnings > 0 && <div className="mgc-tile"><strong>{studio.data.reconciliationWarnings}</strong><span>Ligne(s) à rapprocher</span></div>}
+      </div>}
+      <p className="mgc-muted" style={{ margin: '8px 0 0' }}>Seules les ventes confirmées dans le Hub sont comptées. Les espèces restent à déclarer comme le reste.</p>
+    </section>
+
+    <section className="mgc-panel">
+      <div className="mgc-between">
+        <div><p className="mg-section-label">COMMUNICATION</p><h3 style={{ margin: '2px 0' }}>{canauxActifs} canal{canauxActifs > 1 ? 'ux' : ''} en ligne sur 4</h3></div>
+        <button onClick={() => onGo('prospection')}>Voir les canaux</button>
+      </div>
+      <p className="mgc-muted" style={{ margin: '8px 0 0' }}>Instagram, LinkedIn, Indeed et ta page web. Les actions prévues aujourd’hui apparaissent plus haut.</p>
     </section>
 
     {objectif > 0 && <section className="mgc-panel">

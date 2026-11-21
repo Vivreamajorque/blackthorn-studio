@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { money, uid, toCents, fromCents } from '../lib/gestoria-crm'
 import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
 import { Dialog, bind } from './GestoriaClients'
+import GestoriaCanaux from './GestoriaCanaux'
 import './gestoria-clients.css'
 
 const STEPS = [['nouveau', 'À contacter'], ['contacte', 'Contacté'], ['rdv', 'Rendez-vous'], ['devis', 'Devis envoyé'], ['gagne', 'Signé'], ['perdu', 'Perdu']]
@@ -43,6 +44,7 @@ function ProspectForm({ prospect, onSave, onDelete, onSign, onClose, saving }) {
 
 export default function GestoriaProspection({ crm, saveCrm, canSave, saving, onClient }) {
   const [edit, setEdit] = useState(null)
+  const [view, setView] = useState('pistes')
   const today = todayInSpain()
   const open = crm.prospects.filter(p => !['gagne', 'perdu'].includes(p.statut))
   const toFollow = open.filter(p => p.relance && p.relance <= today)
@@ -71,8 +73,14 @@ export default function GestoriaProspection({ crm, saveCrm, canSave, saving, onC
     <div className="mgc-between">
       <div><p className="mg-section-label">MON ACTIVITÉ</p><h1 style={{ margin: '.1em 0', fontSize: 'clamp(1.65rem, 4vw, 2.6rem)', letterSpacing: '-.05em' }}>Prospection</h1>
         <p className="mgc-muted" style={{ margin: 0 }}>Tes pistes, tes relances, et un clic pour transformer un « oui » en client.</p></div>
-      <button className="mgc-primary" disabled={!canSave} onClick={() => setEdit({ nom: '', statut: 'nouveau', source: 'Instagram' })}>+ Prospect</button>
+      {view === 'pistes' && <button className="mgc-primary" disabled={!canSave} onClick={() => setEdit({ nom: '', statut: 'nouveau', source: 'Instagram' })}>+ Prospect</button>}
     </div>
+    <div className="mgc-tabs" role="tablist" aria-label="Prospection">
+      {[['pistes', 'Pistes'], ['canaux', 'Canaux de communication']].map(([id, label]) =>
+        <button key={id} role="tab" aria-selected={view === id} className={view === id ? 'on' : ''} onClick={() => setView(id)}>{label}</button>)}
+    </div>
+    {view === 'canaux' && <GestoriaCanaux crm={crm} saveCrm={saveCrm} canSave={canSave} saving={saving} />}
+    {view === 'pistes' && <>
     <div className="mgc-tiles">
       <div className="mgc-tile"><strong>{open.length}</strong><span>Pistes ouvertes · {money(open.reduce((s, p) => s + p.valeurCents, 0))} potentiels</span></div>
       <div className="mgc-tile"><strong>{toFollow.length}</strong><span>À relancer aujourd’hui</span></div>
@@ -96,6 +104,7 @@ export default function GestoriaProspection({ crm, saveCrm, canSave, saving, onC
         </div>
       })}
     </div>
+    </>}
     {edit && <ProspectForm prospect={edit} saving={saving} onClose={() => setEdit(null)} onSave={save} onSign={sign}
       onDelete={id => saveCrm(data => ({ ...data, prospects: data.prospects.filter(p => p.id !== id) }), 'Prospect supprimé.').then(ok => ok && setEdit(null))} />}
   </>

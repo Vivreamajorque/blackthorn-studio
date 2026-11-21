@@ -367,7 +367,7 @@ export default function MiGestoria() {
         onFinance={() => openDossier('independent', 'finance')} />}
     {tab === 'pilotage' && loadState === 'ready' && crmState.loadState === 'ready' &&
       <GestoriaPilotage entries={data.entries} crm={crmState.crm} year={year} saveCrm={crmState.save} canSave={!crmState.saving}
-        onGo={next => { if (next === 'tasks') openDossier('independent', 'tasks', 'declarations', true); else { setClientToOpen(null); setTab(next) } window.scrollTo(0, 0) }} />}
+        studio={studio} onGo={next => { if (next === 'tasks') openDossier('independent', 'tasks', 'declarations', true); else if (next === 'blackthorn') openDossier('blackthorn', 'finance'); else { setClientToOpen(null); setTab(next) } window.scrollTo(0, 0) }} />}
     {tab === 'prospection' && crmState.loadState === 'ready' &&
       <GestoriaProspection crm={crmState.crm} saveCrm={crmState.save} canSave={!crmState.saving} saving={crmState.saving}
         onClient={id => { setClientToOpen(id); setTab('clients'); window.scrollTo(0, 0) }} />}

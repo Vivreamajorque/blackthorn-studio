@@ -95,3 +95,10 @@
 .mgc-legend i.dash { height: 0; border-top: 2px dashed; background: none !important; }
 .mgc-tooltip { position: absolute; top: 8px; min-width: 150px; background: #1d2a2b; color: #f7f2ea; border-radius: 10px; padding: 8px 10px; font-size: .8rem; pointer-events: none; }
 .mgc-tooltip div { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+
+/* Prospection : onglets et canaux de communication */
+.mgc-tabs { display: flex; gap: 6px; margin: 12px 0; flex-wrap: wrap; }
+.mgc-tabs button { border-radius: 999px; }
+.mgc-tabs button.on { background: #1f4d4a; color: #fff; border-color: #1f4d4a; }
+.mgc-canaux { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 8px; }
+.mgc-canal { margin: 0; }
