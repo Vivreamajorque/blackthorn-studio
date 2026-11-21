@@ -5,7 +5,10 @@ const RENEW_AFTER_MS = 24 * 3600 * 1000
 
 function appOrigin() {
   // Version de test Vercel : la connexion se fait sur l'adresse de la branche, pas sur l'adresse principale.
-  if (process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_BRANCH_URL) {
+  // La branche principale de Mi Gestoría garde son adresse habituelle (GESTORIA_URL).
+  const mainBranch = process.env.GESTORIA_MAIN_BRANCH || 'feature/mi-gestoria-amely'
+  if (process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_BRANCH_URL &&
+      process.env.VERCEL_GIT_COMMIT_REF && process.env.VERCEL_GIT_COMMIT_REF !== mainBranch) {
     return new URL('https://' + process.env.VERCEL_BRANCH_URL)
   }
   return new URL(process.env.GESTORIA_URL)
