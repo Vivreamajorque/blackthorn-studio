@@ -189,6 +189,16 @@ function printInvoice(d, t, client, emetteur) {
   setTimeout(() => URL.revokeObjectURL(url), 60000)
 }
 
+// Réimprimer une facture émise depuis l'atelier (ou depuis Claude) à partir de son détail enregistré.
+function reprint(entry, detail, client, emetteur) {
+  const d = { reference: entry.reference, date: entry.date, due: detail.echeance, regime: detail.regime, irpf: String(detail.irpf), note: detail.note }
+  const lines = detail.lignes.map(l => ({ description: l.description, qty: String(l.quantite), price: String(l.prixCents / 100), cents: Math.round(l.quantite * l.prixCents) }))
+  const base = lines.reduce((s, l) => s + l.cents, 0)
+  const quota = detail.regime === 'es21' ? Math.round(base * 0.21) : 0
+  const withholding = Math.round(base * (detail.irpf || 0) / 100)
+  printInvoice(d, { lines, base, quota, withholding, total: base + quota - withholding }, client, emetteur)
+}
+
 function InvoiceForm({ client, project, projects, entries, emetteur, onCreate, onClose, saving }) {
   const today = todayInSpain()
   const due = new Date(today + 'T12:00:00Z'); due.setUTCDate(due.getUTCDate() + 15)
@@ -221,7 +231,9 @@ function InvoiceForm({ client, project, projects, entries, emetteur, onCreate, o
       taxAmountCents: t.base, ...(t.withholding > 0 && { withholdingCents: t.withholding }),
       ...(d.due && { expectedPaymentDate: d.due }), vat,
     }
-    onCreate(entry, d.projetId).then(ok => ok && setCreated(true))
+    const detail = { regime: d.regime, irpf: Number(d.irpf) || 0, note: d.note, echeance: d.due,
+      lignes: t.lines.map(l => ({ description: l.description, quantite: Number(l.qty) || 0, prixCents: toCents(l.price || 0) })) }
+    onCreate(entry, d.projetId, detail).then(ok => ok && setCreated(true))
   }
 
   if (created) return <Dialog title={'Facture ' + d.reference + ' émise'} onClose={onClose}
@@ -303,10 +315,11 @@ function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onB
   const toggle = (p, a) => saveCrm(data => ({ ...data, projets: data.projets.map(x => x.id !== p.id ? x : {
     ...x, actions: x.actions.map(y => y.id === a.id ? { ...y, fait: !y.fait, faitLe: !y.fait ? todayInSpain() : '' } : y) }) }), 'Action mise à jour.')
 
-  async function createInvoice(entry, projetId) {
+  async function createInvoice(entry, projetId, detail) {
     const ok = await saveWorkspace(workspace => ({ ...workspace, entries: [...workspace.entries, entry] }))
     if (!ok) return false
     await saveCrm(data => ({ ...data, liens: { ...data.liens, [entry.id]: { clientId: client.id, ...(projetId && { projetId }) } },
+      factures: { ...data.factures, [entry.id]: detail },
       journal: [{ date: new Date().toISOString(), texte: 'Facture ' + entry.reference + ' émise pour ' + client.nom }, ...data.journal] }), 'Facture ajoutée au registre.')
     return true
   }
@@ -373,7 +386,9 @@ function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onB
           <tbody>{invoices.map(e => <tr key={e.id}>
             <td>{e.reference || '—'}{e.source === 'malt' && <span className="mgc-badge" style={{ marginLeft: 6 }}>Malt</span>}{e.source === 'livementor' && <span className="mgc-badge" style={{ marginLeft: 6 }}>LiveMentor</span>}</td>
             <td>{formatDate(e.date)}</td><td><PaymentBadge entry={e} /></td><td className="mgc-num">{money(e.amountCents)}</td>
-            <td className="mgc-num">{e.payment !== 'paid' && <button disabled={!canSave} onClick={() => markPaid(e)}>Pointer payée</button>}</td>
+            <td className="mgc-num">
+              {crm.factures?.[e.id] && <button onClick={() => reprint(e, crm.factures[e.id], client, crm.emetteur || {})}>PDF</button>}{' '}
+              {e.payment !== 'paid' && <button disabled={!canSave} onClick={() => markPaid(e)}>Pointer payée</button>}</td>
           </tr>)}</tbody></table>}
       <p className="mgc-muted" style={{ marginBottom: 0 }}>Ces factures sont celles de ton registre. Pour les modifier ou joindre la pièce : <button className="mgc-link" onClick={onFinance}>Factures &amp; dépenses</button>.</p>
     </section>}
@@ -465,6 +480,12 @@ export default function GestoriaClients({ crm, entries, saveCrm, saveWorkspace, 
       })}
     </div>
     {list.length === 0 && <p className="mg-empty">Aucun client dans cette vue.</p>}
+    <p className="mgc-muted" style={{ marginTop: 24 }}>Connexion Claude : tu peux couper l’accès de Claude à tout moment.{' '}
+      <button className="mgc-link" onClick={async () => {
+        if (!window.confirm('Couper l’accès de Claude à Mi Gestoría ? Il faudra le reconnecter depuis Claude.')) return
+        const r = await fetch('/api/gestoria-mcp?action=revoke', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        window.alert(r.ok ? 'Accès de Claude coupé.' : 'Coupure non confirmée, réessaie.')
+      }}>Couper l’accès</button></p>
     {newClient && <ClientForm client={newClient} saving={saving} onClose={() => setNewClient(null)}
       onSave={async c => { const id = uid('cli'); const ok = await saveCrm(data => ({ ...data, clients: [...data.clients, { ...c, id }] }), 'Client ajouté.'); if (ok) { setNewClient(null); setOpenId(id) } }} />}
     {editEmetteur && <EmetteurForm emetteur={crm.emetteur || {}} saving={saving} onClose={() => setEditEmetteur(false)}

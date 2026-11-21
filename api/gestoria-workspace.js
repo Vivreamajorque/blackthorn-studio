@@ -257,3 +257,4 @@ module.exports = async function handler(req, res) {
 
 module.exports.readWorkspace = readWorkspace
 module.exports.validEntry = validEntry
+module.exports.validWorkspace = validWorkspace

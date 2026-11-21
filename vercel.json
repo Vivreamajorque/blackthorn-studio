@@ -4,15 +4,45 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Referrer-Policy", "value": "no-referrer" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
       ]
     }
   ],
   "rewrites": [
-    { "source": "/mi-gestoria", "destination": "/index.html" },
-    { "source": "/espace/:token", "destination": "/index.html" }
+    {
+      "source": "/mi-gestoria",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/espace/:token",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/.well-known/oauth-protected-resource/api/gestoria-mcp",
+      "destination": "/api/gestoria-mcp?action=resource_metadata"
+    },
+    {
+      "source": "/.well-known/oauth-protected-resource",
+      "destination": "/api/gestoria-mcp?action=resource_metadata"
+    },
+    {
+      "source": "/.well-known/oauth-authorization-server",
+      "destination": "/api/gestoria-mcp?action=metadata"
+    }
   ]
 }

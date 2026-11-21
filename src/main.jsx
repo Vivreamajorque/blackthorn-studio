@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import MiGestoria from './pages/MiGestoria'
 import GestoriaEspace from './pages/GestoriaEspace'
+import GestoriaConnect, { pendingConnect } from './pages/GestoriaConnect'
 import './style.css'
 
 const api = '/api/gestoria-auth'
@@ -22,6 +23,7 @@ function App() {
   const [busy, setBusy] = useState(false)
   const [email, setEmail] = useState('')
   const [feedback, setFeedback] = useState(null)
+  const [connectRequest, setConnectRequest] = useState(pendingConnect)
 
   useEffect(() => {
     if (window.location.hash.startsWith('#connexion=')) window.history.replaceState(null, '', window.location.pathname)
@@ -76,6 +78,7 @@ function App() {
   }
 
   if (status === 'loading') return <main className="login"><p role="status">Chargement de Mi Gestoría…</p></main>
+  if (status === 'connected' && connectRequest) return <GestoriaConnect request={connectRequest} onDone={() => setConnectRequest(null)} />
   if (status === 'connected') return <>
     <header className="app-header">
       <strong className="app-brand"><span aria-hidden="true">MG</span> Mi Gestoría</strong>

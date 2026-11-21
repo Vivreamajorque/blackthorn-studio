@@ -66,6 +66,18 @@ function cleanCrm(data) {
   for (const [entryId, l] of Object.entries(d.liens && typeof d.liens === 'object' ? d.liens : {})) {
     if (id(entryId) && l && ids.has(l.clientId)) liens[entryId] = { clientId: l.clientId, ...(projetIds.has(l.projetId) && { projetId: l.projetId }) }
   }
+  // Détail des factures émises depuis l'atelier (lignes, régime), pour pouvoir les réimprimer.
+  const factures = {}
+  for (const [entryId, f] of Object.entries(d.factures && typeof d.factures === 'object' ? d.factures : {}).slice(0, 2000)) {
+    if (!id(entryId) || !f || typeof f !== 'object') continue
+    factures[entryId] = {
+      regime: oneOf(f.regime, ['es21', 'eu', 'other'], 'es21'), irpf: Math.min(Math.max(Number(f.irpf) || 0, 0), 50),
+      note: str(f.note, 300), echeance: date(f.echeance),
+      lignes: (Array.isArray(f.lignes) ? f.lignes : []).slice(0, 30).map(l => ({
+        description: str(l.description, 200), quantite: Math.max(0, Math.min(Number(l.quantite) || 0, 100000)), prixCents: cents(l.prixCents),
+      })),
+    }
+  }
   const journal = (Array.isArray(d.journal) ? d.journal : []).slice(0, 200)
     .filter(j => j && typeof j.texte === 'string').map(j => ({ date: str(j.date, 30), texte: str(j.texte, 300) }))
   const e = d.emetteur && typeof d.emetteur === 'object' ? d.emetteur : {}
@@ -74,7 +86,7 @@ function cleanCrm(data) {
     email: str(e.email, 160), iban: str(e.iban, 60), serie: str(e.serie, 12).replace(/[^\w]/g, '') || 'A',
   }
   return {
-    version: 1, emetteur, clients, projets, liens, journal,
+    version: 1, emetteur, clients, projets, liens, factures, journal,
     prospects: (Array.isArray(d.prospects) ? d.prospects : []).slice(0, 600).map(cleanProspect),
   }
 }
