@@ -115,6 +115,55 @@ async function signIn(req, res, token) {
   return res.status(200).json({ connected: true })
 }
 
+const pinPath = 'mi-gestoria/personal/v1/pin-attempts.json'
+const maxPinFailures = 5
+const pinWindow = 15 * 60 * 1000
+
+async function readPinAttempts(blob) {
+  const current = await readVersionedBlob(blob, pinPath)
+  return current
+    ? { revision: current.revision, failures: (await new Response(current.content.stream).json()).failures || [] }
+    : { revision: null, failures: [] }
+}
+
+async function savePinAttempts(blob, revision, failures) {
+  try {
+    await blob.put(pinPath, JSON.stringify({ failures }), {
+      access: 'private', addRandomSuffix: false, contentType: 'application/json',
+      allowOverwrite: revision !== null, ...(revision !== null && { ifMatch: revision }),
+    })
+    return true
+  } catch (error) {
+    if (error instanceof blob.BlobPreconditionFailedError) return false
+    if (revision === null && (await readPinAttempts(blob)).revision !== null) return false
+    throw error
+  }
+}
+
+async function signInWithPin(req, res, pin) {
+  const expected = process.env.GESTORIA_PIN
+  if (!expected) return res.status(401).json({ error: 'La connexion par code n’est pas activée.' })
+  const blob = await import('@vercel/blob')
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { revision, failures } = await readPinAttempts(blob)
+    const now = Date.now()
+    const recent = failures.filter(time => now - time < pinWindow)
+    if (recent.length >= maxPinFailures) {
+      return res.status(429).json({ error: 'Trop d’essais. Réessaie dans 15 minutes ou utilise le lien par e-mail.' })
+    }
+    const valid = typeof pin === 'string' && /^[0-9]{4,8}$/.test(pin) &&
+      timingSafeEqual(Buffer.from(hash(pin)), Buffer.from(hash(expected)))
+    if (!await savePinAttempts(blob, revision, valid ? [] : [...recent, now])) continue
+    if (!valid) return res.status(401).json({ error: 'Code incorrect.' })
+    const user = await session(req, res)
+    user.role = 'owner'
+    user.renewedAt = Date.now()
+    await user.save()
+    return res.status(200).json({ connected: true })
+  }
+  throw new Error('PIN state changed while signing in')
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'private, no-store')
   try {
@@ -135,6 +184,7 @@ module.exports = async function handler(req, res) {
     }
     if (req.body?.action === 'request') return await requestLink(res, req.body.email)
     if (req.body?.action === 'verify') return await signIn(req, res, req.body.token)
+    if (req.body?.action === 'pin') return await signInWithPin(req, res, req.body.pin)
     return res.status(400).json({ error: 'Action inconnue.' })
   } catch {
     return res.status(503).json({ error: 'Connexion momentanément indisponible. Réessaie dans quelques minutes.' })

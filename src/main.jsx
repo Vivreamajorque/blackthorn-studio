@@ -23,6 +23,7 @@ function App() {
   const [status, setStatus] = useState('loading')
   const [busy, setBusy] = useState(false)
   const [email, setEmail] = useState('')
+  const [pin, setPin] = useState('')
   const [feedback, setFeedback] = useState(null)
   const [connectRequest, setConnectRequest] = useState(pendingConnect)
 
@@ -65,6 +66,22 @@ function App() {
     }
   }
 
+  async function submitPin(event) {
+    event.preventDefault()
+    setBusy(true)
+    setFeedback(null)
+    try {
+      await auth('POST', { action: 'pin', pin })
+      setPin('')
+      setStatus('connected')
+    } catch (error) {
+      setPin('')
+      setFeedback({ error: true, text: error.message || 'Connexion indisponible.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function logout() {
     setBusy(true)
     try {
@@ -94,6 +111,13 @@ function App() {
     <h1>Le QG</h1>
     <p>Ton pilotage, tes clients, ta prospection et ta compta (avec le dossier Blackthorn Tattoo), au même endroit.</p>
     <p>Sur cet appareil personnel, ta connexion est conservée 90 jours et renouvelée quand tu utilises l’outil. Sur un appareil partagé, pense à te déconnecter.</p>
+    {!token && <form onSubmit={submitPin}>
+      <label>Ton code
+        <input type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{4,8}" minLength={4} maxLength={8}
+          required value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, ''))} />
+      </label>
+      <button disabled={busy || pin.length < 4}>Entrer avec mon code</button>
+    </form>}
     <form onSubmit={submit}>
       {!token && <label>Ton adresse e-mail
         <input type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} />
