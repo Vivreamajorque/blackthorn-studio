@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import MiGestoria from './pages/MiGestoria'
+import GestoriaEspace from './pages/GestoriaEspace'
 import './style.css'
 
 const api = '/api/gestoria-auth'
@@ -100,4 +101,5 @@ function App() {
   </main>
 }
 
-createRoot(document.getElementById('root')).render(<App />)
+const espace = window.location.pathname.match(/^\/espace\/([A-Za-z0-9_-]{32})\/?$/)
+createRoot(document.getElementById('root')).render(espace ? <GestoriaEspace token={espace[1]} /> : <App />)

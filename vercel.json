@@ -11,5 +11,8 @@
       ]
     }
   ],
-  "rewrites": [{ "source": "/mi-gestoria", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/mi-gestoria", "destination": "/index.html" },
+    { "source": "/espace/:token", "destination": "/index.html" }
+  ]
 }

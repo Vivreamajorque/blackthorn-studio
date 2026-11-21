@@ -13,6 +13,9 @@ import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
 import { contributionInputs } from '../lib/gestoria-quarter-estimates.mjs'
 import { dossierFor, isComplete } from '../lib/gestoria-dashboard.mjs'
 import { useGestoriaWorkspace } from '../lib/gestoria-workspace'
+import { useCrm } from '../lib/gestoria-crm'
+import GestoriaClients from './GestoriaClients'
+import GestoriaProspection from './GestoriaProspection'
 
 const ENTITIES = [
   { id: 'independent', name: 'Mon activité', subtitle: 'Prestations et accompagnement' },
@@ -21,6 +24,8 @@ const ENTITIES = [
 
 const sections = [
   ['overview', 'Aujourd’hui', 'M3 12l9-8 9 8v8h-6v-6H9v6H3z'],
+  ['clients', 'Clients', 'M8 11a4 4 0 100-8 4 4 0 000 8zM2 21v-1a6 6 0 0112 0v1M16 3.5a4 4 0 010 7M22 21v-1a6 6 0 00-4-5.6'],
+  ['prospection', 'Prospection', 'M3 4h18l-7 8v6l-4 2v-8z'],
   ['finance', 'Factures & dépenses', 'M4 4h16v16H4zM4 9h16M9 9v11m4-7h4m-4 3h4'],
   ['payments', 'À prévoir', 'M4 4v16h16M7 15l4-5 3 2 6-7'],
   ['tasks', 'Déclarations & suivi', 'M7 4h10l3 3v13H7zM10 10h7m-7 4h7m-7 3h5'],
@@ -181,6 +186,8 @@ export default function MiGestoria() {
   const [bank, setBank] = useState([])
   const [quickAction, setQuickAction] = useState(null)
   const { data, personalStart, loadState, saving, feedback: saveFeedback, save, reload } = useGestoriaWorkspace()
+  const crmState = useCrm()
+  const [clientToOpen, setClientToOpen] = useState(null)
   const canSave = loadState === 'ready' && !saving
   const [formFilter, setFormFilter] = useState('all')
   const [feedback, setFeedback] = useState(null)
@@ -312,13 +319,14 @@ export default function MiGestoria() {
         {sections.map(([id, label, icon]) =>
           <button type="button" key={id} aria-pressed={tab === id} onClick={() => {
             setQuickAction(null)
+            setClientToOpen(null)
             setTab(id)
             if (id === 'inbox') setEntity('blackthorn')
             if (id === 'tasks') setFormFilter('all')
           }}><svg aria-hidden="true" viewBox="0 0 24 24"><path d={icon} /></svg>{label}{id === 'inbox' && data.inbox?.length > 0 && ' (' + data.inbox.length + ')'}</button>)}
       </nav>
       <div className="mg-toolbar-filters">
-        {tab !== 'overview' && tab !== 'inbox' && <label>Dossier <select value={entity} onChange={event => { setEntity(event.target.value); setFeedback(null) }}>
+        {!['overview', 'inbox', 'clients', 'prospection'].includes(tab) && <label>Dossier <select value={entity} onChange={event => { setEntity(event.target.value); setFeedback(null) }}>
           {dossiers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select></label>}
         <label>Exercice <select value={year} onChange={event => { setYear(Number(event.target.value)); setFeedback(null) }}>
@@ -345,6 +353,16 @@ export default function MiGestoria() {
       <p>{saveFeedback.text}</p>
       {saveFeedback.error && <button disabled={saving} onClick={reload}>Recharger le dossier</button>}
     </div>}
+    {['clients', 'prospection'].includes(tab) && crmState.loadState === 'loading' && <p role="status">Chargement des fiches clients…</p>}
+    {['clients', 'prospection'].includes(tab) && crmState.loadState === 'error' && <div role="alert"><p>Les fiches clients n’ont pas pu être chargées.</p><button onClick={crmState.reload}>Réessayer</button></div>}
+    {['clients', 'prospection'].includes(tab) && crmState.feedback && <div className="mg-save-feedback" role={crmState.feedback.error ? 'alert' : 'status'}><p>{crmState.feedback.text}</p></div>}
+    {tab === 'clients' && loadState === 'ready' && crmState.loadState === 'ready' &&
+      <GestoriaClients key={clientToOpen || 'liste'} initialClient={clientToOpen} crm={crmState.crm} entries={data.entries} saveCrm={crmState.save} saveWorkspace={save}
+        canSave={canSave && !crmState.saving} saving={saving || crmState.saving}
+        onFinance={() => openDossier('independent', 'finance')} />}
+    {tab === 'prospection' && crmState.loadState === 'ready' &&
+      <GestoriaProspection crm={crmState.crm} saveCrm={crmState.save} canSave={!crmState.saving} saving={crmState.saving}
+        onClient={id => { setClientToOpen(id); setTab('clients'); window.scrollTo(0, 0) }} />}
     {tab === 'portals' && loadState === 'ready' &&
       <GestoriaPortals capture={capture} year={year} dossier={current} canSave={canSave}
         onSave={savePortalCheck} onDiscard={discardCapture} />}

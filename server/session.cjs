@@ -4,6 +4,10 @@ const SESSION_TTL = 90 * 24 * 3600
 const RENEW_AFTER_MS = 24 * 3600 * 1000
 
 function appOrigin() {
+  // Version de test Vercel : la connexion se fait sur l'adresse de la branche, pas sur l'adresse principale.
+  if (process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_BRANCH_URL) {
+    return new URL('https://' + process.env.VERCEL_BRANCH_URL)
+  }
   return new URL(process.env.GESTORIA_URL)
 }
 
