@@ -348,6 +348,32 @@ function IndicateursForm({ client, onSave, onClose, saving }) {
   </Dialog>
 }
 
+const MSG_LABEL = { livementor: 'LiveMentor', malt: 'Malt', client: 'Client', autre: 'Autre' }
+const fmtWhen = d => d ? formatDate(d.slice(0, 10)) + (d.length > 10 ? ' · ' + d.slice(11, 16) : '') : ''
+
+// Liste des messages pro relevés (LiveMentor, Malt, clients). « Vu » les range sans rien toucher dans la boîte mail.
+export function MessagesList({ items, canSave, onVu, showSource = true, empty = 'Aucun nouveau message.' }) {
+  const [all, setAll] = useState(false)
+  const unread = items.filter(m => !m.vu)
+  const shown = (all ? items : unread).slice().sort((a, b) => b.date.localeCompare(a.date))
+  return <>
+    {shown.length === 0 ? <p className="mgc-muted">{empty}</p> : <ul className="mgc-list mgc-msgs">{shown.map(m => <li key={m.id} className={m.vu ? 'is-vu' : ''}>
+      <div style={{ minWidth: 0 }}>
+        <div className="mgc-row">{showSource && <span className={'mgc-badge src-' + m.source}>{MSG_LABEL[m.source]}</span>}<strong>{m.sujet}</strong></div>
+        <div className="mgc-muted">{[m.de, fmtWhen(m.date)].filter(Boolean).join(' · ')}</div>
+        {m.apercu && <div className="mgc-msg-apercu">{m.apercu}</div>}
+      </div>
+      <div className="mgc-row" style={{ flexShrink: 0 }}>
+        {m.lien && <a className="mgc-link" href={m.lien} target="_blank" rel="noreferrer">Ouvrir</a>}
+        {!m.vu && <button disabled={!canSave} onClick={() => onVu(m.id)}>Vu</button>}
+      </div>
+    </li>)}</ul>}
+    {items.length > unread.length && <button className="mgc-link" onClick={() => setAll(!all)}>{all ? 'Masquer les messages vus' : 'Voir aussi les messages vus'}</button>}
+  </>
+}
+
+export const markMessageVu = (saveCrm, msgId) => saveCrm(data => ({ ...data, messages: { ...data.messages, items: (data.messages?.items || []).map(m => m.id === msgId ? { ...m, vu: true } : m) } }))
+
 function LivementorPanel({ lm }) {
   const e = livementorEstimate(lm)
   if (!e) return <section className="mgc-panel"><h3>Gains LiveMentor</h3><p className="mgc-muted">Pas encore de relevé. Dis « mets à jour LiveMentor » à Claude.</p></section>
@@ -366,7 +392,7 @@ function LivementorPanel({ lm }) {
   </section>
 }
 
-function ClientSummary({ client, crm, entries, invoices, projects, canSave, onTab, onIndicateurs }) {
+function ClientSummary({ client, crm, saveCrm, entries, invoices, projects, canSave, onTab, onIndicateurs }) {
   const m = clientMoney(client, crm, invoices, entries)
   const base = Math.max(m.signed, m.billed, 1)
   const active = projects.filter(p => p.statut !== 'livre')
@@ -391,6 +417,13 @@ function ClientSummary({ client, crm, entries, invoices, projects, canSave, onTa
       </div>
     </section>
 
+    {(() => {
+      const msgs = (crm.messages?.items || []).filter(m => m.clientId === client.id || (!m.clientId && client.source && m.source === client.source))
+      if (!msgs.length) return null
+      const n = msgs.filter(m => !m.vu).length
+      return <section className="mgc-panel"><div className="mgc-between"><h3>Messages{n ? ' · ' + n + ' non lu' + (n > 1 ? 's' : '') : ''}</h3></div>
+        <MessagesList items={msgs} canSave={canSave} showSource={false} onVu={id => markMessageVu(saveCrm, id)} /></section>
+    })()}
     {client.source === 'livementor' && <LivementorPanel lm={crm.livementor} />}
     {client.indicateurs?.length > 0 && <section className="mgc-panel">
       <div className="mgc-between"><h3>Suivi</h3><button disabled={!canSave} onClick={onIndicateurs}>Mettre à jour</button></div>
@@ -456,7 +489,7 @@ function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onB
         <div className="mgc-muted">{[client.contact, client.pays, client.canal && 'arrivé via ' + client.canal, client.tarifJourCents ? money(client.tarifJourCents) + ' / jour' : ''].filter(Boolean).join(' · ')}</div>
       </div></div>
     </section>
-    <ClientSummary client={client} crm={crm} entries={entries} invoices={invoices} projects={projects} canSave={canSave}
+    <ClientSummary client={client} crm={crm} saveCrm={saveCrm} entries={entries} invoices={invoices} projects={projects} canSave={canSave}
       onTab={t => { setTab(t); setTimeout(() => document.getElementById('mgc-tabs')?.scrollIntoView({ behavior: 'smooth' }), 0) }}
       onIndicateurs={() => setEditIndic(true)} />
     <div className="mgc-between" style={{ marginTop: 12 }} id="mgc-tabs">

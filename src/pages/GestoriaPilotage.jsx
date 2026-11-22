@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { money, baseCents, toCents, fromCents, clientPotential } from '../lib/gestoria-crm'
 import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
-import { Dialog } from './GestoriaClients'
+import { Dialog, MessagesList, markMessageVu } from './GestoriaClients'
 import './gestoria-clients.css'
 import '@fontsource-variable/schibsted-grotesk'
 import './gestoria-board.css'
@@ -147,6 +147,7 @@ export default function GestoriaPilotage({ entries, crm, year, saveCrm, canSave,
   const potentials = (crm.clients || []).map(c => clientPotential(entries, crm, c))
   const resteAFacturer = potentials.reduce((s, p) => s + p.rest, 0)
   const enCours = potentials.reduce((s, p) => s + p.enCours, 0)
+  const msgUnread = (crm.messages?.items || []).filter(m => !m.vu)
   const receipts = studio?.data?.receipts || []
   const byMethod = { carte: 0, cash: 0, other: 0 }
   for (const r of receipts) byMethod[r.method === 'carte' || r.method === 'cash' ? r.method : 'other'] += Math.round(r.amount * 100)
@@ -184,6 +185,16 @@ export default function GestoriaPilotage({ entries, crm, year, saveCrm, canSave,
         </ul>}
       </> : <div className="qg-now-main"><strong>Rien d’urgent aujourd’hui.</strong>
         <span className="qg-sub">Aucune facture en retard, aucune échéance proche, aucune relance due. Bon moment pour prospecter ou avancer un projet.</span></div>}
+    </section>
+
+    <section className="mgc-panel qg-messages" aria-label="Messages">
+      <div className="mgc-between"><h2>Messages{msgUnread.length ? ' · ' + msgUnread.length + ' non lu' + (msgUnread.length > 1 ? 's' : '') : ''}</h2>
+        <span className="mgc-muted">{['livementor', 'malt', 'client'].map(k => {
+          const n = msgUnread.filter(m => m.source === k).length
+          return n ? { livementor: 'LiveMentor', malt: 'Malt', client: 'Clients' }[k] + ' ' + n : null
+        }).filter(Boolean).join(' · ')}{crm.messages?.majLe ? (msgUnread.length ? ' · ' : '') + 'relevé le ' + formatDate(crm.messages.majLe.slice(0, 10)) + (crm.messages.majLe.length > 10 ? ' à ' + crm.messages.majLe.slice(11, 16) : '') : ''}</span></div>
+      <MessagesList items={crm.messages?.items || []} canSave={canSave} onVu={id => markMessageVu(saveCrm, id)}
+        empty={crm.messages?.majLe ? 'Aucun nouveau message LiveMentor, Malt ou client.' : 'Pas encore de relevé : le premier passe automatiquement dans la journée.'} />
     </section>
 
     <div className="qg-lanes">

@@ -144,3 +144,13 @@
 .mgc-money-bar { display: flex; gap: 2px; height: 10px; border-radius: 5px; background: #e7e1d5; overflow: hidden; margin-top: 12px; }
 .mgc-money-bar .paid { background: #00897b; }
 .mgc-money-bar .billed { background: #7fc4bb; }
+
+/* Messages pro */
+.mgc-msgs li { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.mgc-msgs li.is-vu { opacity: .55; }
+.mgc-msg-apercu { font-size: 13px; color: #4f483e; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.mgc-badge.src-livementor { background: #fbe3ee; color: #8a2f58; }
+.mgc-badge.src-malt { background: #fde7e3; color: #9a3a26; }
+.mgc-badge.src-client { background: #e3f2ef; color: #00695c; }
+.qg-messages { margin: 16px 0; }
+.qg-messages h2 { font-size: 20px; margin: 0; }

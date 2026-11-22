@@ -90,6 +90,18 @@ function cleanProspect(p) {
   }
 }
 
+// Messages pro relevés dans les boîtes mail (LiveMentor, Malt, clients) : un aperçu, jamais le contenu complet.
+const MSG_SOURCES = ['livementor', 'malt', 'client', 'autre']
+function cleanMessages(m) {
+  m = m && typeof m === 'object' ? m : {}
+  const items = (Array.isArray(m.items) ? m.items : []).filter(x => x && str(x.sujet).trim()).slice(0, 60).map(x => ({
+    id: str(x.id, 200) || newId('msg'), source: oneOf(x.source, MSG_SOURCES, 'autre'), de: str(x.de, 120), sujet: str(x.sujet, 200),
+    apercu: str(x.apercu, 400), date: str(x.date, 25).match(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/) ? str(x.date, 25) : '',
+    lien: /^https:\/\//.test(str(x.lien)) ? str(x.lien, 500) : '', clientId: id(x.clientId) || '', vu: x.vu === true,
+  }))
+  return { majLe: str(m.majLe, 25), items }
+}
+
 function cleanCanaux(raw) {
   const d = raw && typeof raw === 'object' ? raw : {}
   return Object.fromEntries(CANAUX.map(key => {
@@ -165,7 +177,7 @@ function cleanCrm(data) {
     })).filter(x => x.url),
   }
   return {
-    version: 1, emetteur, objectifs, clients, projets, liens, factures, devis, echeances, journal, canaux: cleanCanaux(d.canaux), agenda, livementor: cleanLivementor(d.livementor),
+    version: 1, emetteur, objectifs, clients, projets, liens, factures, devis, echeances, journal, canaux: cleanCanaux(d.canaux), agenda, livementor: cleanLivementor(d.livementor), messages: cleanMessages(d.messages),
     prospects: (Array.isArray(d.prospects) ? d.prospects : []).slice(0, 600).map(cleanProspect),
   }
 }
