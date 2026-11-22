@@ -19,6 +19,7 @@ import GestoriaProspection from './GestoriaProspection'
 import GestoriaPilotage from './GestoriaPilotage'
 import GestoriaAgenda from './GestoriaAgenda'
 import GestoriaAccueil from './GestoriaAccueil'
+import GestoriaLivementor from './GestoriaLivementor'
 
 const ENTITIES = [
   { id: 'independent', name: 'Mon activité', subtitle: 'Prestations et accompagnement' },
@@ -31,6 +32,7 @@ const sections = [
   ['agenda', 'Agenda', 'M4 5h16v15H4zM4 10h16M9 3v4M15 3v4'],
   ['clients', 'Clients', 'M8 11a4 4 0 100-8 4 4 0 000 8zM2 21v-1a6 6 0 0112 0v1M16 3.5a4 4 0 010 7M22 21v-1a6 6 0 00-4-5.6'],
   ['prospection', 'Prospection', 'M3 4h18l-7 8v6l-4 2v-8z'],
+  ['livementor', 'Suivi LiveMentor', 'M4 6l8-3 8 3-8 3zM7 8v5c0 2 2.5 3.5 5 3.5s5-1.5 5-3.5V8M20 6v6'],
   ['overview', 'Aujourd’hui', 'M3 12l9-8 9 8v8h-6v-6H9v6H3z'],
   ['finance', 'Factures & dépenses', 'M4 4h16v16H4zM4 9h16M9 9v11m4-7h4m-4 3h4'],
   ['payments', 'À prévoir', 'M4 4v16h16M7 15l4-5 3 2 6-7'],
@@ -364,18 +366,19 @@ export default function MiGestoria() {
       <p>{saveFeedback.text}</p>
       {saveFeedback.error && <button disabled={saving} onClick={reload}>Recharger le dossier</button>}
     </div>}
-    {['clients', 'prospection', 'pilotage', 'agenda', 'accueil'].includes(tab) && crmState.loadState === 'loading' && <p role="status">Chargement des fiches clients…</p>}
-    {['clients', 'prospection', 'pilotage', 'agenda', 'accueil'].includes(tab) && crmState.loadState === 'error' && <div role="alert"><p>Les fiches clients n’ont pas pu être chargées.</p><button onClick={crmState.reload}>Réessayer</button></div>}
-    {['clients', 'prospection', 'pilotage', 'agenda', 'accueil'].includes(tab) && crmState.feedback && <div className="mg-save-feedback" role={crmState.feedback.error ? 'alert' : 'status'}><p>{crmState.feedback.text}</p></div>}
+    {['clients', 'prospection', 'pilotage', 'agenda', 'accueil', 'livementor'].includes(tab) && crmState.loadState === 'loading' && <p role="status">Chargement des fiches clients…</p>}
+    {['clients', 'prospection', 'pilotage', 'agenda', 'accueil', 'livementor'].includes(tab) && crmState.loadState === 'error' && <div role="alert"><p>Les fiches clients n’ont pas pu être chargées.</p><button onClick={crmState.reload}>Réessayer</button></div>}
+    {['clients', 'prospection', 'pilotage', 'agenda', 'accueil', 'livementor'].includes(tab) && crmState.feedback && <div className="mg-save-feedback" role={crmState.feedback.error ? 'alert' : 'status'}><p>{crmState.feedback.text}</p></div>}
     {tab === 'clients' && loadState === 'ready' && crmState.loadState === 'ready' &&
       <GestoriaClients key={clientToOpen || 'liste'} initialClient={clientToOpen} crm={crmState.crm} entries={data.entries} saveCrm={crmState.save} saveWorkspace={save}
         canSave={canSave && !crmState.saving} saving={saving || crmState.saving}
         onFinance={() => openDossier('independent', 'finance')} />}
     {tab === 'agenda' && crmState.loadState === 'ready' &&
       <GestoriaAgenda crm={crmState.crm} saveCrm={crmState.save} canSave={!crmState.saving} />}
+    {tab === 'livementor' && crmState.loadState === 'ready' && <GestoriaLivementor crm={crmState.crm} />}
     {tab === 'accueil' && loadState === 'ready' && crmState.loadState === 'ready' &&
       <GestoriaAccueil entries={data.entries} crm={crmState.crm} saveCrm={crmState.save} canSave={!crmState.saving}
-        onGo={(next, clientId) => { if (next === 'tasks') openDossier('independent', 'tasks', 'declarations', true); else if (next === 'finance') openDossier('independent', 'finance'); else { setClientToOpen(next === 'clients' && clientId ? clientId : null); setTab(next) } window.scrollTo(0, 0) }} />}
+        onGo={(next, clientId) => { if (next === 'tasks') openDossier('independent', 'tasks', 'declarations', true); else if (next === 'finance') openDossier('independent', 'finance'); else if (next === 'livementor') setTab('livementor'); else { setClientToOpen(next === 'clients' && clientId ? clientId : null); setTab(next) } window.scrollTo(0, 0) }} />}
     {tab === 'pilotage' && loadState === 'ready' && crmState.loadState === 'ready' &&
       <GestoriaPilotage entries={data.entries} crm={crmState.crm} year={year} saveCrm={crmState.save} canSave={!crmState.saving}
         studio={studio} onGo={next => { if (next === 'tasks') openDossier('independent', 'tasks', 'declarations', true); else if (next === 'blackthorn') openDossier('blackthorn', 'finance'); else { setClientToOpen(null); setTab(next) } window.scrollTo(0, 0) }} />}

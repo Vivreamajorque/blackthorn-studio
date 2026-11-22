@@ -1,0 +1,62 @@
+/* Suivi LiveMentor : même vocabulaire visuel que l'accueil (encre, mer, terre cuite). */
+.lm { --encre: #14201e; --mer: #17575b; --mer-pale: #e1eeeb; --terre: #b8502f; --terre-pale: #f8e4dc; --rose: #c2477a; --rose-pale: #fbe3ee; --trait: #dcd5c8; --papier: #fffdf9; --muted: #5b6662; display: grid; gap: 16px; }
+.lm-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.lm-kicker { margin: 0; font-size: .78rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--rose); }
+.lm-head h1 { margin: 2px 0 0; font-size: clamp(1.8rem, 4vw, 2.6rem); letter-spacing: -.03em; }
+.lm-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.lm-kpis > div { background: var(--papier); border: 1px solid var(--trait); border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+.lm-kpis span { font-size: .82rem; color: var(--muted); }
+.lm-kpis strong { font-size: 1.5rem; font-weight: 750; color: var(--mer); font-variant-numeric: tabular-nums; }
+.lm-kpis small { font-size: .78rem; color: var(--muted); }
+.lm-kpis .warn strong { color: var(--terre); }
+.lm-body { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; align-items: start; }
+.lm-list { background: var(--papier); border: 1px solid var(--trait); border-radius: 18px; padding: 10px; display: grid; gap: 4px; position: sticky; top: 12px; max-height: calc(100vh - 40px); overflow: auto; }
+.lm-item { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: center; text-align: left; background: none; border: 0; border-radius: 12px; padding: 8px; cursor: pointer; color: var(--encre); font: inherit; }
+.lm-item:hover { background: #f4efe6; }
+.lm-item.on { background: var(--encre); color: #fff; }
+.lm-item.on small, .lm-item.on .lm-st { color: #c9d3cf; background: transparent; }
+.lm-avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--rose-pale); color: var(--rose); font-weight: 750; }
+.lm-item-main { min-width: 0; display: grid; }
+.lm-item-main strong { font-size: .95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lm-item-main small { font-size: .78rem; color: var(--muted); }
+.lm-item .late { color: var(--terre); font-weight: 600; }
+.lm-st { font-weight: 600; }
+.st-oral_prog { color: var(--mer); } .st-certifie, .st-termine { color: #2e7d55; } .st-abandon { color: var(--terre); }
+.lm-count { background: var(--terre); color: #fff; border-radius: 999px; font-size: .75rem; padding: 2px 8px; }
+.lm-fiche { background: var(--papier); border: 1px solid var(--trait); border-radius: 20px; padding: 18px 20px; min-width: 0; }
+.lm-empty { padding: 40px 10px; text-align: center; }
+.lm-fiche-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.lm-fiche-head h2 { margin: 0; font-size: 1.6rem; letter-spacing: -.02em; }
+.lm-link { font-size: .85rem; font-weight: 600; color: var(--mer); text-decoration: none; border: 1px solid var(--trait); border-radius: 999px; padding: 3px 10px; }
+.lm-fields { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.lm-fields label { display: grid; gap: 3px; font-size: .78rem; color: var(--muted); font-weight: 600; }
+.lm-fields select, .lm-fields input { font: inherit; font-size: .9rem; border: 1px solid var(--trait); border-radius: 10px; padding: 6px 8px; background: #fff; color: var(--encre); }
+.lm-fields .late input { border-color: var(--terre); color: var(--terre); }
+.lm-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.lm-grid .mgc-panel, .lm .mgc-panel { margin-top: 0; }
+.lm h3 { margin: 0 0 8px; font-size: 1.05rem; }
+.lm h4 { margin: 12px 0 4px; font-size: .9rem; }
+.lm-add { display: flex; gap: 6px; margin-bottom: 8px; }
+.lm-add input { flex: 1; font: inherit; border: 1px solid var(--trait); border-radius: 10px; padding: 7px 10px; }
+.lm-task { display: grid; grid-template-columns: 20px 1fr; gap: 8px; align-items: start; font-size: .92rem; cursor: pointer; }
+.lm-task small { color: var(--muted); }
+.lm-done .lm-task span { color: var(--muted); text-decoration: line-through; }
+.lm-draft { margin-top: 6px; font-size: .88rem; }
+.lm-draft summary { cursor: pointer; color: var(--mer); font-weight: 600; }
+.lm-draft pre { white-space: pre-wrap; font: inherit; background: #f4efe6; border-radius: 10px; padding: 10px; }
+.lm-journal { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 10px; }
+.lm-journal li { border-left: 3px solid var(--rose-pale); padding-left: 10px; }
+.lm-journal time { font-size: .78rem; font-weight: 700; color: var(--rose); }
+.lm-journal p { margin: 2px 0 0; font-size: .92rem; white-space: pre-line; }
+.lm-bullets { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: .93rem; }
+.lm-warn { background: var(--terre-pale); }
+.lm-smart, .lm-qa { margin: 0; display: grid; gap: 8px; }
+.lm-smart dt, .lm-qa dt { font-weight: 700; font-size: .85rem; }
+.lm-smart dd, .lm-qa dd { margin: 0; font-size: .92rem; white-space: pre-line; }
+.lm-check { display: inline-flex; gap: 6px; align-items: center; font-size: .9rem; margin-right: 12px; }
+@media (max-width: 900px) {
+  .lm-body, .lm-grid { grid-template-columns: 1fr; }
+  .lm-list { position: static; max-height: 320px; }
+  .lm-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lm-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

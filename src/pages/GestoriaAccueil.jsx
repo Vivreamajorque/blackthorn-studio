@@ -7,6 +7,7 @@ import './gestoria-accueil.css'
 
 const NAV = [
   ['clients', 'Clients', 'Fiches, projets, espaces partagés'],
+  ['livementor', 'Suivi LiveMentor', 'Apprenants, coaching, journal'],
   ['prospection', 'Prospection', 'Pistes, relances, canaux'],
   ['agenda', 'Agenda', 'Rendez-vous et échéances'],
   ['pilotage', 'Pilotage', 'Trajectoire et objectif'],

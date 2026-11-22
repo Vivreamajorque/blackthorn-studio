@@ -55,7 +55,7 @@ export function clientPotential(entries, crm, client) {
   return { invoices, billed, signed, rest: Math.max(0, signed - billed), enCours }
 }
 
-export function useCrm() {
+export function useVersionedStore(path, emptyData) {
   const [state, setState] = useState(null)
   const [loadState, setLoadState] = useState('loading')
   const [saving, setSaving] = useState(false)
@@ -111,5 +111,15 @@ export function useCrm() {
     }
   }
 
-  return { crm: state?.data || empty, loadState, saving, feedback, save, reload: () => { setLoadState('loading'); setRequest(r => r + 1) } }
+  return { data: state?.data || emptyData, loadState, saving, feedback, save, reload: () => { setLoadState('loading'); setRequest(r => r + 1) } }
+}
+
+export function useCrm() {
+  const s = useVersionedStore(path, empty)
+  return { ...s, crm: s.data }
+}
+
+const emptyLivementor = { apprenants: [] }
+export function useLivementor() {
+  return useVersionedStore('/api/gestoria-livementor', emptyLivementor)
 }
