@@ -117,6 +117,36 @@ function cleanMessages(m) {
   return { majLe: str(m.majLe, 25), items }
 }
 
+// Accueil : tâches de la matrice d'Eisenhower, Alfred (majordome) et état des agents.
+const QUADRANTS = ['faire', 'planifier', 'deleguer', 'plus_tard']
+function cleanTaches(t) {
+  return (Array.isArray(t) ? t : []).filter(x => x && str(x.titre).trim()).slice(0, 300).map(x => ({
+    id: id(x.id) || newId('tac'), titre: str(x.titre, 200).trim(), detail: str(x.detail, 1500), quadrant: oneOf(x.quadrant, QUADRANTS, 'planifier'),
+    echeance: date(x.echeance), fait: x.fait === true, faitLe: date(x.faitLe), source: oneOf(x.source, ['moi', 'alfred'], 'moi'),
+    domaine: str(x.domaine, 30), clientId: id(x.clientId) || '', creeLe: date(x.creeLe) || new Date().toISOString().slice(0, 10),
+  })).filter(x => !x.fait || !x.faitLe || x.faitLe >= new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10))
+}
+function cleanAlfred(a) {
+  a = a && typeof a === 'object' ? a : {}
+  const map = (o, f) => Object.fromEntries(Object.entries(o && typeof o === 'object' ? o : {}).slice(-200).filter(([k]) => /^[\w:.-]{1,120}$/.test(k)).map(([k, v]) => [k, f(v)]).filter(([, v]) => v))
+  return {
+    priorite: str(a.priorite, 300), brief: str(a.brief, 3000), majLe: str(a.majLe, 25),
+    inbox: (Array.isArray(a.inbox) ? a.inbox : []).filter(x => x && str(x.texte).trim()).slice(-100).map(x => ({
+      id: id(x.id) || newId('inb'), date: str(x.date, 25), texte: str(x.texte, 3000).trim(), traite: x.traite === true, resultat: str(x.resultat, 500),
+    })),
+    // Éléments automatiques déplacés ou écartés depuis l'accueil.
+    deplaces: map(a.deplaces, v => oneOf(v, QUADRANTS, '')),
+    ecartes: map(a.ecartes, v => date(v)),
+  }
+}
+const AGENT_KEYS = ['alfred', 'courrier', 'clients', 'commercial', 'compta', 'plateformes']
+function cleanAgents(g) {
+  g = g && typeof g === 'object' ? g : {}
+  return Object.fromEntries(AGENT_KEYS.filter(k => g[k] && typeof g[k] === 'object').map(k => [k, {
+    majLe: str(g[k].majLe, 25), resume: str(g[k].resume, 600), attente: str(g[k].attente, 400),
+  }]))
+}
+
 function cleanCanaux(raw) {
   const d = raw && typeof raw === 'object' ? raw : {}
   return Object.fromEntries(CANAUX.map(key => {
@@ -192,7 +222,7 @@ function cleanCrm(data) {
     })).filter(x => x.url),
   }
   return {
-    version: 1, emetteur, objectifs, clients, projets, liens, factures, devis, echeances, journal, canaux: cleanCanaux(d.canaux), agenda, livementor: cleanLivementor(d.livementor), messages: cleanMessages(d.messages),
+    version: 1, emetteur, objectifs, clients, projets, liens, factures, devis, echeances, journal, canaux: cleanCanaux(d.canaux), agenda, livementor: cleanLivementor(d.livementor), messages: cleanMessages(d.messages), taches: cleanTaches(d.taches), alfred: cleanAlfred(d.alfred), agents: cleanAgents(d.agents),
     prospects: (Array.isArray(d.prospects) ? d.prospects : []).slice(0, 600).map(cleanProspect),
   }
 }

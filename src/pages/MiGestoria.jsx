@@ -18,6 +18,7 @@ import GestoriaClients from './GestoriaClients'
 import GestoriaProspection from './GestoriaProspection'
 import GestoriaPilotage from './GestoriaPilotage'
 import GestoriaAgenda from './GestoriaAgenda'
+import GestoriaAccueil from './GestoriaAccueil'
 
 const ENTITIES = [
   { id: 'independent', name: 'Mon activité', subtitle: 'Prestations et accompagnement' },
@@ -25,6 +26,7 @@ const ENTITIES = [
 ]
 
 const sections = [
+  ['accueil', 'Accueil', 'M3 11l9-7 9 7M5 10v10h5v-6h4v6h5V10'],
   ['pilotage', 'Pilotage', 'M4 20V10m6 10V4m6 16v-7m4 7H2'],
   ['agenda', 'Agenda', 'M4 5h16v15H4zM4 10h16M9 3v4M15 3v4'],
   ['clients', 'Clients', 'M8 11a4 4 0 100-8 4 4 0 000 8zM2 21v-1a6 6 0 0112 0v1M16 3.5a4 4 0 010 7M22 21v-1a6 6 0 00-4-5.6'],
@@ -172,7 +174,7 @@ export default function MiGestoria() {
   const [selectedEntity, setEntity] = useState('independent')
   const [year, setYear] = useState(() => Math.min(2027, Math.max(2025, Number(todayInSpain().slice(0, 4)))))
   const [capture, setCapture] = useState(readPortalCapture)
-  const [tab, setTab] = useState(() => capture ? 'portals' : 'pilotage')
+  const [tab, setTab] = useState(() => capture ? 'portals' : 'accueil')
   useEffect(() => {
     function receiveCapture() {
       const incoming = readPortalCapture()
@@ -320,7 +322,7 @@ export default function MiGestoria() {
     <div className="mg-toolbar">
       <nav className="mg-main-nav" aria-label="Sections de Mi Gestoría">
         {sections.map(([id, label, icon]) => <React.Fragment key={id}>
-          {id === 'pilotage' && <span className="mg-nav-group">Piloter</span>}
+          {id === 'accueil' && <span className="mg-nav-group">Piloter</span>}
           {id === 'clients' && <span className="mg-nav-group">Clients</span>}
           {id === 'overview' && <span className="mg-nav-group">Compta · Mi Gestoría</span>}
           <button type="button" aria-pressed={tab === id} onClick={() => {
@@ -337,7 +339,7 @@ export default function MiGestoria() {
         </details>
       </nav>
       <div className="mg-toolbar-filters">
-        {entity === 'blackthorn' && <button type="button" className="mg-back-mine" onClick={() => { setEntity('independent'); setTab('pilotage'); setFeedback(null) }}>← Revenir à mon activité</button>}
+        {entity === 'blackthorn' && <button type="button" className="mg-back-mine" onClick={() => { setEntity('independent'); setTab('accueil'); setFeedback(null) }}>← Revenir à mon activité</button>}
         <label>Exercice <select value={year} onChange={event => { setYear(Number(event.target.value)); setFeedback(null) }}>
           {YEARS.map(item => <option key={item} value={item}>{item}</option>)}
         </select></label>
@@ -362,15 +364,18 @@ export default function MiGestoria() {
       <p>{saveFeedback.text}</p>
       {saveFeedback.error && <button disabled={saving} onClick={reload}>Recharger le dossier</button>}
     </div>}
-    {['clients', 'prospection', 'pilotage', 'agenda'].includes(tab) && crmState.loadState === 'loading' && <p role="status">Chargement des fiches clients…</p>}
-    {['clients', 'prospection', 'pilotage', 'agenda'].includes(tab) && crmState.loadState === 'error' && <div role="alert"><p>Les fiches clients n’ont pas pu être chargées.</p><button onClick={crmState.reload}>Réessayer</button></div>}
-    {['clients', 'prospection', 'pilotage', 'agenda'].includes(tab) && crmState.feedback && <div className="mg-save-feedback" role={crmState.feedback.error ? 'alert' : 'status'}><p>{crmState.feedback.text}</p></div>}
+    {['clients', 'prospection', 'pilotage', 'agenda', 'accueil'].includes(tab) && crmState.loadState === 'loading' && <p role="status">Chargement des fiches clients…</p>}
+    {['clients', 'prospection', 'pilotage', 'agenda', 'accueil'].includes(tab) && crmState.loadState === 'error' && <div role="alert"><p>Les fiches clients n’ont pas pu être chargées.</p><button onClick={crmState.reload}>Réessayer</button></div>}
+    {['clients', 'prospection', 'pilotage', 'agenda', 'accueil'].includes(tab) && crmState.feedback && <div className="mg-save-feedback" role={crmState.feedback.error ? 'alert' : 'status'}><p>{crmState.feedback.text}</p></div>}
     {tab === 'clients' && loadState === 'ready' && crmState.loadState === 'ready' &&
       <GestoriaClients key={clientToOpen || 'liste'} initialClient={clientToOpen} crm={crmState.crm} entries={data.entries} saveCrm={crmState.save} saveWorkspace={save}
         canSave={canSave && !crmState.saving} saving={saving || crmState.saving}
         onFinance={() => openDossier('independent', 'finance')} />}
     {tab === 'agenda' && crmState.loadState === 'ready' &&
       <GestoriaAgenda crm={crmState.crm} saveCrm={crmState.save} canSave={!crmState.saving} />}
+    {tab === 'accueil' && loadState === 'ready' && crmState.loadState === 'ready' &&
+      <GestoriaAccueil entries={data.entries} crm={crmState.crm} saveCrm={crmState.save} canSave={!crmState.saving}
+        onGo={(next, clientId) => { if (next === 'tasks') openDossier('independent', 'tasks', 'declarations', true); else if (next === 'finance') openDossier('independent', 'finance'); else { setClientToOpen(next === 'clients' && clientId ? clientId : null); setTab(next) } window.scrollTo(0, 0) }} />}
     {tab === 'pilotage' && loadState === 'ready' && crmState.loadState === 'ready' &&
       <GestoriaPilotage entries={data.entries} crm={crmState.crm} year={year} saveCrm={crmState.save} canSave={!crmState.saving}
         studio={studio} onGo={next => { if (next === 'tasks') openDossier('independent', 'tasks', 'declarations', true); else if (next === 'blackthorn') openDossier('blackthorn', 'finance'); else { setClientToOpen(null); setTab(next) } window.scrollTo(0, 0) }} />}

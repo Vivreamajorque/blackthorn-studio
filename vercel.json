@@ -44,5 +44,10 @@
       "source": "/.well-known/oauth-authorization-server",
       "destination": "/api/gestoria-mcp?action=metadata"
     }
-  ]
+  ],
+  "functions": {
+    "api/gestoria-mcp.js": {
+      "includeFiles": "src/lib/gestoria-matrice.mjs"
+    }
+  }
 }

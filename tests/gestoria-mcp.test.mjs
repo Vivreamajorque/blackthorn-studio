@@ -80,3 +80,27 @@ test('facture dictée : préparation sans écriture, émission après confirmati
   assert.equal(read(blob, CRM_PATH).prospects[0].nom, 'Laura')
   await assert.rejects(mcp.callTool('preparer_facture', { client: 'Inconnu', lignes: [{ description: 'x', quantite: 1, prix_ht: 1 }] }, blob), /introuvable/)
 })
+
+test('Alfred : noter, faire le point, classer et terminer sans toucher à la compta', async () => {
+  const crm = seedCrm()
+  const ws = { entries: [{ id: 'inv_1', kind: 'invoice', date: '2026-01-05', reference: 'A-1', amountCents: 10000, payment: 'pending', expectedPaymentDate: '2026-01-10', label: 'X' }], records: {} }
+  const blob = fakeBlob({ [CRM_PATH]: crm, [WS]: ws })
+  const before = blob.store.get(WS).body
+  await mcp.callTool('alfred_noter', { texte: 'Appeler la banque' }, blob)
+  await mcp.callTool('alfred_noter', { titre: 'Préparer le carrousel', quadrant: 'planifier', echeance: '2026-12-01' }, blob)
+  let p = await mcp.callTool('alfred_point', {}, blob)
+  assert.equal(p.boite_alfred_a_classer.length, 1)
+  assert.ok(p.matrice.faire.elements.some(e => e.titre.includes('A-1')), 'facture en retard en urgent')
+  assert.ok(p.matrice.planifier.elements.some(e => e.titre === 'Préparer le carrousel'))
+  await mcp.callTool('alfred_classer', { traites: [{ id: p.boite_alfred_a_classer[0].id, resultat: 'tâche créée' }],
+    taches: [{ titre: 'Appeler la banque', quadrant: 'faire' }], priorite: 'Relancer A-1', agent: { id: 'compta', resume: '1 facture en retard' } }, blob)
+  p = await mcp.callTool('alfred_point', {}, blob)
+  assert.equal(p.boite_alfred_a_classer.length, 0); assert.equal(p.priorite_actuelle, 'Relancer A-1')
+  const t = p.matrice.faire.elements.find(e => e.titre === 'Appeler la banque')
+  await mcp.callTool('alfred_terminer', { id: t.id }, blob)
+  const auto = p.matrice.faire.elements.find(e => e.auto)
+  await mcp.callTool('alfred_terminer', { id: auto.id }, blob)
+  p = await mcp.callTool('alfred_point', {}, blob)
+  assert.ok(!p.matrice.faire.elements.some(e => e.titre === 'Appeler la banque' || e.id === auto.id))
+  assert.equal(blob.store.get(WS).body, before, 'compta intacte')
+})
