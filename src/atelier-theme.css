@@ -71,3 +71,27 @@ body { background: #f7f2ea; }
 .mg-subtabs button { border: 1px solid #dcd5c8; background: #fffdf9; color: #1d2a2b; border-radius: 999px; padding: 6px 14px; font-weight: 600; cursor: pointer; }
 .mg-subtabs button[aria-pressed="true"] { background: #14201e; border-color: #14201e; color: #fff; }
 .mg-nav-more + .mg-nav-more { margin-top: 2px; border-top: 0; padding-top: 0; }
+
+
+/* ===== Thème « Sa Ràpita » (nov. 2026) : écume, mer profonde, vert d'eau, une touche de soleil.
+   Remplace le crème et les titres à empattement. ===== */
+:root { --qg-ecume: #f2f7f6; --qg-mer: #103c42; --qg-eau: #9fd3c7; --qg-eau-pale: #ddefea; --qg-posidonie: #2e7d72; --qg-sable: #e6e0d4; --qg-soleil: #f0b43c; --qg-corail: #d9573f; --qg-muted: #5a6d6f;
+  --mg-serif: 'Bricolage Grotesque Variable', system-ui, sans-serif; background: var(--qg-ecume); }
+body { background: var(--qg-ecume); color: var(--qg-mer); font-family: 'Bricolage Grotesque Variable', system-ui, sans-serif; font-variation-settings: 'opsz' 14; }
+.app-header { background: var(--qg-ecume); border-bottom-color: transparent; }
+.app-brand { font-family: var(--mg-serif); font-weight: 700; letter-spacing: -.03em; color: var(--qg-mer); }
+.app-brand span { background: var(--qg-mer); color: var(--qg-eau); font-weight: 700; }
+.mg-shell h1, .mg-shell h2, .mgc-hero h1, .mgc-panel h2, .mgc-panel h3, .mgc-dialog h2, .mgc-name, .mgc-portal-head h1, .login h1, .mgc-tile strong {
+  font-family: var(--mg-serif); font-weight: 700; letter-spacing: -.025em; font-variation-settings: 'opsz' 72; }
+.mg-page-heading, .mgc-hero { background: var(--qg-mer); border-color: var(--qg-mer); }
+.mg-panel, .mgc-panel, .mgc-card, .mgc-search { background: #fff; border-color: var(--qg-sable); }
+.mgc-dialog { background: var(--qg-ecume); }
+.mgc-primary, .login button[type="submit"] { background: var(--qg-mer); border-color: var(--qg-mer); }
+.mgc-tabs button[aria-pressed="true"], .mgc-tabs button[aria-pressed="true"]:hover:not(:disabled) { background: var(--qg-mer); border-color: var(--qg-mer); }
+.mg-shell > .mg-toolbar { background: #fff !important; border-color: transparent !important; box-shadow: 0 1px 0 var(--qg-sable); }
+.mg-main-nav button { color: var(--qg-mer); font-weight: 600; }
+.mg-main-nav button[aria-pressed="true"], .mg-main-nav button[aria-pressed="true"]:hover:not(:disabled) { background: var(--qg-eau-pale); color: var(--qg-mer); }
+.mg-main-nav button svg { stroke: var(--qg-posidonie); }
+.mg-subtabs button { border-color: var(--qg-sable); background: #fff; color: var(--qg-mer); }
+.mg-subtabs button[aria-pressed="true"] { background: var(--qg-mer); border-color: var(--qg-mer); color: #fff; }
+.login { background: #fff; border-color: var(--qg-sable); }

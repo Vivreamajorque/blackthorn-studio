@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { money, baseCents, clientPotential, uid, useLivementor } from '../lib/gestoria-crm'
 import { todayInSpain } from '../lib/gestoria-calendar.mjs'
 import { QUADRANTS, AGENTS, matrice, dateCourte } from '../lib/gestoria-matrice.mjs'
-import '@fontsource-variable/schibsted-grotesk'
+import '@fontsource-variable/bricolage-grotesque'
 import './gestoria-accueil.css'
 
 const DAY = 864e5
@@ -29,6 +29,27 @@ function useActions(crm, saveCrm, today) {
       : saveCrm(d => ({ ...d, taches: d.taches.map(t => t.id === item.id ? { ...t, fait: true, faitLe: today } : t) }), 'Bravo, c’est fait.'),
     add: (titre, q, echeance = '') => saveCrm(d => ({ ...d, taches: [...(d.taches || []), { id: uid('tac'), titre, quadrant: q, source: 'moi', creeLe: today, echeance }] })),
   }
+}
+
+// Le ruban de la journée : 7 h → 21 h, les rendez-vous posés à leur heure, et l'heure qu'il est.
+function DayRibbon({ events, today }) {
+  const START = 7, END = 21
+  const pos = t => Math.min(100, Math.max(0, ((Number(t.slice(11, 13)) + Number(t.slice(14, 16)) / 60) - START) / (END - START) * 100))
+  const timed = events.filter(e => !e.allDay)
+  const allDay = events.filter(e => e.allDay)
+  const now = new Date(); const h = now.getHours() + now.getMinutes() / 60
+  const nowPct = (h - START) / (END - START) * 100
+  return <div className="mj-ribbon" aria-label="Ta journée">
+    {allDay.length > 0 && <div className="mj-allday">{allDay.map(e => <span key={e.id} className={'mj-chip t-' + e.type}>{e.title}</span>)}</div>}
+    <div className="mj-track">
+      {Array.from({ length: END - START + 1 }, (_, k) => START + k).map(hh =>
+        <span key={hh} className="mj-tick" style={{ left: ((hh - START) / (END - START) * 100) + '%' }}>{hh % 2 === 1 ? hh + ' h' : ''}</span>)}
+      {nowPct >= 0 && nowPct <= 100 && <span className="mj-now" style={{ left: nowPct + '%' }} title="Maintenant" />}
+      {timed.map((e, k) => <span key={e.id} className={'mj-ev t-' + e.type + (k % 2 ? ' low' : '')} style={{ left: pos(e.start) + '%' }} title={e.start.slice(11, 16) + ' · ' + e.title}>
+        <b>{e.start.slice(11, 16)}</b> {e.title}</span>)}
+      {timed.length === 0 && <span className="mj-free">Aucun rendez-vous aujourd’hui</span>}
+    </div>
+  </div>
 }
 
 function Item({ i, canSave, act, onGo }) {
@@ -96,7 +117,7 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
       <div>
         <p className="acc-date">{new Date(today + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
         <h1>{hello()} Amely.</h1>
-        {priorite ? <p className="acc-prio"><span>Ta priorité</span>{priorite}</p> : <p className="acc-prio calm"><span>Aujourd’hui</span>Rien d’urgent. Avance ce qui compte.</p>}
+        {priorite ? <p className="mj-prio"><span>Ta priorité du jour</span>{priorite}</p> : <p className="mj-prio calm"><span>Aujourd’hui</span>Rien d’urgent. Avance ce qui compte.</p>}
         {al.brief && <p className="mj-brief">{al.brief}</p>}
       </div>
       <div className="mj-alfred">
@@ -108,12 +129,11 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
       </div>
     </section>
 
+    {events !== null && <DayRibbon events={todayEvents} today={today} />}
+
     <div className="mj-cols">
       <section className="acc-card mj-today">
-        <header><h2>Aujourd’hui</h2><small>{todayEvents.length} rendez-vous · {urgent.length} urgent{urgent.length > 1 ? 's' : ''}</small></header>
-        {events === null ? <p className="acc-empty">Chargement…</p> : todayEvents.length > 0 && <ul className="mj-agenda">{todayEvents.map(e =>
-          <li key={e.id}><i className={'t-' + e.type} /><span className="acc-hour">{e.allDay ? 'Journée' : e.start.slice(11, 16)}</span><span>{e.title}</span></li>)}</ul>}
-        <h3>À faire maintenant</h3>
+        <header><h2>À faire maintenant</h2><small>{urgent.length ? urgent.length + ' urgent' + (urgent.length > 1 ? 's' : '') : ''}</small></header>
         {urgent.length === 0 ? <p className="acc-empty">Rien d’urgent. Profites-en pour avancer un projet.</p> :
           <ul className="mj-list">{urgent.slice(0, 7).map(i => <Item key={i.id} i={i} canSave={canSave} act={act} onGo={onGo} />)}</ul>}
         {urgent.length > 7 && <p className="acc-empty">+ {urgent.length - 7} autres</p>}
@@ -132,7 +152,7 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
               {x.lien && <a href={x.lien} target="_blank" rel="noreferrer">Ouvrir</a>}</li>)}</ul>}
         </section>
         <section className="acc-card">
-          <header><h2>Mes projets en cours</h2><button onClick={() => onGo('clients')}>Clients</button></header>
+          <header><h2>Mes projets</h2><button onClick={() => onGo('clients')}>Tous les clients</button></header>
           {projets.length === 0 ? <p className="acc-empty">Aucun projet en cours.</p> :
             <ul className="mj-projects">{projets.slice(0, 4).map(({ p, c, a, pct }) => <li key={p.id} onClick={() => onGo('clients', c.id)} role="button">
               <div className="mgc-between"><strong>{c.nom}</strong>{pct !== null && <small>{pct} %</small>}</div>
@@ -146,13 +166,13 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
     </div>
 
     <section className="acc-card mj-week">
-      <header><h2>À prévoir · 7 jours</h2><button onClick={() => onGo('agenda')}>Agenda</button></header>
+      <header><h2>Cette semaine</h2><button onClick={() => onGo('agenda')}>Ouvrir l’agenda</button></header>
       {upcomingDays.length === 0 ? <p className="acc-empty">Rien de daté cette semaine.</p> :
         <div className="mj-days">{upcomingDays.map(d => <div key={d} className="acc-day">
           <h3>{dayLabel(d, today)}</h3>
           <ul>{upcoming[d].map((x, k) => x.kind === 'ev'
             ? <li key={'e' + k}><i className={'t-' + x.e.type} /><span className="acc-hour">{x.e.allDay ? 'Journée' : x.e.start.slice(11, 16)}</span><span>{x.e.title}</span></li>
-            : <li key={'i' + k}><i className="t-task" /><span className="acc-hour">À faire</span><span>{x.i.titre}</span></li>)}</ul>
+            : <li key={'i' + k}><i className="t-task" /><span className="acc-hour">tâche</span><span>{x.i.titre}</span></li>)}</ul>
         </div>)}</div>}
       <details className="mj-more">
         <summary>{later.length} autre{later.length > 1 ? 's' : ''} chose{later.length > 1 ? 's' : ''} à planifier ou à confier · {m.plus_tard.length} plus tard</summary>
