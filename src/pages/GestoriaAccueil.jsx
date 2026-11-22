@@ -154,7 +154,7 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
         <section className="acc-card">
           <header><h2>Mes projets</h2><button onClick={() => onGo('clients')}>Tous les clients</button></header>
           {projets.length === 0 ? <p className="acc-empty">Aucun projet en cours.</p> :
-            <ul className="mj-projects">{projets.slice(0, 4).map(({ p, c, a, pct }) => <li key={p.id} onClick={() => onGo('clients', c.id)} role="button">
+            <ul className="mj-projects">{projets.slice(0, 4).map(({ p, c, a, pct }) => <li key={p.id} className={a || p.prochainRdv ? '' : 'idle'} onClick={() => onGo('clients', c.id)} role="button">
               <div className="mgc-between"><strong>{c.nom}</strong>{pct !== null && <small>{pct} %</small>}</div>
               <small>{p.nom}</small>
               {pct !== null && <i className="acc-meter"><i style={{ width: pct + '%' }} /></i>}

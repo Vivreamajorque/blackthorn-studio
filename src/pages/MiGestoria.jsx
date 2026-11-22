@@ -176,6 +176,7 @@ export default function MiGestoria() {
   const [year, setYear] = useState(() => Math.min(2027, Math.max(2025, Number(todayInSpain().slice(0, 4)))))
   const [capture, setCapture] = useState(readPortalCapture)
   const [tab, setTab] = useState(() => capture ? 'portals' : 'accueil')
+  const [moreOpen, setMoreOpen] = useState(false)
   useEffect(() => {
     function receiveCapture() {
       const incoming = readPortalCapture()
@@ -319,15 +320,17 @@ export default function MiGestoria() {
     download(fileBase + '.txt', lines.join('\n'), 'text/plain;charset=utf-8')
   }
 
-  return <main className="mg-shell">
+  return <main className="mg-shell" data-more={moreOpen || undefined}>
     <div className="mg-toolbar">
       <nav className="mg-main-nav" aria-label="Sections de Mi Gestoría">
-        {NAV.map(([id, label, icon, tabs]) => <button key={id} type="button" aria-pressed={entity === 'independent' && tabs.includes(tab)} onClick={() => {
+        {NAV.map(([id, label, icon, tabs]) => <button key={id} type="button" className={'mg-nav-' + id} aria-pressed={entity === 'independent' && tabs.includes(tab)} onClick={() => {
           setQuickAction(null)
           setClientToOpen(null)
           setTab(id)
           setEntity('independent')
         }}><svg aria-hidden="true" viewBox="0 0 24 24"><path d={icon} /></svg>{label}</button>)}
+        <button type="button" className="mg-nav-mobile-more" aria-expanded={moreOpen} aria-pressed={moreOpen || ['equipe', 'guide', 'portals'].includes(tab) || entity === 'blackthorn'} onClick={() => setMoreOpen(o => !o)}>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h.01M12 12h.01M19 12h.01" /></svg>Plus</button>
         <details className="mg-nav-more" open={tab === 'guide' || tab === 'portals' || undefined}>
           <summary>Plus</summary>
           {[['guide', 'Courriers à traiter'], ['portals', 'Portails officiels']].map(([id, label]) =>
@@ -339,6 +342,15 @@ export default function MiGestoria() {
             <button key={id} type="button" aria-pressed={entity === 'blackthorn' && tab === id} onClick={() => { setClientToOpen(null); openDossier('blackthorn', id, id === 'tasks' ? 'all' : 'all') }}>{label}</button>)}
         </details>
       </nav>
+      {moreOpen && <div className="mg-sheet" role="dialog" aria-label="Plus" onClick={e => { if (e.target === e.currentTarget) setMoreOpen(false) }}>
+        <div className="mg-sheet-in">
+          {[['equipe', 'Équipe', 'independent'], ['guide', 'Courriers à traiter', 'independent'], ['portals', 'Portails officiels', 'independent']].map(([id, label]) =>
+            <button key={id} type="button" onClick={() => { setMoreOpen(false); setClientToOpen(null); setEntity('independent'); setTab(id) }}>{label}</button>)}
+          <p>Blackthorn Tattoo</p>
+          {[['finance', 'Factures & dépenses'], ['payments', 'À prévoir'], ['tasks', 'Déclarations'], ['inbox', 'Pièces à trier' + (data.inbox?.length ? ' (' + data.inbox.length + ')' : '')]].map(([id, label]) =>
+            <button key={'b' + id} type="button" onClick={() => { setMoreOpen(false); setClientToOpen(null); openDossier('blackthorn', id, 'all') }}>{label}</button>)}
+        </div>
+      </div>}
       <div className="mg-toolbar-filters">
         {entity === 'blackthorn' && <button type="button" className="mg-back-mine" onClick={() => { setEntity('independent'); setTab('accueil'); setFeedback(null) }}>← Revenir à mon activité</button>}
         {(entity === 'blackthorn' || navOf(tab)?.[0] === 'overview') && <label>Exercice <select value={year} onChange={event => { setYear(Number(event.target.value)); setFeedback(null) }}>

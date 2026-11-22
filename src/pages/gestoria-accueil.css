@@ -268,3 +268,28 @@
 .mj-days li i { position: absolute; left: 0; top: 11px; }
 .mj-days .acc-hour { display: block; font-size: .76rem; }
 .mj-tick { white-space: nowrap; }
+
+/* Téléphone : « Ma journée » compacte */
+@media (max-width: 760px) {
+  .acc.mj { gap: 18px; }
+  .mj-head { gap: 14px; }
+  .mj-head h1 { font-size: 2.3rem; }
+  .mj-prio { font-size: 1.1rem; margin-top: 10px; }
+  .mj-alfred { padding: 12px; border-radius: 18px; }
+  .mj-alfred .acc-alfred-head { display: none; }
+  .mj-alfred .acc-give textarea { min-height: 42px; height: 42px; }
+  .mj-ribbon { padding: 12px 14px; border-radius: 18px; }
+  .mj-track { height: 70px; }
+  .mj-tick { font-size: .62rem; }
+  .mj-tick:nth-child(4n+2), .mj-tick:nth-child(4n+4) { color: transparent; }
+  .mj .acc-card { padding: 14px 14px; border-radius: 18px; }
+  .mj .acc-card > header { flex-wrap: wrap; }
+  .mj-item { grid-template-columns: 22px minmax(0, 1fr) !important; }
+  .mj-item select { display: none; }
+  .mj-projects li.idle { display: none; }
+  .mj-days { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: 72%; overflow-x: auto; scroll-snap-type: x mandatory; margin-inline: -14px; padding: 0 14px 6px; }
+  .mj-days .acc-day { scroll-snap-align: start; }
+  .mj-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mj-figures button { padding: 10px 12px !important; }
+  .mj-figures strong { font-size: 1.15rem; }
+}

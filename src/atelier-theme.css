@@ -95,3 +95,29 @@ body { background: var(--qg-ecume); color: var(--qg-mer); font-family: 'Bricolag
 .mg-subtabs button { border-color: var(--qg-sable); background: #fff; color: var(--qg-mer); }
 .mg-subtabs button[aria-pressed="true"] { background: var(--qg-mer); border-color: var(--qg-mer); color: #fff; }
 .login { background: #fff; border-color: var(--qg-sable); }
+
+/* ===== Téléphone : barre d'onglets en bas, comme une appli ===== */
+.mg-nav-mobile-more, .mg-sheet { display: none; }
+@media (max-width: 999px) {
+  body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .app-header { padding: 10px 16px; }
+  .app-header button { padding: 6px 12px; font-size: .85rem; }
+  .mg-shell { width: calc(100% - 24px); }
+  .mg-shell > .mg-toolbar { background: transparent !important; box-shadow: none !important; padding: 0 !important; margin: 0 0 8px; border: 0 !important; }
+  .mg-main-nav { position: fixed; z-index: 50; left: 0; right: 0; bottom: 0; display: grid !important; grid-template-columns: repeat(6, 1fr); gap: 0 !important;
+    background: #fff; border-top: 1px solid var(--qg-sable); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); box-shadow: 0 -6px 24px rgba(16, 60, 66, .08); }
+  .mg-main-nav > button { display: flex !important; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px !important; font-size: .68rem !important; font-weight: 600; border: 0 !important; background: none !important; border-radius: 12px !important; min-width: 0; white-space: nowrap; color: var(--qg-muted) !important; }
+  .mg-main-nav > button svg { width: 22px; height: 22px; stroke: currentColor !important; }
+  .mg-main-nav > button[aria-pressed="true"] { color: var(--qg-mer) !important; background: var(--qg-eau-pale) !important; }
+  .mg-main-nav .mg-nav-equipe, .mg-main-nav .mg-nav-more, .mg-main-nav .mg-nav-group { display: none !important; }
+  .mg-nav-mobile-more { display: flex; }
+  .mg-sheet { display: block; position: fixed; inset: 0; z-index: 49; background: rgba(16, 60, 66, .25); }
+  .mg-sheet-in { position: absolute; left: 10px; right: 10px; bottom: calc(80px + env(safe-area-inset-bottom)); background: #fff; border-radius: 22px; padding: 10px; display: grid; gap: 2px; box-shadow: 0 12px 40px rgba(16, 60, 66, .2); }
+  .mg-sheet-in button { text-align: left; border: 0; background: none; padding: 12px 14px; border-radius: 12px; font-size: 1rem; font-weight: 600; color: var(--qg-mer); }
+  .mg-sheet-in button:active { background: var(--qg-eau-pale); }
+  .mg-sheet-in p { margin: 8px 14px 2px; font-size: .8rem; color: var(--qg-muted); }
+  .mg-toolbar-filters { flex-direction: row !important; flex-wrap: wrap; gap: 8px; }
+  .mg-subtabs { flex-wrap: nowrap; overflow-x: auto; margin-inline: -12px; padding: 0 12px 4px; scrollbar-width: none; }
+  .mg-subtabs button { flex: 0 0 auto; }
+  .mg-shell table { display: block; overflow-x: auto; }
+}
