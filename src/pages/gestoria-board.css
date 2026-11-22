@@ -108,3 +108,4 @@
 @media (prefers-reduced-motion: no-preference) {
   .qg-meter span, .qg-split span { transition: width .5s ease; }
 }
+.qg-facts dd { white-space: nowrap; }

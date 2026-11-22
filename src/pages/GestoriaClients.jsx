@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { money, uid, toCents, fromCents, clientInvoices, baseCents } from '../lib/gestoria-crm'
+import { money, uid, toCents, fromCents, clientInvoices, baseCents, devisBase, clientPotential } from '../lib/gestoria-crm'
 import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
 import DevisTab from './GestoriaDevis'
 import { printDocument, missingForInvoice } from '../lib/gestoria-documents.mjs'
@@ -311,11 +311,10 @@ function EmetteurForm({ emetteur, onSave, onClose, saving }) {
 }
 
 
-// Total HT d'un devis (somme des lignes).
-const devisBase = d => (d.lignes || []).reduce((s, l) => s + Math.round((Number(l.quantite) || 0) * (l.prixCents || 0)), 0)
 
 // Synthèse financière d'un client : signé, facturé, encaissé, reste à facturer, à encaisser, prochaine échéance.
-export function clientMoney(client, crm, invoices) {
+export function clientMoney(client, crm, invoices, entries) {
+  const { enCours } = clientPotential(entries, crm, client)
   const devis = (crm.devis || []).filter(d => d.clientId === client.id)
   const signed = devis.filter(d => d.statut === 'signe').reduce((s, d) => s + devisBase(d), 0)
   const pendingDevis = devis.filter(d => d.statut === 'envoye' || d.statut === 'brouillon')
@@ -324,7 +323,7 @@ export function clientMoney(client, crm, invoices) {
   const due = invoices.filter(e => e.payment !== 'paid').reduce((s, e) => s + e.amountCents, 0)
   const today = todayInSpain()
   const next = (crm.echeances || []).filter(e => e.clientId === client.id && !e.factureId).sort((a, b) => a.date.localeCompare(b.date))[0]
-  return { signed, billed, paid, due, rest: Math.max(0, signed - billed), pendingDevis, pendingTotal: pendingDevis.reduce((s, d) => s + devisBase(d), 0),
+  return { enCours, signed, billed, paid, due, rest: Math.max(0, signed - billed), pendingDevis, pendingTotal: pendingDevis.reduce((s, d) => s + devisBase(d), 0),
     next, nextLate: next && next.date < today, overdue: invoices.filter(e => e.payment !== 'paid' && e.expectedPaymentDate && e.expectedPaymentDate < today) }
 }
 
@@ -349,8 +348,8 @@ function IndicateursForm({ client, onSave, onClose, saving }) {
   </Dialog>
 }
 
-function ClientSummary({ client, crm, invoices, projects, canSave, onTab, onIndicateurs }) {
-  const m = clientMoney(client, crm, invoices)
+function ClientSummary({ client, crm, entries, invoices, projects, canSave, onTab, onIndicateurs }) {
+  const m = clientMoney(client, crm, invoices, entries)
   const base = Math.max(m.signed, m.billed, 1)
   const active = projects.filter(p => p.statut !== 'livre')
   return <>
@@ -359,7 +358,8 @@ function ClientSummary({ client, crm, invoices, projects, canSave, onTab, onIndi
         <div><span>Devis signés</span><strong>{m.signed ? money(m.signed) : '—'}</strong><small>HT</small></div>
         <div><span>Facturé</span><strong>{money(m.billed)}</strong><small>HT · {invoices.length} facture{invoices.length > 1 ? 's' : ''}</small></div>
         <div><span>Encaissé</span><strong>{money(m.paid)}</strong><small>sur ton compte</small></div>
-        <div className={m.rest ? 'is-key' : ''}><span>Reste à facturer</span><strong>{m.signed ? money(m.rest) : '—'}</strong><small>{m.signed ? 'sur les devis signés' : 'pas de devis signé'}</small></div>
+        {(m.signed > 0 || !m.enCours) && <div className={m.rest ? 'is-key' : ''}><span>Reste à facturer</span><strong>{m.signed ? money(m.rest) : '—'}</strong><small>{m.signed ? 'sur les devis signés' : 'pas de devis signé'}</small></div>}
+        {(m.enCours > 0 || !m.signed) && <div className={m.enCours ? 'is-key' : ''}><span>En cours, pas facturé</span><strong>{money(m.enCours)}</strong><small>{m.enCours ? 'missions en cours' : 'mets un montant sur le projet'}</small></div>}
         <div className={m.due ? 'is-warn' : ''}><span>À encaisser</span><strong>{money(m.due)}</strong><small>{m.overdue.length ? m.overdue.length + ' en retard' : 'factures envoyées'}</small></div>
       </div>
       {m.signed > 0 && <div className="mgc-money-bar" role="img" aria-label={'Encaissé ' + money(m.paid) + ', facturé ' + money(m.billed) + ', signé ' + money(m.signed)}>
@@ -437,7 +437,7 @@ function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onB
         <div className="mgc-muted">{[client.contact, client.pays, client.canal && 'arrivé via ' + client.canal, client.tarifJourCents ? money(client.tarifJourCents) + ' / jour' : ''].filter(Boolean).join(' · ')}</div>
       </div></div>
     </section>
-    <ClientSummary client={client} crm={crm} invoices={invoices} projects={projects} canSave={canSave}
+    <ClientSummary client={client} crm={crm} entries={entries} invoices={invoices} projects={projects} canSave={canSave}
       onTab={t => { setTab(t); setTimeout(() => document.getElementById('mgc-tabs')?.scrollIntoView({ behavior: 'smooth' }), 0) }}
       onIndicateurs={() => setEditIndic(true)} />
     <div className="mgc-between" style={{ marginTop: 12 }} id="mgc-tabs">

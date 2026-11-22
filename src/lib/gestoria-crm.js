@@ -20,6 +20,23 @@ export function clientInvoices(entries, crm, client) {
 // Base HT d'une écriture de facture (même logique que le registre).
 export const baseCents = e => e.vat?.baseCents ?? e.taxAmountCents ?? e.amountCents
 
+// Total HT d'un devis (somme des lignes).
+export const devisBase = d => (d.lignes || []).reduce((s, l) => s + Math.round((Number(l.quantite) || 0) * (l.prixCents || 0)), 0)
+
+// Ce qui reste à rentrer pour un client :
+// - devis signés moins ce qui est déjà facturé ;
+// - missions en cours sans devis signé : montant du projet moins ce qui est déjà facturé sur ce projet.
+export function clientPotential(entries, crm, client) {
+  const invoices = clientInvoices(entries, crm, client)
+  const billed = invoices.reduce((s, e) => s + baseCents(e), 0)
+  const signed = (crm.devis || []).filter(d => d.clientId === client.id && d.statut === 'signe').reduce((s, d) => s + devisBase(d), 0)
+  const enCours = signed ? 0 : crm.projets.filter(p => p.clientId === client.id && p.statut !== 'livre').reduce((s, p) => {
+    const done = invoices.filter(e => crm.liens[e.id]?.projetId === p.id).reduce((t, e) => t + baseCents(e), 0)
+    return s + Math.max(0, (p.montantCents || 0) - done)
+  }, 0)
+  return { invoices, billed, signed, rest: Math.max(0, signed - billed), enCours }
+}
+
 export function useCrm() {
   const [state, setState] = useState(null)
   const [loadState, setLoadState] = useState('loading')
