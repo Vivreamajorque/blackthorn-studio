@@ -73,3 +73,31 @@ test('espace client : rien n’est visible tant que les fiches n’ont jamais é
   const r = await call({ method: 'GET', query: { t: seedCrm().clients[0].portalToken } })
   assert.equal(r.status, 404)
 })
+
+test('espace client : devis visibles hors brouillons, brief, leçons, questions et visios', async () => {
+  const crm = seedCrm()
+  const nisha = crm.clients.find(c => c.nom === 'Nisha')
+  const projet = crm.projets.find(p => p.clientId === nisha.id)
+  Object.assign(projet, { type: 'formation', brief: [{ id: 'b1', q: 'À quels parents ?', r: '' }],
+    lecons: [{ id: 'l1', titre: 'Validée', statut: 'validee' }],
+    creneaux: [{ id: 'c1', titre: 'Point hebdo', date: '2026-11-25T18:00' }, { id: 'c2', titre: 'Point hebdo', date: '2026-11-26T18:00' }] })
+  crm.devis = [{ id: 'd1', clientId: nisha.id, numero: 'DEV-1', statut: 'signe', lignes: [] }, { id: 'd2', clientId: nisha.id, numero: 'DEV-2', statut: 'brouillon', lignes: [] }]
+  const blob = fakeBlob({ [CRM_PATH]: crm, 'mi-gestoria/personal/v1/workspace.json': { entries: [], records: {} } })
+  espace.blobForTests = blob
+  const t = nisha.portalToken
+  let r = await call({ method: 'GET', query: { t } })
+  assert.deepEqual(r.data.devis.map(d => d.numero), ['DEV-1'], 'pas de brouillon')
+
+  r = await call({ method: 'POST', body: { t, projetId: projet.id, op: 'brief', reponses: { b1: 'Jeunes parents', bX: 'ignoré' } } })
+  assert.equal(r.data.projets[0].brief[0].r, 'Jeunes parents')
+  r = await call({ method: 'POST', body: { t, projetId: projet.id, op: 'lecon', lecon: { titre: 'Le sommeil', objectif: 'Comprendre', statut: 'validee' } } })
+  const lecons = r.data.projets[0].lecons
+  assert.equal(lecons.length, 2); assert.equal(lecons[1].statut, 'brouillon', 'le client ne peut pas valider')
+  r = await call({ method: 'POST', body: { t, projetId: projet.id, op: 'lecon', lecon: { id: 'l1', titre: 'Changée' } } })
+  assert.equal(r.status, 403, 'leçon validée verrouillée')
+  r = await call({ method: 'POST', body: { t, projetId: projet.id, op: 'question', texte: 'Combien de vidéos ?' } })
+  assert.equal(r.data.projets[0].questions[0].texte, 'Combien de vidéos ?')
+  await call({ method: 'POST', body: { t, projetId: projet.id, op: 'creneau', creneauId: 'c1' } })
+  r = await call({ method: 'POST', body: { t, projetId: projet.id, op: 'creneau', creneauId: 'c2' } })
+  assert.deepEqual(r.data.projets[0].creneaux.map(c => c.reserve), [false, true], 'un seul horaire réservé par visio')
+})

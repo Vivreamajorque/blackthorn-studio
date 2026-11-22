@@ -374,6 +374,66 @@ export function MessagesList({ items, canSave, onVu, showSource = true, empty = 
 
 export const markMessageVu = (saveCrm, msgId) => saveCrm(data => ({ ...data, messages: { ...data.messages, items: (data.messages?.items || []).map(m => m.id === msgId ? { ...m, vu: true } : m) } }))
 
+const BRIEF_FORMATION = ['À quels parents veux-tu t’adresser ?', 'Quelle difficulté cherchent-ils à résoudre ?', 'Que sauront-ils faire après la formation ?',
+  'Quel est le périmètre de la formation ?', 'Quelles étapes les aideront à progresser ?', 'Comment souhaites-tu organiser l’accès ?',
+  'Comment les parents te poseront-ils leurs questions ?', 'Qu’aimerais-tu éclaircir avec Amely ?']
+
+// Ce que le client voit et remplit dans son espace : type, brief, créneaux de visio, questions et leçons.
+function SharedSpaceForm({ project, onSave, onClose, saving }) {
+  const [p, setP] = useState(() => ({ type: project.type || 'standard', brief: project.brief || [], creneaux: project.creneaux || [],
+    questions: project.questions || [], lecons: project.lecons || [] }))
+  const upd = (k, id, field, v) => setP(x => ({ ...x, [k]: x[k].map(r => r.id === id ? { ...r, [field]: v } : r) }))
+  const del = (k, id) => setP(x => ({ ...x, [k]: x[k].filter(r => r.id !== id) }))
+  return <Dialog title={'Espace partagé · ' + project.nom} onClose={onClose}
+    footer={<><span /><button className="mgc-primary" disabled={saving} onClick={() => onSave({ ...project, ...p })}>Enregistrer</button></>}>
+    <div className="mgc-form">
+      <label>Type de projet <select value={p.type} onChange={e => setP(x => ({ ...x, type: e.target.value }))}>
+        <option value="standard">Projet (outil, mission…)</option><option value="formation">Formation (ajoute le brief et « Mes leçons »)</option></select></label>
+
+      <h4>Brief</h4>
+      {p.brief.length === 0 && <div className="mgc-row"><span className="mgc-muted">Pas de brief.</span>
+        {p.type === 'formation' && <button type="button" className="mgc-link" onClick={() => setP(x => ({ ...x, brief: BRIEF_FORMATION.map(q => ({ id: uid('brf'), q, r: '' })) }))}>Mettre les questions du brief formation</button>}</div>}
+      {p.brief.map(b => <div key={b.id} className="mgc-note-row">
+        <div className="mgc-cols" style={{ gridTemplateColumns: '1fr 30px' }}><input value={b.q} onChange={e => upd('brief', b.id, 'q', e.target.value)} />
+          <button type="button" aria-label="Retirer" onClick={() => del('brief', b.id)}>×</button></div>
+        <div className="mgc-muted" style={{ whiteSpace: 'pre-line' }}>{b.r ? 'Réponse : ' + b.r : 'Pas encore de réponse.'}</div>
+      </div>)}
+      <button type="button" className="mgc-link" onClick={() => setP(x => ({ ...x, brief: [...x.brief, { id: uid('brf'), q: '', r: '' }] }))}>+ Ajouter une question au brief</button>
+
+      <h4>Créneaux de visio</h4>
+      <p className="mgc-muted">Même intitulé = plusieurs horaires au choix pour la même visio. Le client en réserve un.</p>
+      {p.creneaux.map(c => <div key={c.id} className="mgc-cols" style={{ gridTemplateColumns: '2fr 1.3fr 2fr auto 30px' }}>
+        <input placeholder="Intitulé" value={c.titre} onChange={e => upd('creneaux', c.id, 'titre', e.target.value)} />
+        <input type="datetime-local" value={c.date} onChange={e => upd('creneaux', c.id, 'date', e.target.value)} />
+        <input placeholder="Lien visio (https://…)" value={c.lien} onChange={e => upd('creneaux', c.id, 'lien', e.target.value)} />
+        <span className={'mgc-badge ' + (c.reserve ? 'ok' : '')}>{c.reserve ? 'Réservé' : 'Libre'}</span>
+        <button type="button" aria-label="Retirer" onClick={() => del('creneaux', c.id)}>×</button></div>)}
+      <button type="button" className="mgc-link" onClick={() => setP(x => ({ ...x, creneaux: [...x.creneaux, { id: uid('crn'), titre: x.creneaux.at(-1)?.titre || 'Point hebdo', date: '', lien: x.creneaux.at(-1)?.lien || '', reserve: false }] }))}>+ Proposer un créneau</button>
+
+      <h4>Questions du client</h4>
+      {p.questions.length === 0 ? <p className="mgc-muted">Aucune question.</p> : p.questions.slice().reverse().map(q => <div key={q.id} className="mgc-note-row">
+        <div className="mgc-between"><span className="mgc-muted">{q.date ? formatDate(q.date) : ''}</span>
+          <label className="mgc-row" style={{ fontWeight: 400 }}><input type="checkbox" checked={q.traitee} onChange={e => upd('questions', q.id, 'traitee', e.target.checked)} /> Traitée</label></div>
+        <div style={{ whiteSpace: 'pre-line' }}>{q.texte}</div>
+        <textarea rows={2} placeholder="Ta réponse (visible par le client)" value={q.reponse} onChange={e => upd('questions', q.id, 'reponse', e.target.value)} />
+      </div>)}
+
+      {p.type === 'formation' && <>
+        <h4>Leçons</h4>
+        {p.lecons.length === 0 ? <p className="mgc-muted">Aucune fiche de leçon.</p> : p.lecons.map((l, i) => <div key={l.id} className="mgc-note-row">
+          <div className="mgc-between"><strong>{i + 1}. {l.titre}</strong>
+            <select value={l.statut} onChange={e => upd('lecons', l.id, 'statut', e.target.value)}>
+              <option value="brouillon">Brouillon</option><option value="a_valider">À relire</option><option value="validee">Validée</option></select></div>
+          {l.objectif && <div className="mgc-muted">{l.objectif}</div>}
+          {l.points && <div style={{ whiteSpace: 'pre-line', fontSize: 13 }}>{l.points}</div>}
+          {l.video && <a className="mgc-link" href={l.video} target="_blank" rel="noreferrer">Vidéo ↗</a>}
+          <textarea rows={2} placeholder="Ton retour (visible par le client)" value={l.retour} onChange={e => upd('lecons', l.id, 'retour', e.target.value)} />
+        </div>)}
+      </>}
+    </div>
+  </Dialog>
+}
+
 function LivementorPanel({ lm }) {
   const e = livementorEstimate(lm)
   if (!e) return <section className="mgc-panel"><h3>Gains LiveMentor</h3><p className="mgc-muted">Pas encore de relevé. Dis « mets à jour LiveMentor » à Claude.</p></section>
@@ -456,6 +516,7 @@ function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onB
   const [editProject, setEditProject] = useState(null)
   const [invoiceFor, setInvoiceFor] = useState(null)
   const [editIndic, setEditIndic] = useState(false)
+  const [editShared, setEditShared] = useState(null)
   const projects = crm.projets.filter(p => p.clientId === client.id)
   const invoices = clientInvoices(entries, crm, client)
   const link = window.location.origin + '/espace/' + client.portalToken
@@ -512,6 +573,7 @@ function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onB
             <div className="mgc-row">
               {p.montantCents > 0 && <span className="mgc-muted">{money(p.montantCents)} HT prévus</span>}
               <button disabled={!canSave} onClick={() => setEditProject(p)}>Modifier</button>
+              <button disabled={!canSave} onClick={() => setEditShared(p)}>Espace partagé{(() => { const n = (p.questions || []).filter(q => !q.traitee).length + (p.lecons || []).filter(l => l.statut === 'a_valider').length; return n ? ' (' + n + ')' : '' })()}</button>
               <button disabled={!canSave} onClick={() => setInvoiceFor({ project: p })}>Facturer</button>
             </div>
           </div>
@@ -573,6 +635,8 @@ function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onB
       onSave={rows => saveCrm(data => ({ ...data, clients: data.clients.map(c => c.id === client.id ? { ...c, indicateurs: rows } : c) }), 'Suivi mis à jour.').then(ok => ok && setEditIndic(false))} />}
     {editClient && <ClientForm client={client} saving={saving} onClose={() => setEditClient(false)}
       onSave={c => saveCrm(data => ({ ...data, clients: data.clients.map(x => x.id === c.id ? c : x) }), 'Fiche enregistrée.').then(ok => ok && setEditClient(false))} />}
+    {editShared && <SharedSpaceForm project={editShared} saving={saving} onClose={() => setEditShared(null)}
+      onSave={p => saveCrm(data => ({ ...data, projets: data.projets.map(x => x.id === p.id ? { ...x, type: p.type, brief: p.brief.map(b => ({ ...b, r: (x.brief || []).find(o => o.id === b.id)?.r ?? b.r })), questions: (x.questions || []).map(q => p.questions.find(f => f.id === q.id) || q), lecons: (x.lecons || []).map(l => p.lecons.find(f => f.id === l.id) || l), creneaux: p.creneaux.map(c => ({ ...c, reserve: (x.creneaux || []).find(o => o.id === c.id)?.reserve ?? false })) } : x) }), 'Espace partagé mis à jour.').then(ok => ok && setEditShared(null))} />}
     {editProject && <ProjectForm project={editProject} saving={saving} onClose={() => setEditProject(null)} onSave={saveProject}
       onDelete={id => saveCrm(data => ({ ...data, projets: data.projets.filter(p => p.id !== id) }), 'Projet supprimé.').then(ok => ok && setEditProject(null))} />}
     {invoiceFor && <InvoiceForm client={client} project={invoiceFor.project} echeance={invoiceFor.echeance} projects={projects} entries={entries} emetteur={crm.emetteur || {}}

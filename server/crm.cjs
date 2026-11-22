@@ -78,6 +78,21 @@ function cleanProject(p) {
     documents: (Array.isArray(p.documents) ? p.documents : []).slice(0, 40).filter(d => d && url(d.url)).map(d => ({
       id: id(d.id) || newId('doc'), label: str(d.label, 120).trim() || 'Document', url: url(d.url),
     })),
+    // Espace partagé : type de projet (une formation ajoute le brief et les leçons), brief, leçons, questions, créneaux de visio.
+    type: oneOf(p.type, ['standard', 'formation'], 'standard'),
+    brief: (Array.isArray(p.brief) ? p.brief : []).slice(0, 15).filter(b => b && str(b.q).trim()).map(b => ({
+      id: id(b.id) || newId('brf'), q: str(b.q, 200).trim(), r: str(b.r, 3000),
+    })),
+    lecons: (Array.isArray(p.lecons) ? p.lecons : []).slice(0, 60).filter(l => l && str(l.titre).trim()).map(l => ({
+      id: id(l.id) || newId('lec'), titre: str(l.titre, 160).trim(), objectif: str(l.objectif, 1500), points: str(l.points, 4000),
+      video: url(l.video), statut: oneOf(l.statut, ['brouillon', 'a_valider', 'validee'], 'brouillon'), retour: str(l.retour, 2000),
+    })),
+    questions: (Array.isArray(p.questions) ? p.questions : []).slice(0, 100).filter(q => q && str(q.texte).trim()).map(q => ({
+      id: id(q.id) || newId('qst'), date: str(q.date, 30), texte: str(q.texte, 2000).trim(), reponse: str(q.reponse, 3000), traitee: q.traitee === true,
+    })),
+    creneaux: (Array.isArray(p.creneaux) ? p.creneaux : []).slice(0, 40).filter(c => c && str(c.titre).trim() && str(c.date).trim()).map(c => ({
+      id: id(c.id) || newId('crn'), titre: str(c.titre, 140).trim(), date: str(c.date, 30), lien: url(c.lien), reserve: c.reserve === true,
+    })),
   }
 }
 
