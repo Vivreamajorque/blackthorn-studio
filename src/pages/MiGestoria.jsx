@@ -17,6 +17,7 @@ import { useCrm } from '../lib/gestoria-crm'
 import GestoriaClients from './GestoriaClients'
 import GestoriaProspection from './GestoriaProspection'
 import GestoriaPilotage from './GestoriaPilotage'
+import GestoriaAgenda from './GestoriaAgenda'
 
 const ENTITIES = [
   { id: 'independent', name: 'Mon activité', subtitle: 'Prestations et accompagnement' },
@@ -25,6 +26,7 @@ const ENTITIES = [
 
 const sections = [
   ['pilotage', 'Pilotage', 'M4 20V10m6 10V4m6 16v-7m4 7H2'],
+  ['agenda', 'Agenda', 'M4 5h16v15H4zM4 10h16M9 3v4M15 3v4'],
   ['clients', 'Clients', 'M8 11a4 4 0 100-8 4 4 0 000 8zM2 21v-1a6 6 0 0112 0v1M16 3.5a4 4 0 010 7M22 21v-1a6 6 0 00-4-5.6'],
   ['prospection', 'Prospection', 'M3 4h18l-7 8v6l-4 2v-8z'],
   ['overview', 'Aujourd’hui', 'M3 12l9-8 9 8v8h-6v-6H9v6H3z'],
@@ -331,7 +333,7 @@ export default function MiGestoria() {
           }}><svg aria-hidden="true" viewBox="0 0 24 24"><path d={icon} /></svg>{label}{id === 'inbox' && data.inbox?.length > 0 && ' (' + data.inbox.length + ')'}</button></React.Fragment>)}
       </nav>
       <div className="mg-toolbar-filters">
-        {!['overview', 'inbox', 'clients', 'prospection', 'pilotage'].includes(tab) && <label>Dossier <select value={entity} onChange={event => { setEntity(event.target.value); setFeedback(null) }}>
+        {!['overview', 'inbox', 'clients', 'prospection', 'pilotage', 'agenda'].includes(tab) && <label>Dossier <select value={entity} onChange={event => { setEntity(event.target.value); setFeedback(null) }}>
           {dossiers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select></label>}
         <label>Exercice <select value={year} onChange={event => { setYear(Number(event.target.value)); setFeedback(null) }}>
@@ -358,13 +360,15 @@ export default function MiGestoria() {
       <p>{saveFeedback.text}</p>
       {saveFeedback.error && <button disabled={saving} onClick={reload}>Recharger le dossier</button>}
     </div>}
-    {['clients', 'prospection', 'pilotage'].includes(tab) && crmState.loadState === 'loading' && <p role="status">Chargement des fiches clients…</p>}
-    {['clients', 'prospection', 'pilotage'].includes(tab) && crmState.loadState === 'error' && <div role="alert"><p>Les fiches clients n’ont pas pu être chargées.</p><button onClick={crmState.reload}>Réessayer</button></div>}
-    {['clients', 'prospection', 'pilotage'].includes(tab) && crmState.feedback && <div className="mg-save-feedback" role={crmState.feedback.error ? 'alert' : 'status'}><p>{crmState.feedback.text}</p></div>}
+    {['clients', 'prospection', 'pilotage', 'agenda'].includes(tab) && crmState.loadState === 'loading' && <p role="status">Chargement des fiches clients…</p>}
+    {['clients', 'prospection', 'pilotage', 'agenda'].includes(tab) && crmState.loadState === 'error' && <div role="alert"><p>Les fiches clients n’ont pas pu être chargées.</p><button onClick={crmState.reload}>Réessayer</button></div>}
+    {['clients', 'prospection', 'pilotage', 'agenda'].includes(tab) && crmState.feedback && <div className="mg-save-feedback" role={crmState.feedback.error ? 'alert' : 'status'}><p>{crmState.feedback.text}</p></div>}
     {tab === 'clients' && loadState === 'ready' && crmState.loadState === 'ready' &&
       <GestoriaClients key={clientToOpen || 'liste'} initialClient={clientToOpen} crm={crmState.crm} entries={data.entries} saveCrm={crmState.save} saveWorkspace={save}
         canSave={canSave && !crmState.saving} saving={saving || crmState.saving}
         onFinance={() => openDossier('independent', 'finance')} />}
+    {tab === 'agenda' && crmState.loadState === 'ready' &&
+      <GestoriaAgenda crm={crmState.crm} saveCrm={crmState.save} canSave={!crmState.saving} />}
     {tab === 'pilotage' && loadState === 'ready' && crmState.loadState === 'ready' &&
       <GestoriaPilotage entries={data.entries} crm={crmState.crm} year={year} saveCrm={crmState.save} canSave={!crmState.saving}
         studio={studio} onGo={next => { if (next === 'tasks') openDossier('independent', 'tasks', 'declarations', true); else if (next === 'blackthorn') openDossier('blackthorn', 'finance'); else { setClientToOpen(null); setTab(next) } window.scrollTo(0, 0) }} />}

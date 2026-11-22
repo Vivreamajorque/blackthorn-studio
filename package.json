@@ -9,6 +9,7 @@
   "dependencies": {
     "@fontsource-variable/schibsted-grotesk": "^5.3.0",
     "@vercel/blob": "^2.4.1",
+    "ical.js": "^2.2.1",
     "iron-session": "8.0.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

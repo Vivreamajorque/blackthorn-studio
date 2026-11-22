@@ -13,6 +13,15 @@ const oneOf = (v, list, fallback) => list.includes(v) ? v : fallback
 const url = v => { const s = str(v, 600).trim(); return /^https:\/\//i.test(s) ? s : '' }
 const token = v => typeof v === 'string' && /^[A-Za-z0-9_-]{32}$/.test(v) ? v : null
 
+// Adresses iCal acceptées : Google Agenda, Outlook et iCloud, en https uniquement (pas d'autre site appelé par le serveur).
+const icalUrl = v => {
+  try {
+    const u = new URL(str(v, 1000).trim().replace(/^webcal:/i, 'https:'))
+    const ok = u.protocol === 'https:' && (u.hostname === 'calendar.google.com' || u.hostname === 'outlook.live.com' ||
+      u.hostname === 'outlook.office365.com' || /^p\d+-caldav\.icloud\.com$/.test(u.hostname))
+    return ok ? u.href : ''
+  } catch { return '' }
+}
 const newId = prefix => prefix + '_' + crypto.randomBytes(6).toString('hex')
 const newToken = () => crypto.randomBytes(24).toString('base64url')
 
@@ -131,8 +140,17 @@ function cleanCrm(data) {
   for (const [year, value] of Object.entries(d.objectifs && typeof d.objectifs === 'object' ? d.objectifs : {})) {
     if (/^20\d{2}$/.test(year) && cents(value) > 0) objectifs[year] = cents(value)
   }
+  // Agenda : calendriers Google lus par leur adresse secrète iCal, et lien d'abonnement du QG.
+  const a = d.agenda && typeof d.agenda === 'object' ? d.agenda : {}
+  const agenda = {
+    feedToken: token(a.feedToken) || newToken(),
+    sources: (Array.isArray(a.sources) ? a.sources : []).slice(0, 6).map(x => ({
+      id: id(x && x.id) || newId('cal'), label: str(x && x.label, 60).trim() || 'Google Agenda',
+      url: icalUrl(x && x.url), type: oneOf(x && x.type, ['google', 'livementor', 'perso', 'autre'], 'google'),
+    })).filter(x => x.url),
+  }
   return {
-    version: 1, emetteur, objectifs, clients, projets, liens, factures, devis, echeances, journal, canaux: cleanCanaux(d.canaux),
+    version: 1, emetteur, objectifs, clients, projets, liens, factures, devis, echeances, journal, canaux: cleanCanaux(d.canaux), agenda,
     prospects: (Array.isArray(d.prospects) ? d.prospects : []).slice(0, 600).map(cleanProspect),
   }
 }
@@ -164,7 +182,7 @@ async function readCrm(blob) {
   const result = await readVersionedBlob(blob, CRM_PATH)
   if (!result) return { revision: null, data: seedCrm() }
   const data = await new Response(result.content.stream).json()
-  return { revision: result.revision, data: cleanCrm(data) }
+  return { revision: result.revision, data: cleanCrm(data), feedTokenSaved: !!(data && data.agenda && token(data.agenda.feedToken)) }
 }
 
 async function writeCrm(blob, data, revision) {
