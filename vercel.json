@@ -48,6 +48,10 @@
   "functions": {
     "api/gestoria-mcp.js": {
       "includeFiles": "src/lib/gestoria-matrice.mjs"
+    },
+    "api/gestoria-whatsapp.js": {
+      "includeFiles": "src/lib/gestoria-matrice.mjs",
+      "maxDuration": 60
     }
   }
 }
