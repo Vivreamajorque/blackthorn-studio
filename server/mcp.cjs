@@ -336,7 +336,8 @@ async function callTool(name, args, blob) {
     const { matrice, QUADRANTS } = await import('../src/lib/gestoria-matrice.mjs')
     const { qgEvents } = require('./agenda.cjs')
     const d = today()
-    const m = matrice({ entries: data.entries, crm, today: d })
+    const { data: lm } = await require('./livementor.cjs').readLivementor(blob)
+    const m = matrice({ entries: data.entries, crm, today: d, lm })
     const to = new Date(Date.parse(d + 'T12:00:00Z') + 7 * 864e5).toISOString().slice(0, 10)
     const inv = independent(data.entries).filter(e => e.kind === 'invoice')
     const base = e => e.vat?.baseCents ?? e.taxAmountCents ?? e.amountCents

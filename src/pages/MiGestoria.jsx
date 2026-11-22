@@ -18,7 +18,7 @@ import GestoriaClients from './GestoriaClients'
 import GestoriaProspection from './GestoriaProspection'
 import GestoriaPilotage from './GestoriaPilotage'
 import GestoriaAgenda from './GestoriaAgenda'
-import GestoriaAccueil from './GestoriaAccueil'
+import GestoriaAccueil, { GestoriaEquipe } from './GestoriaAccueil'
 import GestoriaLivementor from './GestoriaLivementor'
 
 const ENTITIES = [
@@ -26,21 +26,20 @@ const ENTITIES = [
   { id: 'blackthorn', name: 'Blackthorn Tattoo', subtitle: 'Activité du studio de tatouage' },
 ]
 
-const sections = [
-  ['accueil', 'Accueil', 'M3 11l9-7 9 7M5 10v10h5v-6h4v6h5V10'],
-  ['pilotage', 'Pilotage', 'M4 20V10m6 10V4m6 16v-7m4 7H2'],
-  ['agenda', 'Agenda', 'M4 5h16v15H4zM4 10h16M9 3v4M15 3v4'],
-  ['clients', 'Clients', 'M8 11a4 4 0 100-8 4 4 0 000 8zM2 21v-1a6 6 0 0112 0v1M16 3.5a4 4 0 010 7M22 21v-1a6 6 0 00-4-5.6'],
-  ['prospection', 'Prospection', 'M3 4h18l-7 8v6l-4 2v-8z'],
-  ['livementor', 'Suivi LiveMentor', 'M4 6l8-3 8 3-8 3zM7 8v5c0 2 2.5 3.5 5 3.5s5-1.5 5-3.5V8M20 6v6'],
-  ['overview', 'Aujourd’hui', 'M3 12l9-8 9 8v8h-6v-6H9v6H3z'],
-  ['finance', 'Factures & dépenses', 'M4 4h16v16H4zM4 9h16M9 9v11m4-7h4m-4 3h4'],
-  ['payments', 'À prévoir', 'M4 4v16h16M7 15l4-5 3 2 6-7'],
-  ['tasks', 'Déclarations & suivi', 'M7 4h10l3 3v13H7zM10 10h7m-7 4h7m-7 3h5'],
-  ['archives', 'Archives', 'M3 7h18v4H3zM5 11v9h14v-9m-9 4h4'],
-  ['guide', 'Courriers à traiter', 'M4 6h16v12H4zM4 7l8 6 8-6'],
-  ['portals', 'Portails officiels', 'M5 20h14M7 20V9m5 11V9m5 11V9M3 8l9-4 9 4z'],
+// Menu : une seule place pour chaque chose. Les sous-onglets apparaissent en haut de la page.
+const NAV = [
+  ['accueil', 'Ma journée', 'M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4M12 8a4 4 0 100 8 4 4 0 000-8z', ['accueil']],
+  ['clients', 'Clients', 'M8 11a4 4 0 100-8 4 4 0 000 8zM2 21v-1a6 6 0 0112 0v1M16 3.5a4 4 0 010 7M22 21v-1a6 6 0 00-4-5.6', ['clients', 'livementor']],
+  ['prospection', 'Développer', 'M3 17l6-6 4 4 8-8M15 7h6v6', ['prospection']],
+  ['overview', 'Compta', 'M4 4h16v16H4zM4 9h16M9 9v11m4-7h4m-4 3h4', ['overview', 'finance', 'payments', 'tasks', 'pilotage', 'archives']],
+  ['agenda', 'Agenda', 'M4 5h16v15H4zM4 10h16M9 3v4M15 3v4', ['agenda']],
+  ['equipe', 'Équipe', 'M12 4a3 3 0 100 6 3 3 0 000-6zM6 20v-1a6 6 0 0112 0v1M4 9a2 2 0 100 4M20 9a2 2 0 110 4', ['equipe']],
 ]
+const SUBTABS = {
+  clients: [['clients', 'Clients'], ['livementor', 'LiveMentor']],
+  overview: [['overview', 'Vue d’ensemble'], ['finance', 'Factures & dépenses'], ['payments', 'À prévoir'], ['tasks', 'Déclarations'], ['pilotage', 'Pilotage & objectif'], ['archives', 'Archives']],
+}
+const navOf = tab => NAV.find(n => n[3].includes(tab))
 const pageCopy = {
   finance: ['Factures, dépenses et paiements', 'Retrouve une écriture, ouvre sa pièce ou pointe son paiement.'],
   payments: ['Ce qu’il faut prévoir', 'Retrouve les échéances, les montants déclarés et ce qu’il reste à vérifier.'],
@@ -323,17 +322,17 @@ export default function MiGestoria() {
   return <main className="mg-shell">
     <div className="mg-toolbar">
       <nav className="mg-main-nav" aria-label="Sections de Mi Gestoría">
-        {sections.map(([id, label, icon]) => <React.Fragment key={id}>
-          {id === 'accueil' && <span className="mg-nav-group">Piloter</span>}
-          {id === 'clients' && <span className="mg-nav-group">Clients</span>}
-          {id === 'overview' && <span className="mg-nav-group">Compta · Mi Gestoría</span>}
-          <button type="button" aria-pressed={tab === id} onClick={() => {
-            setQuickAction(null)
-            setClientToOpen(null)
-            setTab(id)
-            setEntity('independent')
-            if (id === 'tasks') setFormFilter('all')
-          }}><svg aria-hidden="true" viewBox="0 0 24 24"><path d={icon} /></svg>{label}</button></React.Fragment>)}
+        {NAV.map(([id, label, icon, tabs]) => <button key={id} type="button" aria-pressed={entity === 'independent' && tabs.includes(tab)} onClick={() => {
+          setQuickAction(null)
+          setClientToOpen(null)
+          setTab(id)
+          setEntity('independent')
+        }}><svg aria-hidden="true" viewBox="0 0 24 24"><path d={icon} /></svg>{label}</button>)}
+        <details className="mg-nav-more" open={tab === 'guide' || tab === 'portals' || undefined}>
+          <summary>Plus</summary>
+          {[['guide', 'Courriers à traiter'], ['portals', 'Portails officiels']].map(([id, label]) =>
+            <button key={id} type="button" aria-pressed={entity === 'independent' && tab === id} onClick={() => { setClientToOpen(null); setEntity('independent'); setTab(id) }}>{label}</button>)}
+        </details>
         <details className="mg-nav-more" open={entity === 'blackthorn' || tab === 'inbox' || undefined}>
           <summary>Blackthorn Tattoo{data.inbox?.length > 0 && ' (' + data.inbox.length + ')'}</summary>
           {[['finance', 'Factures & dépenses'], ['payments', 'À prévoir'], ['tasks', 'Déclarations'], ['inbox', 'Pièces à trier' + (data.inbox?.length ? ' (' + data.inbox.length + ')' : '')]].map(([id, label]) =>
@@ -342,11 +341,14 @@ export default function MiGestoria() {
       </nav>
       <div className="mg-toolbar-filters">
         {entity === 'blackthorn' && <button type="button" className="mg-back-mine" onClick={() => { setEntity('independent'); setTab('accueil'); setFeedback(null) }}>← Revenir à mon activité</button>}
-        <label>Exercice <select value={year} onChange={event => { setYear(Number(event.target.value)); setFeedback(null) }}>
+        {(entity === 'blackthorn' || navOf(tab)?.[0] === 'overview') && <label>Exercice <select value={year} onChange={event => { setYear(Number(event.target.value)); setFeedback(null) }}>
           {YEARS.map(item => <option key={item} value={item}>{item}</option>)}
-        </select></label>
+        </select></label>}
       </div>
     </div>
+    {entity === 'independent' && SUBTABS[navOf(tab)?.[0]] && <nav className="mg-subtabs" aria-label="Sous-sections">
+      {SUBTABS[navOf(tab)[0]].map(([id, label]) => <button key={id} type="button" aria-pressed={tab === id} onClick={() => { setClientToOpen(null); setTab(id) }}>{label}</button>)}
+    </nav>}
     {pageCopy[tab] && <header className="mg-page-heading">
       <div><p className="mg-section-label">{current.name.toUpperCase()} · {year}</p>
         <h1>{pageCopy[tab][0]}</h1>
@@ -366,9 +368,9 @@ export default function MiGestoria() {
       <p>{saveFeedback.text}</p>
       {saveFeedback.error && <button disabled={saving} onClick={reload}>Recharger le dossier</button>}
     </div>}
-    {['clients', 'prospection', 'pilotage', 'agenda', 'accueil', 'livementor'].includes(tab) && crmState.loadState === 'loading' && <p role="status">Chargement des fiches clients…</p>}
-    {['clients', 'prospection', 'pilotage', 'agenda', 'accueil', 'livementor'].includes(tab) && crmState.loadState === 'error' && <div role="alert"><p>Les fiches clients n’ont pas pu être chargées.</p><button onClick={crmState.reload}>Réessayer</button></div>}
-    {['clients', 'prospection', 'pilotage', 'agenda', 'accueil', 'livementor'].includes(tab) && crmState.feedback && <div className="mg-save-feedback" role={crmState.feedback.error ? 'alert' : 'status'}><p>{crmState.feedback.text}</p></div>}
+    {['clients', 'prospection', 'pilotage', 'agenda', 'accueil', 'livementor', 'equipe'].includes(tab) && crmState.loadState === 'loading' && <p role="status">Chargement des fiches clients…</p>}
+    {['clients', 'prospection', 'pilotage', 'agenda', 'accueil', 'livementor', 'equipe'].includes(tab) && crmState.loadState === 'error' && <div role="alert"><p>Les fiches clients n’ont pas pu être chargées.</p><button onClick={crmState.reload}>Réessayer</button></div>}
+    {['clients', 'prospection', 'pilotage', 'agenda', 'accueil', 'livementor', 'equipe'].includes(tab) && crmState.feedback && <div className="mg-save-feedback" role={crmState.feedback.error ? 'alert' : 'status'}><p>{crmState.feedback.text}</p></div>}
     {tab === 'clients' && loadState === 'ready' && crmState.loadState === 'ready' &&
       <GestoriaClients key={clientToOpen || 'liste'} initialClient={clientToOpen} crm={crmState.crm} entries={data.entries} saveCrm={crmState.save} saveWorkspace={save}
         canSave={canSave && !crmState.saving} saving={saving || crmState.saving}
@@ -376,6 +378,7 @@ export default function MiGestoria() {
     {tab === 'agenda' && crmState.loadState === 'ready' &&
       <GestoriaAgenda crm={crmState.crm} saveCrm={crmState.save} canSave={!crmState.saving} />}
     {tab === 'livementor' && crmState.loadState === 'ready' && <GestoriaLivementor crm={crmState.crm} />}
+    {tab === 'equipe' && crmState.loadState === 'ready' && <GestoriaEquipe crm={crmState.crm} entries={data.entries} saveCrm={crmState.save} canSave={!crmState.saving} />}
     {tab === 'accueil' && loadState === 'ready' && crmState.loadState === 'ready' &&
       <GestoriaAccueil entries={data.entries} crm={crmState.crm} saveCrm={crmState.save} canSave={!crmState.saving}
         onGo={(next, clientId) => { if (next === 'tasks') openDossier('independent', 'tasks', 'declarations', true); else if (next === 'finance') openDossier('independent', 'finance'); else if (next === 'livementor') setTab('livementor'); else { setClientToOpen(next === 'clients' && clientId ? clientId : null); setTab(next) } window.scrollTo(0, 0) }} />}

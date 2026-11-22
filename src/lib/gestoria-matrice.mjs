@@ -31,7 +31,7 @@ function taxDates(y) {
 }
 
 // Éléments automatiques. Chacun a un id stable pour pouvoir être déplacé ou écarté.
-export function autoItems({ entries = [], crm, today }) {
+export function autoItems({ entries = [], crm, today, lm = null }) {
   const out = []
   const add = (id, quadrant, titre, extra = {}) => out.push({ id: 'auto:' + id, auto: true, quadrant, titre, ...extra })
   const client = id => crm.clients.find(c => c.id === id)
@@ -92,13 +92,28 @@ export function autoItems({ entries = [], crm, today }) {
     const important = m.source === 'client' || m.source === 'malt' || !!m.clientId
     add('msg:' + m.id, important ? 'faire' : 'deleguer', 'Répondre · ' + m.sujet, { detail: m.de + (m.date ? ' · ' + fr(m.date) : ''), domaine: 'messages', lien: m.lien, agent: important ? undefined : 'courrier' })
   }
+  // Apprenants LiveMentor : rendez-vous, oraux et tâches ouvertes.
+  for (const a of (lm?.apprenants || []).filter(a => !a.archive)) {
+    const prenom = String(a.nom).split(' ')[0]
+    if (a.prochain) {
+      const n = days(today, a.prochain)
+      if (n >= 0 && n <= 1) add('lmrdv:' + a.id + ':' + a.prochain, 'faire', 'Préparer le RDV LiveMentor de ' + prenom, { detail: (n === 0 ? 'aujourd’hui' : 'demain'), domaine: 'livementor', go: 'livementor', echeance: a.prochain })
+      else if (n > 1 && n <= 7) add('lmrdv:' + a.id + ':' + a.prochain, 'planifier', 'RDV LiveMentor · ' + prenom, { detail: 'le ' + fr(a.prochain), domaine: 'livementor', go: 'livementor', echeance: a.prochain })
+    }
+    if (a.certification) {
+      const n = days(today, a.certification)
+      if (n >= 0 && n <= 7) add('lmoral:' + a.id, n <= 2 ? 'faire' : 'planifier', 'Oral de certification · ' + prenom, { detail: n === 0 ? 'aujourd’hui' : 'le ' + fr(a.certification), domaine: 'livementor', go: 'livementor', echeance: a.certification })
+    }
+    const t = (a.taches || []).find(t => !t.fait)
+    if (t) add('lmtask:' + a.id + ':' + t.id, 'planifier', prenom + ' · ' + String(t.texte).split(' — ')[0].slice(0, 110), { detail: 'LiveMentor', domaine: 'livementor', go: 'livementor' })
+  }
   return out
 }
 
 // Matrice complète : automatiques (moins les écartés, avec les déplacements) + tâches.
-export function matrice({ entries, crm, today }) {
+export function matrice({ entries, crm, today, lm = null }) {
   const al = crm.alfred || {}
-  const items = autoItems({ entries, crm, today })
+  const items = autoItems({ entries, crm, today, lm })
     .filter(i => !al.ecartes?.[i.id])
     .map(i => al.deplaces?.[i.id] ? { ...i, quadrant: al.deplaces[i.id] } : i)
   for (const t of crm.taches || []) if (!t.fait) {

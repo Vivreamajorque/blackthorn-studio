@@ -65,3 +65,9 @@ body { background: #f7f2ea; }
 .mg-back-mine { font-size: 13px; }
 .qg-secondary { margin-top: 12px; border-top: 1px dashed #e0d8ca; padding-top: 8px; }
 .qg-secondary summary { cursor: pointer; font-size: 12px; color: inherit; opacity: .75; }
+
+/* Sous-onglets d'une section (Clients, Compta) */
+.mg-subtabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; }
+.mg-subtabs button { border: 1px solid #dcd5c8; background: #fffdf9; color: #1d2a2b; border-radius: 999px; padding: 6px 14px; font-weight: 600; cursor: pointer; }
+.mg-subtabs button[aria-pressed="true"] { background: #14201e; border-color: #14201e; color: #fff; }
+.mg-nav-more + .mg-nav-more { margin-top: 2px; border-top: 0; padding-top: 0; }
