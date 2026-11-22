@@ -216,16 +216,17 @@ const TOOLS = [
   tool('changer_statut_devis', 'Changer le statut d’un devis : envoye (il apparaît dans l’espace du client), signe (il compte dans le reste à facturer) ou refuse. Après accord explicite.', object({
     numero: text, statut: { type: 'string', enum: ['brouillon', 'envoye', 'signe', 'refuse'] }, date: text, confirmation: { type: 'string', enum: ['changer'] },
   }, ['numero', 'statut', 'confirmation']), false),
+  tool('lire_espaces', 'Lire les projets clients en cours et leurs espaces partagés : questions du client non traitées, leçons à relire, brief, actions en attente côté client et côté Amely, prochain rendez-vous, dernières notes. Lecture seule.', object({ client: text })),
   tool('alfred_point', 'Alfred, le majordome d’Amely : point complet du jour. Matrice d’Eisenhower (à faire maintenant, à planifier, à confier, plus tard), ce qu’elle a confié à Alfred et qui reste à classer, messages non lus, chiffres clés et agenda du QG sur 7 jours. À appeler en premier quand Amely parle à Alfred ou demande « par quoi je commence ».', object({})),
   tool('alfred_noter', 'Alfred note quelque chose pour Amely. Sans titre : le texte va dans la boîte d’Alfred, à classer. Avec un titre : crée directement une tâche dans la matrice (quadrant faire / planifier / deleguer / plus_tard). Aucune donnée comptable n’est touchée.', object({
     texte: text, titre: text, detail: text, quadrant: { type: 'string', enum: ['faire', 'planifier', 'deleguer', 'plus_tard'] },
     echeance: { type: 'string', description: 'AAAA-MM-JJ' }, domaine: { type: 'string', enum: ['clients', 'commercial', 'compta', 'communication', 'messages', 'perso', 'autre'] },
   }), false),
-  tool('alfred_classer', 'Alfred range sa boîte : marque des éléments comme traités, crée les tâches correspondantes dans la matrice, et peut écrire la priorité du jour, le brief du matin et l’état d’un agent. Ne touche jamais à la compta.', object({
+  tool('alfred_classer', 'Alfred (ou un agent de l’équipe) range : marque des éléments de la boîte comme traités, crée des tâches dans la matrice (le détail peut contenir un brouillon de message à valider), et met à jour la fiche de l’agent. Alfred range sa boîte : marque des éléments comme traités, crée les tâches correspondantes dans la matrice, et peut écrire la priorité du jour, le brief du matin et l’état d’un agent. Ne touche jamais à la compta.', object({
     traites: { type: 'array', items: object({ id: text, resultat: text }, ['id']), maxItems: 50 },
     taches: { type: 'array', maxItems: 30, items: object({ titre: text, detail: text, quadrant: { type: 'string', enum: ['faire', 'planifier', 'deleguer', 'plus_tard'] }, echeance: text, domaine: text }, ['titre', 'quadrant']) },
     priorite: text, brief: text,
-    agent: object({ id: { type: 'string', enum: ['alfred', 'courrier', 'clients', 'commercial', 'compta', 'plateformes'] }, resume: text, attente: text }, ['id']),
+    agent: object({ id: { type: 'string', enum: ['alfred', 'courrier', 'clients', 'commercial', 'communication', 'compta', 'plateformes'] }, resume: text, attente: text }, ['id']),
   }), false),
   tool('alfred_terminer', 'Marquer une tâche de la matrice comme faite (par son id donné par alfred_point), à la demande d’Amely.', object({ id: text }, ['id']), false),
 ]
@@ -244,6 +245,20 @@ const nextDevisNumber = (devis, year) => {
 }
 
 async function callTool(name, args, blob) {
+  if (name === 'lire_espaces') {
+    const { data: crm } = await readCrm(blob)
+    const client = args.client ? findClient(crm, args.client) : null
+    return crm.projets.filter(p => (!client || p.clientId === client.id) && !['livre'].includes(p.statut)).map(p => {
+      const c = crm.clients.find(x => x.id === p.clientId)
+      return { client: c?.nom, projet: p.nom, statut: p.statut, etape: p.etape, type: p.type, prochain_rdv: p.prochainRdv || null, visible_par_le_client: p.visibleClient,
+        questions_non_traitees: (p.questions || []).filter(q => !q.traitee).map(q => ({ date: q.date, texte: q.texte, reponse_deja_ecrite: q.reponse || null })),
+        lecons_a_relire: (p.lecons || []).filter(l => l.statut === 'a_valider').map(l => ({ titre: l.titre, objectif: l.objectif, points: l.points, video: l.video || null })),
+        brief: (p.brief || []).filter(b => b.r).map(b => ({ question: b.q, reponse: b.r })),
+        actions_client_en_attente: p.actions.filter(a => a.pour === 'client' && !a.fait).map(a => a.label),
+        actions_amely_en_attente: p.actions.filter(a => a.pour === 'amely' && !a.fait).map(a => a.label),
+        dernieres_notes: (p.notesPartagees || []).slice(-2).map(n => ({ date: n.date, titre: n.titre, texte: n.texte.slice(0, 800) })) }
+    })
+  }
   if (name === 'lister_devis') {
     const { data: crm } = await readCrm(blob)
     const client = args.client ? findClient(crm, args.client) : null
@@ -356,8 +371,9 @@ async function callTool(name, args, blob) {
       const a = c.alfred || {}
       return { ...c, taches: [...(c.taches || []), ...taches],
         alfred: { ...a, inbox: (a.inbox || []).map(x => traites.has(x.id) ? { ...x, traite: true, resultat: String(traites.get(x.id)).slice(0, 500) } : x),
-          ...(args.priorite != null && { priorite: String(args.priorite).slice(0, 300) }), ...(args.brief != null && { brief: String(args.brief).slice(0, 3000) }), majLe: nowParis() },
-        agents: { ...(c.agents || {}), alfred: { ...(c.agents?.alfred || {}), majLe: nowParis(), resume: (c.agents?.alfred?.resume || '') },
+          ...(args.priorite != null && { priorite: String(args.priorite).slice(0, 300) }), ...(args.brief != null && { brief: String(args.brief).slice(0, 3000) }),
+          ...((!args.agent || args.agent.id === 'alfred') && { majLe: nowParis() }) },
+        agents: { ...(c.agents || {}), ...((!args.agent || args.agent.id === 'alfred') && { alfred: { ...(c.agents?.alfred || {}), majLe: nowParis() } }),
           ...(args.agent && { [args.agent.id]: { majLe: nowParis(), resume: String(args.agent.resume || '').slice(0, 600), attente: String(args.agent.attente || '').slice(0, 400) } }) } }
     })
     return { classes: traites.size, taches_creees: taches.length }

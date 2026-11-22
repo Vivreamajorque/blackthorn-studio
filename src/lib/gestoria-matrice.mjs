@@ -12,7 +12,8 @@ export const AGENTS = [
   { id: 'alfred', nom: 'Alfred', role: 'Majordome et chef de cabinet', mission: 'Reçoit tout ce que tu lui donnes, le classe, remplit ta matrice et te donne ta priorité du jour.' },
   { id: 'courrier', nom: 'Courrier', role: 'Tri des mails', mission: 'Trie ta boîte pro, résume et prépare des brouillons. N’envoie jamais rien seul.' },
   { id: 'clients', nom: 'Clients & projets', role: 'Suivi des clients', mission: 'Surveille les espaces partagés, prépare les comptes rendus, signale un client qui bloque.' },
-  { id: 'commercial', nom: 'Commercial', role: 'Prospection et devis', mission: 'Prépare les relances, les devis et suit les pistes.' },
+  { id: 'commercial', nom: 'Prospection', role: 'Nouvelles pistes et relances', mission: 'Cherche des pistes qui collent à ton offre, prépare les premiers messages et les relances.' },
+  { id: 'communication', nom: 'Communication', role: 'Contenus et canaux', mission: 'Prépare tes contenus de la semaine et te rappelle tes actions Instagram, LinkedIn, page web.' },
   { id: 'compta', nom: 'Compta & fiscal', role: 'Factures et déclarations', mission: 'Factures, dépenses, 303/130, alertes de trésorerie.' },
   { id: 'plateformes', nom: 'Plateformes', role: 'LiveMentor et Malt', mission: 'Relève les gains LiveMentor et les messages Malt/LiveMentor.' },
 ]
@@ -85,7 +86,7 @@ export function autoItems({ entries = [], crm, today }) {
   }
   for (const [key, name] of [['instagram', 'Instagram'], ['linkedin', 'LinkedIn'], ['indeed', 'Indeed'], ['site', 'Page web']]) {
     const c = (crm.canaux || {})[key]
-    if (c && c.action) add('canal:' + key + ':' + (c.date || ''), c.date && c.date <= today ? 'planifier' : 'plus_tard', name + ' · ' + c.action, { detail: c.date ? 'prévu le ' + fr(c.date) : '', domaine: 'communication', go: 'prospection' })
+    if (c && c.action) add('canal:' + key + ':' + (c.date || ''), c.date && c.date <= today ? 'planifier' : 'plus_tard', name + ' · ' + c.action, { detail: c.date ? 'prévu le ' + fr(c.date) : '', domaine: 'communication', go: 'prospection', agent: 'communication' })
   }
   for (const m of (crm.messages?.items || []).filter(m => !m.vu)) {
     const important = m.source === 'client' || m.source === 'malt' || !!m.clientId

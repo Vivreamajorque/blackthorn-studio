@@ -139,7 +139,7 @@ function cleanAlfred(a) {
     ecartes: map(a.ecartes, v => date(v)),
   }
 }
-const AGENT_KEYS = ['alfred', 'courrier', 'clients', 'commercial', 'compta', 'plateformes']
+const AGENT_KEYS = ['alfred', 'courrier', 'clients', 'commercial', 'communication', 'compta', 'plateformes']
 function cleanAgents(g) {
   g = g && typeof g === 'object' ? g : {}
   return Object.fromEntries(AGENT_KEYS.filter(k => g[k] && typeof g[k] === 'object').map(k => [k, {
