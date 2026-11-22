@@ -173,7 +173,7 @@ function cleanDevis(d) {
 function cleanEcheance(e) {
   return {
     id: id(e.id) || newId('ech'), clientId: id(e.clientId) || '', label: str(e.label, 200).trim() || 'Échéance',
-    date: date(e.date), montantCents: cents(e.montantCents), factureId: id(e.factureId) || '',
+    date: date(e.date), montantCents: cents(e.montantCents), factureId: id(e.factureId) || '', devisId: id(e.devisId) || '',
   }
 }
 

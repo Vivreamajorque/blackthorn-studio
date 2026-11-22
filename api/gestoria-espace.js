@@ -26,7 +26,7 @@ function devisFor(crm, client) {
     .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
     .map(d => ({ id: d.id, numero: d.numero, date: d.date, validite: d.validite, statut: d.statut, regime: d.regime,
       lignes: d.lignes, intro: d.intro, perimetre: d.perimetre, note: d.note, outils: d.outils,
-      echeances: (crm.echeances || []).filter(e => e.devisId === d.id).map(e => ({ label: e.label, date: e.date, montantCents: e.montantCents })) }))
+      echeances: (crm.echeances || []).filter(e => e.devisId ? e.devisId === d.id : e.clientId === client.id).map(e => ({ label: e.label, date: e.date, montantCents: e.montantCents })) }))
 }
 
 function view(crm, client, entries) {
