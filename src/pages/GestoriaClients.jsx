@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { money, uid, toCents, fromCents, clientInvoices, baseCents, devisBase, clientPotential } from '../lib/gestoria-crm'
+import { money, uid, toCents, fromCents, clientInvoices, baseCents, devisBase, clientPotential, livementorEstimate } from '../lib/gestoria-crm'
 import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
 import DevisTab from './GestoriaDevis'
 import { printDocument, missingForInvoice } from '../lib/gestoria-documents.mjs'
@@ -348,6 +348,24 @@ function IndicateursForm({ client, onSave, onClose, saving }) {
   </Dialog>
 }
 
+function LivementorPanel({ lm }) {
+  const e = livementorEstimate(lm)
+  if (!e) return <section className="mgc-panel"><h3>Gains LiveMentor</h3><p className="mgc-muted">Pas encore de relevé. Dis « mets à jour LiveMentor » à Claude.</p></section>
+  const learners = lm.releve.apprenants || []
+  return <section className="mgc-panel">
+    <div className="mgc-between"><h3>Gains LiveMentor · mois en cours</h3>
+      <span className="mgc-muted">{e.exact ? 'Relevé exact du ' : 'Estimé aujourd’hui · dernier relevé le '}{formatDate(e.releveDate)}</span></div>
+    <div className="mgc-money-grid" style={{ marginTop: 8 }}>
+      <div className="is-key"><span>Gagné ce mois-ci</span><strong>{money(e.estimate)}</strong><small>HT · {e.exact ? 'exact' : 'mis à jour chaque jour'}</small></div>
+      <div><span>Projection fin de mois</span><strong>{money(e.projection)}</strong><small>si personne n’arrive ni ne part</small></div>
+      <div><span>Apprenants actifs</span><strong>{e.actifs}</strong><small>≈ {money(e.perLearner)} / apprenant / mois</small></div>
+    </div>
+    {learners.length > 0 && <details style={{ marginTop: 8 }}><summary className="mgc-muted">Détail par apprenant (relevé du {formatDate(e.releveDate)})</summary>
+      <table className="mgc-table"><tbody>{learners.map(a => <tr key={a.nom}><td>{a.nom}</td><td className="mgc-num">{a.jours} j</td><td className="mgc-num">{money(a.montantCents)}</td></tr>)}</tbody></table>
+    </details>}
+  </section>
+}
+
 function ClientSummary({ client, crm, entries, invoices, projects, canSave, onTab, onIndicateurs }) {
   const m = clientMoney(client, crm, invoices, entries)
   const base = Math.max(m.signed, m.billed, 1)
@@ -373,7 +391,8 @@ function ClientSummary({ client, crm, entries, invoices, projects, canSave, onTa
       </div>
     </section>
 
-    {(client.indicateurs?.length > 0 || client.source === 'livementor') && <section className="mgc-panel">
+    {client.source === 'livementor' && <LivementorPanel lm={crm.livementor} />}
+    {client.indicateurs?.length > 0 && <section className="mgc-panel">
       <div className="mgc-between"><h3>Suivi</h3><button disabled={!canSave} onClick={onIndicateurs}>Mettre à jour</button></div>
       {client.indicateurs?.length ? <div className="mgc-tiles" style={{ marginBottom: 0 }}>
         {client.indicateurs.map(x => <div key={x.id} className="mgc-tile" title={x.note}><strong>{x.valeur || '—'}</strong><span>{x.label}{x.date ? ' · au ' + formatDate(x.date) : ''}</span></div>)}

@@ -32,6 +32,17 @@ const CANAUX = ['instagram', 'linkedin', 'indeed', 'site']
 const CANAL_STATUS = ['a_creer', 'en_cours', 'actif']
 const DEVIS_STATUS = ['brouillon', 'envoye', 'signe', 'refuse']
 
+// Relevé LiveMentor : dernier montant exact lu sur le tableau de facturation + apprenants actifs.
+function cleanLivementor(l) {
+  l = l && typeof l === 'object' ? l : {}
+  const r = l.releve && typeof l.releve === 'object' ? l.releve : null
+  return {
+    tarifMoisCents: cents(l.tarifMoisCents) || 6510,
+    releve: r && date(r.date) ? { date: date(r.date), montantCents: cents(r.montantCents), actifs: Math.max(0, Math.min(500, Math.round(Number(r.actifs) || 0))),
+      apprenants: (Array.isArray(r.apprenants) ? r.apprenants : []).slice(0, 100).map(a => ({ nom: str(a.nom, 80), montantCents: cents(a.montantCents), jours: Math.max(0, Math.min(31, Math.round(Number(a.jours) || 0))) })) } : null,
+  }
+}
+
 function cleanClient(c) {
   return {
     id: id(c.id) || newId('cli'), nom: str(c.nom, 120).trim() || 'Sans nom', contact: str(c.contact, 120),
@@ -154,7 +165,7 @@ function cleanCrm(data) {
     })).filter(x => x.url),
   }
   return {
-    version: 1, emetteur, objectifs, clients, projets, liens, factures, devis, echeances, journal, canaux: cleanCanaux(d.canaux), agenda,
+    version: 1, emetteur, objectifs, clients, projets, liens, factures, devis, echeances, journal, canaux: cleanCanaux(d.canaux), agenda, livementor: cleanLivementor(d.livementor),
     prospects: (Array.isArray(d.prospects) ? d.prospects : []).slice(0, 600).map(cleanProspect),
   }
 }

@@ -26,11 +26,29 @@ export const devisBase = d => (d.lignes || []).reduce((s, l) => s + Math.round((
 // Ce qui reste à rentrer pour un client :
 // - devis signés moins ce qui est déjà facturé ;
 // - missions en cours sans devis signé : montant du projet moins ce qui est déjà facturé sur ce projet.
+// Gains LiveMentor du mois en cours, estimés au jour près :
+// dernier relevé exact + apprenants actifs × tarif journalier pour chaque jour écoulé depuis.
+export function livementorEstimate(lm, today = new Date().toISOString().slice(0, 10)) {
+  const r = lm?.releve
+  if (!r) return null
+  const month = today.slice(0, 7)
+  const dim = new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7), 0)).getUTCDate()
+  const daily = (lm.tarifMoisCents || 6510) / dim
+  const day = +today.slice(8, 10)
+  const sameMonth = r.date.slice(0, 7) === month
+  const base = sameMonth ? r.montantCents : 0
+  const fromDay = sameMonth ? +r.date.slice(8, 10) : 0
+  const estimate = Math.round(base + r.actifs * daily * Math.max(0, day - fromDay))
+  const projection = Math.round(base + r.actifs * daily * Math.max(0, dim - fromDay))
+  return { estimate, projection, exact: sameMonth && fromDay === day, releveDate: r.date, actifs: r.actifs, sameMonth, perLearner: lm.tarifMoisCents || 6510 }
+}
+
 export function clientPotential(entries, crm, client) {
   const invoices = clientInvoices(entries, crm, client)
   const billed = invoices.reduce((s, e) => s + baseCents(e), 0)
   const signed = (crm.devis || []).filter(d => d.clientId === client.id && d.statut === 'signe').reduce((s, d) => s + devisBase(d), 0)
-  const enCours = signed ? 0 : crm.projets.filter(p => p.clientId === client.id && p.statut !== 'livre').reduce((s, p) => {
+  const lm = client.source === 'livementor' && livementorEstimate(crm.livementor)
+  const enCours = lm ? lm.estimate : signed ? 0 : crm.projets.filter(p => p.clientId === client.id && p.statut !== 'livre').reduce((s, p) => {
     const done = invoices.filter(e => crm.liens[e.id]?.projetId === p.id).reduce((t, e) => t + baseCents(e), 0)
     return s + Math.max(0, (p.montantCents || 0) - done)
   }, 0)
