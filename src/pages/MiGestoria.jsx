@@ -33,7 +33,6 @@ const sections = [
   ['finance', 'Factures & dépenses', 'M4 4h16v16H4zM4 9h16M9 9v11m4-7h4m-4 3h4'],
   ['payments', 'À prévoir', 'M4 4v16h16M7 15l4-5 3 2 6-7'],
   ['tasks', 'Déclarations & suivi', 'M7 4h10l3 3v13H7zM10 10h7m-7 4h7m-7 3h5'],
-  ['inbox', 'Pièces à trier', 'M3 12l3-6h12l3 6v7H3zM3 12h5l2 3h4l2-3h5'],
   ['archives', 'Archives', 'M3 7h18v4H3zM5 11v9h14v-9m-9 4h4'],
   ['guide', 'Courriers à traiter', 'M4 6h16v12H4zM4 7l8 6 8-6'],
   ['portals', 'Portails officiels', 'M5 20h14M7 20V9m5 11V9m5 11V9M3 8l9-4 9 4z'],
@@ -328,14 +327,17 @@ export default function MiGestoria() {
             setQuickAction(null)
             setClientToOpen(null)
             setTab(id)
-            if (id === 'inbox') setEntity('blackthorn')
+            setEntity('independent')
             if (id === 'tasks') setFormFilter('all')
-          }}><svg aria-hidden="true" viewBox="0 0 24 24"><path d={icon} /></svg>{label}{id === 'inbox' && data.inbox?.length > 0 && ' (' + data.inbox.length + ')'}</button></React.Fragment>)}
+          }}><svg aria-hidden="true" viewBox="0 0 24 24"><path d={icon} /></svg>{label}</button></React.Fragment>)}
+        <details className="mg-nav-more" open={entity === 'blackthorn' || tab === 'inbox' || undefined}>
+          <summary>Blackthorn Tattoo{data.inbox?.length > 0 && ' (' + data.inbox.length + ')'}</summary>
+          {[['finance', 'Factures & dépenses'], ['payments', 'À prévoir'], ['tasks', 'Déclarations'], ['inbox', 'Pièces à trier' + (data.inbox?.length ? ' (' + data.inbox.length + ')' : '')]].map(([id, label]) =>
+            <button key={id} type="button" aria-pressed={entity === 'blackthorn' && tab === id} onClick={() => { setClientToOpen(null); openDossier('blackthorn', id, id === 'tasks' ? 'all' : 'all') }}>{label}</button>)}
+        </details>
       </nav>
       <div className="mg-toolbar-filters">
-        {!['overview', 'inbox', 'clients', 'prospection', 'pilotage', 'agenda'].includes(tab) && <label>Dossier <select value={entity} onChange={event => { setEntity(event.target.value); setFeedback(null) }}>
-          {dossiers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </select></label>}
+        {entity === 'blackthorn' && <button type="button" className="mg-back-mine" onClick={() => { setEntity('independent'); setTab('pilotage'); setFeedback(null) }}>← Revenir à mon activité</button>}
         <label>Exercice <select value={year} onChange={event => { setYear(Number(event.target.value)); setFeedback(null) }}>
           {YEARS.map(item => <option key={item} value={item}>{item}</option>)}
         </select></label>

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { money, baseCents, toCents, fromCents } from '../lib/gestoria-crm'
+import { money, baseCents, toCents, fromCents, clientInvoices } from '../lib/gestoria-crm'
 import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
 import { Dialog } from './GestoriaClients'
 import './gestoria-clients.css'
@@ -143,6 +143,14 @@ export default function GestoriaPilotage({ entries, crm, year, saveCrm, canSave,
   const pending = independent.filter(e => e.kind === 'invoice' && e.payment !== 'paid').reduce((s, e) => s + e.amountCents, 0)
   const list = todayList({ entries: independent, crm, today })
   const shown = showAll ? list : list.slice(0, 3)
+  // Devis signés moins ce qui a déjà été facturé, client par client.
+  const resteAFacturer = (crm.clients || []).reduce((sum, c) => {
+    const signed = (crm.devis || []).filter(d => d.clientId === c.id && d.statut === 'signe')
+      .reduce((s, d) => s + (d.lignes || []).reduce((t, l) => t + Math.round((Number(l.quantite) || 0) * (l.prixCents || 0)), 0), 0)
+    if (!signed) return sum
+    const billed = clientInvoices(entries, crm, c).reduce((t, e) => t + baseCents(e), 0)
+    return sum + Math.max(0, signed - billed)
+  }, 0)
   const receipts = studio?.data?.receipts || []
   const byMethod = { carte: 0, cash: 0, other: 0 }
   for (const r of receipts) byMethod[r.method === 'carte' || r.method === 'cash' ? r.method : 'other'] += Math.round(r.amount * 100)
@@ -193,6 +201,7 @@ export default function GestoriaPilotage({ entries, crm, year, saveCrm, canSave,
         </>}
         <dl className="qg-facts">
           <div><dt>Facturé, pas encore encaissé</dt><dd>{euros(pending)}</dd></div>
+          <div><dt>Devis signés, reste à facturer</dt><dd>{euros(resteAFacturer)}</dd></div>
           <div><dt>Pistes ouvertes</dt><dd>{openLeads.length}<small> · {euros(pipeline)}</small></dd></div>
           <div><dt>À relancer</dt><dd className={leadsToFollow ? 'warn' : ''}>{leadsToFollow}</dd></div>
           <div><dt>Signées ce mois-ci</dt><dd>{signed}</dd></div>
@@ -202,6 +211,11 @@ export default function GestoriaPilotage({ entries, crm, year, saveCrm, canSave,
 
       <article className="qg-lane qg-compta">
         <header><h2>Compta</h2><button onClick={() => onGo('tasks')}>Déclarations</button></header>
+        <p className="qg-label">Prochain dépôt (303 / 130)</p>
+        <p className="qg-hero-num">{nextDeadline ? new Date(nextDeadline.date + 'T12:00:00Z').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '—'}</p>
+        {nextDeadline && <p className="qg-sub">dans {daysToDeadline} jours</p>}
+        <details className="qg-secondary">
+          <summary>Blackthorn Tattoo (secondaire)</summary>
         <p className="qg-label">Blackthorn Tattoo · encaissé en {year}</p>
         <p className="qg-hero-num">{studio?.status === 'ready' ? euros(studioTotal) : studio?.status === 'error' ? 'Indisponible' : '…'}</p>
         {studio?.status === 'ready' && studioTotal > 0 && <>
@@ -219,10 +233,10 @@ export default function GestoriaPilotage({ entries, crm, year, saveCrm, canSave,
         <dl className="qg-facts">
           {studio?.status === 'ready' && studio.data.reconciliationWarnings > 0 &&
             <div><dt>Lignes à rapprocher</dt><dd className="warn">{studio.data.reconciliationWarnings}</dd></div>}
-          {nextDeadline && <div><dt>Prochain dépôt</dt><dd>{formatDate(nextDeadline.date)}<small> · dans {daysToDeadline} j</small></dd></div>}
         </dl>
         <p className="qg-sub">Seules les ventes confirmées dans le Hub sont comptées. Les espèces se déclarent comme le reste.</p>
-        <button className="qg-link" onClick={() => onGo('blackthorn')}>Ouvrir Blackthorn</button>
+          <button className="qg-link" onClick={() => onGo('blackthorn')}>Ouvrir Blackthorn</button>
+        </details>
       </article>
 
       <article className="qg-lane qg-comm">

@@ -40,6 +40,10 @@ function cleanClient(c) {
     raisonSociale: str(c.raisonSociale, 160), nif: str(c.nif, 40), adresse: str(c.adresse, 400), notes: str(c.notes, 2000),
     source: oneOf(c.source, ['', 'direct', 'malt', 'livementor'], ''), portalToken: token(c.portalToken) || newToken(),
     createdAt: date(c.createdAt) || new Date().toISOString().slice(0, 10),
+    // Chiffres de suivi propres au client (ex. LiveMentor : jauge, apprenants actifs), avec leur date.
+    indicateurs: (Array.isArray(c.indicateurs) ? c.indicateurs : []).slice(0, 12).filter(x => x && str(x.label).trim()).map(x => ({
+      id: id(x.id) || newId('ind'), label: str(x.label, 80).trim(), valeur: str(x.valeur, 60).trim(), date: date(x.date), note: str(x.note, 300),
+    })),
   }
 }
 

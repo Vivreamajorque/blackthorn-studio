@@ -310,15 +310,102 @@ function EmetteurForm({ emetteur, onSave, onClose, saving }) {
   </Dialog>
 }
 
+
+// Total HT d'un devis (somme des lignes).
+const devisBase = d => (d.lignes || []).reduce((s, l) => s + Math.round((Number(l.quantite) || 0) * (l.prixCents || 0)), 0)
+
+// Synthèse financière d'un client : signé, facturé, encaissé, reste à facturer, à encaisser, prochaine échéance.
+export function clientMoney(client, crm, invoices) {
+  const devis = (crm.devis || []).filter(d => d.clientId === client.id)
+  const signed = devis.filter(d => d.statut === 'signe').reduce((s, d) => s + devisBase(d), 0)
+  const pendingDevis = devis.filter(d => d.statut === 'envoye' || d.statut === 'brouillon')
+  const billed = invoices.reduce((s, e) => s + baseCents(e), 0)
+  const paid = invoices.filter(e => e.payment === 'paid').reduce((s, e) => s + e.amountCents, 0)
+  const due = invoices.filter(e => e.payment !== 'paid').reduce((s, e) => s + e.amountCents, 0)
+  const today = todayInSpain()
+  const next = (crm.echeances || []).filter(e => e.clientId === client.id && !e.factureId).sort((a, b) => a.date.localeCompare(b.date))[0]
+  return { signed, billed, paid, due, rest: Math.max(0, signed - billed), pendingDevis, pendingTotal: pendingDevis.reduce((s, d) => s + devisBase(d), 0),
+    next, nextLate: next && next.date < today, overdue: invoices.filter(e => e.payment !== 'paid' && e.expectedPaymentDate && e.expectedPaymentDate < today) }
+}
+
+function IndicateursForm({ client, onSave, onClose, saving }) {
+  const [rows, setRows] = useState(() => client.indicateurs?.length ? client.indicateurs : [{ id: uid('ind'), label: '', valeur: '', date: todayInSpain(), note: '' }])
+  const set = (id, k, v) => setRows(r => r.map(x => x.id === id ? { ...x, [k]: v, ...(k === 'valeur' && { date: todayInSpain() }) } : x))
+  return <Dialog title={'Suivi · ' + client.nom} onClose={onClose}
+    footer={<><span /><button className="mgc-primary" disabled={saving} onClick={() => onSave(rows.filter(r => r.label.trim()))}>Enregistrer</button></>}>
+    <div className="mgc-form">
+      <p className="mgc-muted">Les chiffres à suivre pour ce client (ex. apprenants actifs, jauge, missions en cours). La date se met à jour quand tu changes une valeur.</p>
+      {rows.map(r => <div key={r.id} className="mgc-note-row">
+        <div className="mgc-cols" style={{ gridTemplateColumns: '2fr 1fr 1fr 30px' }}>
+          <input placeholder="Indicateur" value={r.label} onChange={e => set(r.id, 'label', e.target.value)} />
+          <input placeholder="Valeur" value={r.valeur} onChange={e => set(r.id, 'valeur', e.target.value)} />
+          <input type="date" value={r.date} onChange={e => set(r.id, 'date', e.target.value)} />
+          <button type="button" aria-label="Retirer" onClick={() => setRows(x => x.filter(y => y.id !== r.id))}>×</button>
+        </div>
+        <input placeholder="Source ou remarque (facultatif)" value={r.note} onChange={e => set(r.id, 'note', e.target.value)} />
+      </div>)}
+      <button type="button" className="mgc-link" onClick={() => setRows(r => [...r, { id: uid('ind'), label: '', valeur: '', date: todayInSpain(), note: '' }])}>+ Ajouter un indicateur</button>
+    </div>
+  </Dialog>
+}
+
+function ClientSummary({ client, crm, invoices, projects, canSave, onTab, onIndicateurs }) {
+  const m = clientMoney(client, crm, invoices)
+  const base = Math.max(m.signed, m.billed, 1)
+  const active = projects.filter(p => p.statut !== 'livre')
+  return <>
+    <section className="mgc-panel mgc-money">
+      <div className="mgc-money-grid">
+        <div><span>Devis signés</span><strong>{m.signed ? money(m.signed) : '—'}</strong><small>HT</small></div>
+        <div><span>Facturé</span><strong>{money(m.billed)}</strong><small>HT · {invoices.length} facture{invoices.length > 1 ? 's' : ''}</small></div>
+        <div><span>Encaissé</span><strong>{money(m.paid)}</strong><small>sur ton compte</small></div>
+        <div className={m.rest ? 'is-key' : ''}><span>Reste à facturer</span><strong>{m.signed ? money(m.rest) : '—'}</strong><small>{m.signed ? 'sur les devis signés' : 'pas de devis signé'}</small></div>
+        <div className={m.due ? 'is-warn' : ''}><span>À encaisser</span><strong>{money(m.due)}</strong><small>{m.overdue.length ? m.overdue.length + ' en retard' : 'factures envoyées'}</small></div>
+      </div>
+      {m.signed > 0 && <div className="mgc-money-bar" role="img" aria-label={'Encaissé ' + money(m.paid) + ', facturé ' + money(m.billed) + ', signé ' + money(m.signed)}>
+        <span className="paid" style={{ width: Math.min(100, m.paid / base * 100) + '%' }} />
+        <span className="billed" style={{ width: Math.min(100, Math.max(0, m.billed - m.paid) / base * 100) + '%' }} />
+      </div>}
+      {m.signed > 0 && <p className="mgc-legend" style={{ marginTop: 6 }}><span><i style={{ background: '#00897b' }} />Encaissé</span><span><i style={{ background: '#7fc4bb' }} />Facturé, pas encore payé</span><span><i style={{ background: '#e7e1d5' }} />Reste à facturer</span></p>}
+      <div className="mgc-row" style={{ marginTop: 10 }}>
+        {m.next && <span className={'mgc-badge ' + (m.nextLate ? 'late' : 'wait')}>Prochaine échéance : {formatDate(m.next.date)} · {money(m.next.montantCents)} · {m.next.label}</span>}
+        {m.pendingDevis.length > 0 && <button className="mgc-link" onClick={() => onTab('devis')}>{m.pendingDevis.length} devis en attente de signature · {money(m.pendingTotal)} HT</button>}
+      </div>
+    </section>
+
+    {(client.indicateurs?.length > 0 || client.source === 'livementor') && <section className="mgc-panel">
+      <div className="mgc-between"><h3>Suivi</h3><button disabled={!canSave} onClick={onIndicateurs}>Mettre à jour</button></div>
+      {client.indicateurs?.length ? <div className="mgc-tiles" style={{ marginBottom: 0 }}>
+        {client.indicateurs.map(x => <div key={x.id} className="mgc-tile" title={x.note}><strong>{x.valeur || '—'}</strong><span>{x.label}{x.date ? ' · au ' + formatDate(x.date) : ''}</span></div>)}
+      </div> : <p className="mgc-muted">Ajoute les chiffres à suivre (apprenants actifs, jauge…).</p>}
+    </section>}
+
+    <section className="mgc-panel">
+      <div className="mgc-between"><h3>Suivi des projets</h3><button className="mgc-link" onClick={() => onTab('projets')}>Détail</button></div>
+      {active.length === 0 ? <p className="mgc-muted">Aucun projet en cours.</p> : <ul className="mgc-list">{active.map(p => {
+        const done = p.actions.filter(a => a.fait).length
+        const nextAction = p.actions.find(a => !a.fait)
+        return <li key={p.id} style={{ display: 'block' }}>
+          <div className="mgc-between"><div className="mgc-row"><ProjectBadge status={p.statut} /><strong>{p.nom}</strong></div>
+            {p.actions.length > 0 && <span className="mgc-muted">{done} / {p.actions.length} actions</span>}</div>
+          {p.actions.length > 0 && <div className="mgc-bar"><div style={{ width: Math.round(done / p.actions.length * 100) + '%' }} /></div>}
+          <div className="mgc-muted">{[nextAction && 'Prochaine action : ' + nextAction.label + (nextAction.pour === 'amely' ? ' (toi)' : ' (client)'),
+            p.prochainRdv && 'Rendez-vous : ' + formatDate(p.prochainRdv.slice(0, 10)) + (p.prochainRdv.length > 10 ? ' à ' + p.prochainRdv.slice(11, 16) : ''),
+            p.echeance && 'Échéance : ' + formatDate(p.echeance)].filter(Boolean).join(' · ') || 'Pas encore d’action ni de rendez-vous.'}</div>
+        </li>
+      })}</ul>}
+    </section>
+  </>
+}
+
 function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onBack, onFinance, saving }) {
   const [tab, setTab] = useState('projets')
   const [editClient, setEditClient] = useState(false)
   const [editProject, setEditProject] = useState(null)
   const [invoiceFor, setInvoiceFor] = useState(null)
+  const [editIndic, setEditIndic] = useState(false)
   const projects = crm.projets.filter(p => p.clientId === client.id)
   const invoices = clientInvoices(entries, crm, client)
-  const billed = invoices.reduce((s, e) => s + baseCents(e), 0)
-  const due = invoices.filter(e => e.payment !== 'paid').reduce((s, e) => s + e.amountCents, 0)
   const link = window.location.origin + '/espace/' + client.portalToken
 
   const saveProject = p => saveCrm(data => ({ ...data, projets: p.id && data.projets.some(x => x.id === p.id)
@@ -349,12 +436,11 @@ function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onB
         <h1 style={{ margin: 0, fontSize: '1.7rem', letterSpacing: '-.03em' }}>{client.nom}</h1>
         <div className="mgc-muted">{[client.contact, client.pays, client.canal && 'arrivé via ' + client.canal, client.tarifJourCents ? money(client.tarifJourCents) + ' / jour' : ''].filter(Boolean).join(' · ')}</div>
       </div></div>
-      <div className="mgc-row">
-        <div className="mgc-tile" style={{ minWidth: 130 }}><strong>{money(billed)}</strong><span>Facturé HT</span></div>
-        <div className="mgc-tile" style={{ minWidth: 130, background: '#f6e7da' }}><strong>{money(due)}</strong><span>À encaisser</span></div>
-      </div>
     </section>
-    <div className="mgc-between" style={{ marginTop: 12 }}>
+    <ClientSummary client={client} crm={crm} invoices={invoices} projects={projects} canSave={canSave}
+      onTab={t => { setTab(t); setTimeout(() => document.getElementById('mgc-tabs')?.scrollIntoView({ behavior: 'smooth' }), 0) }}
+      onIndicateurs={() => setEditIndic(true)} />
+    <div className="mgc-between" style={{ marginTop: 12 }} id="mgc-tabs">
       <div className="mgc-tabs" style={{ margin: 0 }}>
         {[['projets', 'Projets'], ['devis', 'Devis (' + (crm.devis || []).filter(d => d.clientId === client.id).length + ')'], ['factures', 'Factures (' + invoices.length + ')'], ['espace', 'Espace client'], ['infos', 'Infos']].map(([k, l]) =>
           <button key={k} aria-pressed={tab === k} onClick={() => setTab(k)}>{l}</button>)}
@@ -431,6 +517,8 @@ function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onB
       <div style={{ gridColumn: '1 / -1' }}><div className="mgc-muted">Notes</div><div style={{ whiteSpace: 'pre-line' }}>{client.notes || '—'}</div></div>
     </section>}
 
+    {editIndic && <IndicateursForm client={client} saving={saving} onClose={() => setEditIndic(false)}
+      onSave={rows => saveCrm(data => ({ ...data, clients: data.clients.map(c => c.id === client.id ? { ...c, indicateurs: rows } : c) }), 'Suivi mis à jour.').then(ok => ok && setEditIndic(false))} />}
     {editClient && <ClientForm client={client} saving={saving} onClose={() => setEditClient(false)}
       onSave={c => saveCrm(data => ({ ...data, clients: data.clients.map(x => x.id === c.id ? c : x) }), 'Fiche enregistrée.').then(ok => ok && setEditClient(false))} />}
     {editProject && <ProjectForm project={editProject} saving={saving} onClose={() => setEditProject(null)} onSave={saveProject}

@@ -132,3 +132,15 @@
   .qga-mini { font-size: 0; gap: 0; }
   .qga-mini i { width: 7px; height: 7px; margin: 1px; }
 }
+
+/* Synthèse financière d'un client */
+.mgc-money-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.mgc-money-grid > div { background: #faf7f1; border: 1px solid #ece5d8; border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.mgc-money-grid span { font-size: 12px; color: #6b6458; }
+.mgc-money-grid strong { font-size: 20px; color: #2b2620; font-variant-numeric: tabular-nums; }
+.mgc-money-grid small { font-size: 11px; color: #8a8276; }
+.mgc-money-grid .is-key { background: #e3f2ef; border-color: #00897b; }
+.mgc-money-grid .is-warn { background: #f6e7da; border-color: #d07a2e; }
+.mgc-money-bar { display: flex; gap: 2px; height: 10px; border-radius: 5px; background: #e7e1d5; overflow: hidden; margin-top: 12px; }
+.mgc-money-bar .paid { background: #00897b; }
+.mgc-money-bar .billed { background: #7fc4bb; }

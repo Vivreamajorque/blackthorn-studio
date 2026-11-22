@@ -55,3 +55,13 @@ body { background: #f7f2ea; }
 @media (max-width: 999px) {
   .mg-main-nav .mg-nav-group { grid-column: 1 / -1; flex-basis: 100%; padding: 6px 4px 2px; }
 }
+
+/* Blackthorn : menu secondaire */
+.mg-nav-more { margin-top: 10px; border-top: 1px solid rgba(31,75,78,.12); padding-top: 6px; }
+.mg-nav-more summary { cursor: pointer; font-size: 12px; color: #56625f; padding: 6px 10px; list-style: none; }
+.mg-nav-more summary::after { content: ' ▾'; }
+.mg-nav-more[open] summary::after { content: ' ▴'; }
+.mg-nav-more button { font-size: 13px; font-weight: 500 !important; padding-left: 18px !important; }
+.mg-back-mine { font-size: 13px; }
+.qg-secondary { margin-top: 12px; border-top: 1px dashed #e0d8ca; padding-top: 8px; }
+.qg-secondary summary { cursor: pointer; font-size: 12px; color: inherit; opacity: .75; }
