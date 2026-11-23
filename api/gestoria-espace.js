@@ -112,8 +112,13 @@ module.exports = async function handler(req, res) {
       } else if (op === 'question') {
         const texte = String(body.texte || '').trim()
         if (!texte) return res.status(400).json({ error: 'Question vide' })
-        projet.questions.push({ date: today, texte })
-        log('a posé une question')
+        projet.questions.push({ date: today, texte: texte.slice(0, 4000) })
+        // Prévient Amely dans ses Messages du QG (Alfred le voit aussi).
+        const now = new Date(Date.now() + 3600e3).toISOString().slice(0, 16)
+        const msgs = crm.messages && typeof crm.messages === 'object' ? crm.messages : { items: [] }
+        crm.messages = { ...msgs, items: [{ id: 'client:espace-' + client.id + '-' + Date.now(), source: 'client', de: client.nom, sujet: 'Message dans son espace · ' + projet.nom,
+          apercu: texte.slice(0, 200), date: now, lien: '', clientId: client.id, vu: false }, ...(msgs.items || [])].slice(0, 60) }
+        log('a écrit un message')
       } else if (op === 'creneau') {
         const c = projet.creneaux.find(x => x.id === body.creneauId)
         if (!c) return res.status(404).json({ error: 'Créneau introuvable' })

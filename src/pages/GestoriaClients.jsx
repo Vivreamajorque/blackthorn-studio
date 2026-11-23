@@ -499,9 +499,9 @@ function LivementorPanel({ lm }) {
   const learners = lm.releve.apprenants || []
   return <section className="mgc-panel">
     <div className="mgc-between"><h3>Gains LiveMentor · mois en cours</h3>
-      <span className="mgc-muted">{e.exact ? 'Relevé exact du ' : 'Estimé aujourd’hui · dernier relevé le '}{formatDate(e.releveDate)}</span></div>
+      <span className="mgc-muted">Montant affiché par LiveMentor au {formatDate(e.releveDate)} · actualisé chaque matin</span></div>
     <div className="mgc-money-grid" style={{ marginTop: 8 }}>
-      <div className="is-key"><span>Gagné ce mois-ci</span><strong>{money(e.estimate)}</strong><small>HT · {e.exact ? 'exact' : 'mis à jour chaque jour'}</small></div>
+      <div className="is-key"><span>Gagné ce mois-ci</span><strong>{money(e.estimate)}</strong><small>HT · {e.sameMonth ? 'relevé LiveMentor' : 'nouveau mois : en attente du premier relevé'}</small></div>
       <div><span>Projection fin de mois</span><strong>{money(e.projection)}</strong><small>si personne n’arrive ni ne part</small></div>
       <div><span>Apprenants actifs</span><strong>{e.actifs}</strong><small>≈ {money(e.perLearner)} / apprenant / mois</small></div>
     </div>

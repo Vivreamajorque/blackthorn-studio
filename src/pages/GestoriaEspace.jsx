@@ -24,7 +24,7 @@ const isFuture = v => !!v && (v.length === 10 ? v >= nowIso().slice(0, 10) : v >
 const LECON_LABEL = { brouillon: ['Brouillon', ''], a_valider: ['À relire', 'info'], validee: ['Validée', 'ok'] }
 const TABS = [['accueil', 'Accueil', 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'],
   ['actions', 'Mes actions', 'M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9'],
-  ['visios', 'Visios', 'M3 8a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM16 10l5-3v10l-5-3'],
+  ['visios', 'Échanges', 'M3 8a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM16 10l5-3v10l-5-3'],
   ['documents', 'Documents', 'M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6']]
 
 export default function GestoriaEspace({ token }) {
@@ -164,10 +164,15 @@ function Accueil({ view, project, first, busy, send, go, aSigner }) {
       </li>)}</ol>
     </section>}
 
+    <section className="esp-card esp-write">
+      <h2>Une question pour {first} ?</h2>
+      <button className="esp-secondary" onClick={() => go('visios')}>Écrire un message</button>
+    </section>
+
     <details className="esp-card esp-details">
       <summary>Comment on travaille ensemble</summary>
       <p>Tu apportes ton expertise, tes contenus et tes validations. {first} construit l’outil, le teste et te forme pour le prendre en main.</p>
-      <p>Entre deux visios, coche tes actions et note tes questions dans l’onglet Visios : on les traite au rendez-vous suivant.</p>
+      <p>Entre deux visios, coche tes actions et écris-moi dans l’onglet Échanges : je te réponds directement dans ton espace.</p>
     </details>
   </>
 }
@@ -275,12 +280,13 @@ function Visios({ project, first, busy, send }) {
     </section>
 
     <section className="esp-card">
-      <h2>Mes questions pour la prochaine visio</h2>
-      <label className="esp-field">Ta question<textarea rows={3} value={texte} onChange={e => setTexte(e.target.value)} /></label>
-      <button className="esp-primary" disabled={busy || !texte.trim()} onClick={() => send({ op: 'question', texte }, 'Question ajoutée.').then(ok => ok && setTexte(''))}>Ajouter</button>
-      {ouvertes.length > 0 && <ul className="esp-list">{ouvertes.map(q => <li key={q.id} className="esp-q"><span className="esp-muted">{q.date ? formatDate(q.date) : ''}</span><span>{q.texte}</span></li>)}</ul>}
-      {traitees.length > 0 && <details className="esp-details-in"><summary>Questions traitées ({traitees.length})</summary>
-        <ul className="esp-list">{traitees.map(q => <li key={q.id} className="esp-q"><span>{q.texte}</span>{q.reponse && <p className="esp-note"><strong>{first} :</strong> {q.reponse}</p>}</li>)}</ul></details>}
+      <h2 id="ecrire">Écrire à {first}</h2>
+      <p className="esp-muted">Une question, une idée, un document à signaler : {first} est prévenue tout de suite et te répond ici.</p>
+      <label className="esp-field">Ton message<textarea rows={4} value={texte} onChange={e => setTexte(e.target.value)} /></label>
+      <button className="esp-primary" disabled={busy || !texte.trim()} onClick={() => send({ op: 'question', texte }, 'Message envoyé à ' + first + '.').then(ok => ok && setTexte(''))}>Envoyer</button>
+      {ouvertes.length > 0 && <ul className="esp-thread">{ouvertes.map(q => <Bulle key={q.id} q={q} first={first} />)}</ul>}
+      {traitees.length > 0 && <details className="esp-details-in"><summary>Échanges terminés ({traitees.length})</summary>
+        <ul className="esp-thread">{traitees.map(q => <Bulle key={q.id} q={q} first={first} />)}</ul></details>}
     </section>
 
     {project.notes.length > 0 && <section className="esp-card">
@@ -291,6 +297,14 @@ function Visios({ project, first, busy, send }) {
       </details>)}
     </section>}
   </>
+}
+
+function Bulle({ q, first }) {
+  return <li>
+    <div className="esp-bulle moi"><span className="esp-muted esp-sub">Toi{q.date ? ' · ' + formatDate(q.date) : ''}</span>{q.texte}</div>
+    {q.reponse ? <div className="esp-bulle elle"><span className="esp-sub">{first}</span>{q.reponse}</div>
+      : <span className="esp-muted esp-sub esp-attente">{first} a bien reçu ton message.</span>}
+  </li>
 }
 
 // ---------- Documents et paiements ----------

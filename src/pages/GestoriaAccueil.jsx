@@ -107,7 +107,12 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
   for (const i of [...m.planifier, ...m.deleguer]) if (inWeek(i)) (upcoming[i.echeance] ||= []).push({ kind: 'item', i })
   const upcomingDays = Object.keys(upcoming).sort()
   const later = [...m.planifier, ...m.deleguer].filter(i => !inWeek(i))
-  const priorite = al.priorite || urgent[0]?.titre || ''
+  // Si la priorité d'Alfred a été cochée (tâche ou action faite), on passe à la suivante sans attendre son prochain passage.
+  const norm = x => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()
+  const same = (a, b) => { const x = norm(a), y = norm(b); return !!x && !!y && (x === y || (y.length > 8 && x.includes(y)) || (x.length > 8 && y.includes(x))) }
+  const faits = [...(crm.taches || []).filter(t => t.fait).map(t => t.titre), ...crm.projets.flatMap(p => p.actions.filter(a => a.fait).map(a => a.label))]
+  const prioFaite = !!al.priorite && faits.some(t => same(t, al.priorite))
+  const priorite = prioFaite ? (urgent.find(i => !same(i.titre, al.priorite))?.titre || '') : (al.priorite || urgent[0]?.titre || '')
 
   const give = () => { const t = note.trim(); if (t) act.give(t).then(ok => ok && setNote('')) }
   const addToday = () => { const t = newTask.trim(); if (t) act.add(t, 'faire', today).then(ok => ok && setNewTask('')) }
@@ -117,8 +122,9 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
       <div>
         <p className="acc-date">{new Date(today + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
         <h1>{hello()} Amely.</h1>
-        {priorite ? <p className="mj-prio"><span>Ta priorité du jour</span>{priorite}</p> : <p className="mj-prio calm"><span>Aujourd’hui</span>Rien d’urgent. Avance ce qui compte.</p>}
-        {al.brief && <p className="mj-brief">{al.brief}</p>}
+        {priorite ? <p className="mj-prio"><span>{prioFaite ? 'Et maintenant' : 'Ta priorité du jour'}</span>{priorite}</p> : <p className="mj-prio calm"><span>Aujourd’hui</span>Rien d’urgent. Avance ce qui compte.</p>}
+        {prioFaite && <p className="mj-brief">✓ Fait : {al.priorite}. Bravo.</p>}
+        {al.brief && !prioFaite && <p className="mj-brief">{al.brief}</p>}
       </div>
       <div className="mj-alfred">
         <div className="acc-alfred-head"><span className="acc-avatar">A</span><div><strong>Dis-le à Alfred</strong><small>{inbox.length ? inbox.length + ' en attente de classement' : 'Une idée, une tâche, un rendez-vous…'}</small></div></div>
