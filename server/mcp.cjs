@@ -226,7 +226,7 @@ const TOOLS = [
     traites: { type: 'array', items: object({ id: text, resultat: text }, ['id']), maxItems: 50 },
     taches: { type: 'array', maxItems: 30, items: object({ titre: text, detail: text, quadrant: { type: 'string', enum: ['faire', 'planifier', 'deleguer', 'plus_tard'] }, echeance: text, domaine: text }, ['titre', 'quadrant']) },
     priorite: text, brief: text,
-    agent: object({ id: { type: 'string', enum: ['alfred', 'courrier', 'clients', 'commercial', 'communication', 'compta', 'plateformes'] }, resume: text, attente: text }, ['id']),
+    agent: object({ id: { type: 'string', enum: ['alfred', 'courrier', 'clients', 'commercial', 'communication', 'compta', 'plateformes', 'atelier'] }, resume: text, attente: text }, ['id']),
   }), false),
   tool('atelier_lire', 'Atelier (construction des outils clients) : lire les projets en construction avec leur carnet (cahier, étapes, liens de test, demande d’Amely), le devis du client (lignes = ce qui est vendu) et le cadrage du projet. Sans argument : tous les projets dont la construction est active.', object({ projet: text })),
   tool('atelier_ecrire', 'Atelier : mettre à jour le carnet de construction d’un projet (cahier, note, dépôt de code, liens de test, étapes). Une étape existante se met à jour par son id ; sans id, elle est ajoutée. L’Atelier ne peut jamais passer une étape en « validee » : seule Amely valide. Ne touche ni aux clients, ni aux devis, ni à la compta.', object({

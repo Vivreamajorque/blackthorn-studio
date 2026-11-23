@@ -16,6 +16,7 @@ export const AGENTS = [
   { id: 'communication', nom: 'Communication', role: 'Contenus et canaux', mission: 'Prépare tes contenus de la semaine et te rappelle tes actions Instagram, LinkedIn, page web.' },
   { id: 'compta', nom: 'Compta & fiscal', role: 'Factures et déclarations', mission: 'Factures, dépenses, 303/130, alertes de trésorerie.' },
   { id: 'plateformes', nom: 'Plateformes', role: 'LiveMentor et Malt', mission: 'Relève les gains LiveMentor et les messages Malt/LiveMentor.' },
+  { id: 'atelier', nom: 'Atelier', role: 'Construction des outils clients', mission: 'Rédige le cahier de construction, puis construit une étape à la fois dans une version de test. Tu testes et tu valides.' },
 ]
 
 const DAY = 864e5
