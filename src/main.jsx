@@ -132,18 +132,43 @@ function App() {
 const espace = window.location.pathname.match(/^\/espace\/([A-Za-z0-9_-]{32})\/?$/)
 createRoot(document.getElementById('root')).render(espace ? <GestoriaEspace token={espace[1]} /> : <App />)
 
-// Sur l'écran d'accueil du téléphone, l'appli reste ouverte en arrière-plan et garde l'ancienne version.
-// Quand on y revient, on vérifie si une nouvelle version est en ligne et on recharge tout seul.
+// Mises à jour : sur l'écran d'accueil du téléphone ou de l'iPad, l'appli reste ouverte longtemps et garde l'ancienne version.
+// On vérifie au retour sur l'appli, quand la fenêtre reprend la main, et toutes les 3 minutes pendant qu'on s'en sert.
+// Si une nouvelle version est en ligne, un bandeau l'annonce et l'appli se recharge seule (sauf si on est en train d'écrire).
 const currentBundle = () => document.querySelector('script[type="module"][src*="/assets/"]')?.getAttribute('src') || ''
 let lastCheck = 0
-async function checkForUpdate() {
-  if (!import.meta.env.PROD || Date.now() - lastCheck < 60000) return
+let bandeau = null
+const enTrainDEcrire = () => {
+  const el = document.activeElement
+  return !!el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'submit'].includes(el.type)) || el.isContentEditable) && String(el.value || '').length > 0
+}
+function proposerMiseAJour() {
+  if (bandeau) return
+  bandeau = document.createElement('div')
+  bandeau.setAttribute('role', 'status')
+  bandeau.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom));z-index:9999;display:flex;align-items:center;gap:12px;background:#103c42;color:#fff;padding:10px 10px 10px 18px;border-radius:999px;box-shadow:0 10px 30px rgba(16,60,66,.35);font:600 15px/1.2 "Bricolage Grotesque Variable",system-ui,sans-serif;max-width:calc(100vw - 24px)'
+  const txt = document.createElement('span'); txt.textContent = 'Nouvelle version du QG'
+  const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = 'Mettre à jour'
+  btn.style.cssText = 'border:0;border-radius:999px;background:#9fd3c7;color:#103c42;font:inherit;font-weight:700;padding:10px 16px;min-height:40px;cursor:pointer'
+  btn.onclick = () => window.location.reload()
+  bandeau.append(txt, btn)
+  document.body.appendChild(bandeau)
+  // Rechargement automatique au bout de 6 s, sauf si une saisie est en cours (alors on attend le clic).
+  const auto = () => { if (!enTrainDEcrire()) window.location.reload(); else setTimeout(auto, 15000) }
+  setTimeout(auto, 6000)
+}
+async function checkForUpdate(force = false) {
+  if (!import.meta.env.PROD || bandeau || (!force && Date.now() - lastCheck < 30000)) return
   lastCheck = Date.now()
   try {
-    const html = await (await fetch('/?v=' + Date.now(), { cache: 'no-store' })).text()
+    const html = await (await fetch('/?v=' + Date.now(), { cache: 'no-store', headers: { 'cache-control': 'no-cache' } })).text()
     const next = html.match(/<script[^>]+type="module"[^>]+src="([^"]*\/assets\/[^"]+)"/)?.[1]
-    if (next && currentBundle() && next !== currentBundle()) window.location.reload()
-  } catch { /* hors ligne : on réessaiera au prochain retour */ }
+    if (next && currentBundle() && next !== currentBundle()) proposerMiseAJour()
+  } catch { /* hors ligne : on réessaiera */ }
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate() })
-window.addEventListener('pageshow', event => { if (event.persisted) checkForUpdate() })
+window.addEventListener('pageshow', () => checkForUpdate())
+window.addEventListener('focus', () => checkForUpdate())
+window.addEventListener('online', () => checkForUpdate(true))
+setInterval(() => { if (document.visibilityState === 'visible') checkForUpdate(true) }, 180000)
+setTimeout(() => checkForUpdate(true), 5000)
