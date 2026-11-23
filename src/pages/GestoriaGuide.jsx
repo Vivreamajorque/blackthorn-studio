@@ -45,7 +45,7 @@ export default function GestoriaGuide({ year, startDate, notices, filings, tasks
 
   return <>
     <section className="mg-panel mg-ledger-panel">
-      <p className="mg-section-label">PROCHAINE ACTION</p><h2>À faire en priorité</h2>
+      <p className="mg-section-label">Prochaine action</p><h2>À faire en priorité</h2>
       <p><strong>{priority}</strong></p>
       {urgent?.kind === 'debt' ? <p>Compare le montant relevé avec le tableau de dettes, le reçu émis et le débit bancaire correspondant.</p>
         : urgent ? <p>Ouvre la notification d’origine dans ton espace Hacienda et vérifie le délai à partir des informations de notification. Enregistre ensuite la date limite dans le suivi.</p>
@@ -56,7 +56,7 @@ export default function GestoriaGuide({ year, startDate, notices, filings, tasks
       {urgent && urgent.kind !== 'debt' && <a href={aeat + '/mi-area-personal.html'} target="_blank" rel="noopener noreferrer">Ouvrir Hacienda ↗</a>}
     </section>
     <section className="mg-panel mg-ledger-panel">
-      <p className="mg-section-label">SUIVI</p><h2>Courriers et dates à suivre</h2>
+      <p className="mg-section-label">Suivi</p><h2>Courriers et dates à suivre</h2>
       <p>Ajoute une date à anticiper ou le délai indiqué dans un courrier. Laisse-la vide si tu dois encore la confirmer.</p>
       {notices.length === 0 && <p>Aucune date ou courrier suivi pour ce dossier.</p>}
       {[...notices].sort((a, b) => Number(a.done) - Number(b.done) || a.date.localeCompare(b.date)).map(notice =>
@@ -84,7 +84,7 @@ export default function GestoriaGuide({ year, startDate, notices, filings, tasks
         onClick={() => setDraft({ id: crypto.randomUUID(), title: '', date: '', done: false })}>Ajouter un courrier ou une date</button>}
     </section>
     <section className="mg-panel mg-ledger-panel">
-      <p className="mg-section-label">CALENDRIER</p><h2>Échéances fiscales</h2>
+      <p className="mg-section-label">Calendrier</p><h2>Échéances fiscales</h2>
       <p>Dates générales des déclarations et prélèvements suivis. Le paiement par prélèvement a son propre calendrier.</p>
       {confirmed.filter(item => item.date && item.date < today).map(item => <p key={item.key}>
         <strong>{item.title}</strong> · {formatDate(item.date)} · Date passée, dépôt à vérifier

@@ -3,7 +3,7 @@ const money = value => new Intl.NumberFormat('fr-FR',{style:'currency',currency:
 export default function GestoriaSocialReview({ review, onOpen, entity }) {
   if (!review) return null
   return <section className="mg-panel" style={{marginBottom:20}}>
-    <p className="mg-section-label">MON DOSSIER IMPORTASS · MIS À JOUR LE {review.date.split('-').reverse().join('/')}</p>
+    <p className="mg-section-label">Mon dossier Importass · mis à jour le {review.date.split('-').reverse().join('/')}</p>
     <h2>Sécurité sociale : où j’en suis</h2>
     <p className="mg-muted">Synthèse des documents et écrans transmis. Le solde officiel reste à recontrôler ; aucune démarche n’a été envoyée à la TGSS.</p>
     <div className="mg-calendar-summary"><article><span>Prochain prélèvement courant annoncé</span><strong>Janvier 2027</strong><small>Paiement trimestriel actif selon Importass</small></article>

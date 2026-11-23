@@ -103,14 +103,14 @@ export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, 
     row.evidence?.amountCents == null && (row.model !== '130' || !settings?.filed?.[row.quarter]))
   const registered130 = filings.some(row => row.model === '130' && row.status !== 'not_applicable')
   if (compact) return <article className="mg-start-card mg-clean-tax">
-    <span className="mg-section-label">IMPÔTS DU TRIMESTRE · 130 + 303</span>
+    <span className="mg-section-label">Impôts du trimestre · 130 + 303</span>
     <strong>{knownTaxAmounts.length ? money(reserve) : 'À compléter'}</strong>
     <p>{knownTaxAmounts.length < taxAmounts.length || unqualified.length > 0 || assumptions.length > 0 ? 'Estimation partielle · pièces à vérifier' : 'Déclarés ou estimés · paiements confirmés déduits'}</p>
     <small>Hors cotisations et autres modèles. Un échelonnement peut répartir ce montant.</small>
   </article>
   return <>
     <section className="mg-panel" aria-labelledby="mg-quarterly-tax">
-      <div className="mg-panel-heading"><div><p className="mg-section-label">{name.toUpperCase()}</p>
+      <div className="mg-panel-heading"><div><p className="mg-section-label">{name}</p>
         <h2 id="mg-quarterly-tax">Estimatif du trimestre · T{quarter}</h2></div></div>
       <p className="mg-muted">Les dates concernent le dépôt. Les estimations évoluent avec tes écritures et les justificatifs que tu ajoutes.</p>
       {knownTaxAmounts.length > 0 && <div className="mg-quarter-reserve">
@@ -214,7 +214,7 @@ export default function GestoriaTaxDashboard({ dossier, year, quarter, entries, 
       <summary>Voir les contrôles et le calcul détaillé des impôts</summary>
       <div className="mg-dashboard mg-more-body">
     <section className="mg-panel" aria-labelledby="mg-actions">
-      <div className="mg-panel-heading"><div><p className="mg-section-label">À VÉRIFIER POUR CE DOSSIER</p>
+      <div className="mg-panel-heading"><div><p className="mg-section-label">À vérifier pour ce dossier</p>
         <h2 id="mg-actions">Les contrôles qui peuvent changer le montant</h2></div></div>
       <ul className="mg-action-list">
         {registered130 && <li><strong>{priorMissing ? 'Case 13 · réduction à vérifier' : 'Case 13 · ' + money(minoracion(settings.priorNetCents)) + ' intégrés à l’estimation'}</strong>

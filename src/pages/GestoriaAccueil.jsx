@@ -5,6 +5,7 @@ import { QUADRANTS, AGENTS, matrice, dateCourte } from '../lib/gestoria-matrice.
 import '@fontsource-variable/bricolage-grotesque'
 import './gestoria-accueil.css'
 import './gestoria-journee.css'
+import Alfred from '../components/Alfred'
 
 const DAY = 864e5
 const addDays = (d, n) => new Date(Date.parse(d + 'T12:00:00Z') + n * DAY).toISOString().slice(0, 10)
@@ -120,7 +121,7 @@ function Cartes({ m, crm, saveCrm, canSave, act, onGo, msgs, projets, today }) {
       <section className="cx-panel" role="dialog" aria-modal="true" aria-label={card.nom} style={{ '--c': card.couleur }}>
         <header><span className="cx-pastille" aria-hidden="true">{card.nom[0]}</span><h2>{card.nom}</h2>
           <button className="cx-close" onClick={() => setOpen(null)} aria-label="Fermer">×</button></header>
-        <div className="cx-alfred"><span className="acc-avatar">A</span><p>{card.mot || (card.count ? 'Voici ce qui t’attend ici. Commence par le premier.' : 'Rien à faire ici pour l’instant. Je te préviens dès que ça bouge.')}</p></div>
+        <div className="cx-alfred"><Alfred size={44} /><p>{card.mot || (card.count ? 'Voici ce qui t’attend ici. Commence par le premier.' : 'Rien à faire ici pour l’instant. Je te préviens dès que ça bouge.')}</p></div>
 
         {card.id === 'messages' && (msgs.length === 0 ? <p className="acc-empty">Tout est lu.</p> :
           <ul className="cx-msgs">{msgs.map(x => <li key={x.id}>
@@ -232,6 +233,7 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
     <div className="j-layout">
       <div className="j-main">
         <section className={'j-focus' + (priorite ? '' : ' calme')}>
+          <div className="j-focus-alfred" aria-hidden="true"><Alfred size={96} mood={prioFaite ? 'fier' : 'calme'} title="Alfred" /></div>
           <p className="j-label">{prioFaite ? 'Bravo, et maintenant' : priorite ? 'Ta priorité du jour' : 'Aujourd’hui'}</p>
           <h2>{priorite || 'Rien d’urgent. Avance ce qui compte pour toi.'}</h2>
           {prioFaite && <p className="j-done">✓ {al.priorite}</p>}
@@ -243,7 +245,7 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
         </section>
 
         <form className="j-alfred" onSubmit={e => { e.preventDefault(); give() }}>
-          <span className="acc-avatar" aria-hidden="true">A</span>
+          <Alfred size={40} title="Alfred, ton majordome" />
           <label className="j-sr" htmlFor="j-give">Dis-le à Alfred</label>
           <input id="j-give" placeholder="Dis-le à Alfred : une idée, une tâche, un rendez-vous…" value={note} onChange={e => setNote(e.target.value)} />
           <button disabled={!canSave || !note.trim()}>Confier</button>
@@ -254,7 +256,7 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
         <Cartes m={m} crm={crm} saveCrm={saveCrm} canSave={canSave} act={act} onGo={onGo} msgs={msgs} projets={projets} today={today} />
 
         {al.rapport && <details className="j-rapport">
-          <summary><span className="acc-avatar" aria-hidden="true">A</span><span><strong>Le rapport d’Alfred</strong><small>ce que l’équipe a fait et ce qu’elle attend de toi</small></span></summary>
+          <summary><Alfred size={44} /><span><strong>Le rapport d’Alfred</strong><small>ce que l’équipe a fait et ce qu’elle attend de toi</small></span></summary>
           <ul>{al.rapport.split('\n').filter(l => l.trim()).map((l, k) => { const [t, ...r] = l.split(' : '); return <li key={k}>{r.length ? <><b>{t.replace(/^[-•]\s*/, '')}</b> {r.join(' : ')}</> : l}</li> })}</ul>
         </details>}
       </div>
@@ -325,7 +327,7 @@ export function GestoriaEquipe({ crm, saveCrm, canSave }) {
     </header>
 
     <section className="eq-chef">
-      <span className="eq-av" style={{ '--c': COULEUR.alfred }} aria-hidden="true">A</span>
+      <Alfred size={72} title="Alfred, ton majordome" />
       <div className="eq-chef-txt">
         <div className="eq-line"><strong>{chef.nom}</strong><span className={'eq-st' + (s0.on ? ' on' : '')}>{s0.on ? 'Actif' : 'Bientôt'}</span></div>
         <small>{chef.role} · {SCHEDULE.alfred}</small>

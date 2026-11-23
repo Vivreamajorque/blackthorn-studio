@@ -1,0 +1,57 @@
+/* Habillage commun du QG : toutes les pages suivent le style de « Ma journée ».
+   Charte : écume #f2f7f6, mer #103c42, vert d'eau #9fd3c7 / #ddefea, posidonie #2e7d72, soleil #f0b43c. */
+main.mg-shell { --u-mer: #103c42; --u-gris: #44646a; --u-ligne: #e3ecea; --u-eau: #ddefea; --u-posi: #2e7d72; }
+
+/* Titres */
+main.mg-shell h1 { font-weight: 800; letter-spacing: -.035em; line-height: 1.02; color: var(--u-mer); }
+main.mg-shell .mg-section-label, main.mg-shell .mgc-eyebrow { text-transform: none !important; letter-spacing: 0 !important; font-size: .92rem !important; font-weight: 500 !important; color: var(--u-gris) !important; }
+main.mg-shell .mg-clean-dashboard .mg-section-label { font-size: .85rem !important; }
+
+/* Cartes */
+main.mg-shell .mgc-panel, main.mg-shell .mg-panel, main.mg-shell .mg-start-card, main.mg-shell .acc-card,
+main.mg-shell .mg-clean-next, main.mg-shell .mg-start-estimate, main.mg-shell .mg-start-date, main.mg-shell .mg-clean-tax,
+main.mg-shell .qga-day, main.mg-shell .lm-fiche, main.mg-shell .lm-list {
+  background: #fff; border: 1px solid var(--u-ligne); border-radius: 22px; box-shadow: none; }
+main.mg-shell .mg-clean-tax { background: #f2f7f6; }
+main.mg-shell .mgc-panel.mgc-note { background: #fff4dc; border-color: transparent; }
+main.mg-shell .qga-day.is-today { border: 2px solid var(--u-posi); }
+main.mg-shell .qga-day h3 { font-size: 1rem; }
+
+/* Chiffres en tuiles : blanches, avec une touche de couleur */
+main.mg-shell .mgc-tile { background: #fff !important; border: 1px solid var(--u-ligne); border-top: 4px solid #2e7d72; border-radius: 18px; }
+main.mg-shell .mgc-tile:nth-child(2) { border-top-color: #f0b43c; }
+main.mg-shell .mgc-tile:nth-child(3) { border-top-color: #7a4bb0; }
+main.mg-shell .mgc-tile:nth-child(4) { border-top-color: #24527a; }
+main.mg-shell .mgc-tile strong { font-size: 1.6rem; color: var(--u-mer); }
+main.mg-shell .mgc-tile span { color: var(--u-gris); }
+main.mg-shell .mgc-money-grid > div { background: #f2f7f6; border: 0; border-radius: 16px; }
+main.mg-shell .mgc-money-grid > div.is-key { background: #ddefea; box-shadow: inset 0 0 0 2px #9fd3c7; }
+main.mg-shell .mgc-money-grid > div.is-warn { background: #fde9e4; }
+
+/* Tableau de prospection */
+main.mg-shell .mgc-col { background: #fff; border: 1px solid var(--u-ligne); border-radius: 18px; }
+main.mg-shell .mgc-col h3 { color: var(--u-mer); }
+
+/* Onglets en pilules */
+main.mg-shell .mgc-tabs button, main.mg-shell .mg-subtabs button, main.mg-shell .mg-toolbar-filters button {
+  border-radius: 999px; border: 1px solid var(--u-ligne); background: #fff; color: var(--u-mer); font-weight: 600; min-height: 40px; padding: 0 16px; }
+main.mg-shell .mgc-tabs button[aria-pressed="true"], main.mg-shell .mgc-tabs button[aria-selected="true"],
+main.mg-shell .mg-subtabs button[aria-pressed="true"], main.mg-shell .mg-subtabs button[aria-current="page"], main.mg-shell .mg-subtabs button.on {
+  background: var(--u-mer) !important; border-color: var(--u-mer) !important; color: #fff !important; }
+
+/* Boutons */
+main.mg-shell .mgc-primary, main.mg-shell .mg-primary { background: var(--u-mer); border-color: var(--u-mer); color: #fff; border-radius: 999px; font-weight: 700; }
+main.mg-shell .mgc-primary:hover:not(:disabled), main.mg-shell .mg-primary:hover:not(:disabled) { background: #1b545b; }
+main.mg-shell .mgc-row > button:not(.mgc-primary):not(.mgc-link), main.mg-shell .mgc-between > button:not(.mgc-primary):not(.mgc-link),
+main.mg-shell .mg-fast-bar button:not(.mg-primary) { border-radius: 999px; border: 1px solid #c9dcd8; background: #fff; }
+
+/* Badges et pastilles */
+main.mg-shell .mgc-badge { border-radius: 999px; font-weight: 700; }
+main.mg-shell .mg-tag { border-radius: 999px; }
+
+/* Champs */
+main.mg-shell .mgc-search, main.mg-shell .mgc-form input, main.mg-shell .mgc-form select, main.mg-shell .mgc-form textarea { border-radius: 12px; border-color: #c9dcd8; }
+main.mg-shell .mgc-search:focus, main.mg-shell .mgc-form input:focus, main.mg-shell .mgc-form textarea:focus { outline: none; border-color: var(--u-posi); box-shadow: 0 0 0 3px var(--u-eau); }
+main.mg-shell .mg-entity-label, main.mg-shell .mgc-group-title, main.mg-shell .lm-kicker, main.mg-shell .mg-nav-group, main.mg-shell .qga-head,
+main.mg-shell .mg-clean-dashboard [class*="label"] { text-transform: none !important; letter-spacing: 0 !important; }
+main.mg-shell .lm-kicker { color: var(--u-gris); font-weight: 500; }

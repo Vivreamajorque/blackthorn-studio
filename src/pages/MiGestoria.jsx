@@ -436,7 +436,7 @@ export default function MiGestoria() {
     {tab === 'tasks' && loadState === 'ready' && <>
 
     {formFilter === 'all' && <section className="mg-panel mg-ledger-panel">
-      <p className="mg-section-label">LISTE DE CONTRÔLE</p><h2>Démarches et pièces</h2>
+      <p className="mg-section-label">Liste de contrôle</p><h2>Démarches et pièces</h2>
       <p style={muted}>{completed} sur {tasks.length} vérifiées, terminées ou non concernées.</p>
       {tasks.map(task => <div key={task.id} className="mg-work-row">
         <div style={{ flex: '1 1 260px' }}>
@@ -450,7 +450,7 @@ export default function MiGestoria() {
     </section>}
 
     <section className="mg-panel mg-ledger-panel">
-      <p className="mg-section-label">DOSSIER FISCAL</p><h2>Déclarations et cotisations</h2>
+      <p className="mg-section-label">Dossier fiscal</p><h2>Déclarations et cotisations</h2>
       <p style={muted}>Vérifie les obligations sur Hacienda et les prélèvements dans Importass. Enregistre le statut et la référence de chaque justificatif.</p>
       <label>Filtrer par modèle <select value={formFilter} onChange={event => setFormFilter(event.target.value)}>
         <option value="all">Tous</option>
@@ -473,7 +473,7 @@ export default function MiGestoria() {
     </section>
 
     <section className="mg-panel mg-ledger-panel">
-      <p className="mg-section-label">SAUVEGARDE</p><h2>Exporter ou reprendre</h2>
+      <p className="mg-section-label">Sauvegarde</p><h2>Exporter ou reprendre</h2>
       <p style={muted}>Chaque export concerne uniquement le dossier et l’année affichés. Les statuts sont enregistrés dans ton dossier. Cette copie facultative contient les statuts des démarches et déclarations.</p>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         <button onClick={exportChecklist}>Exporter la checklist</button>

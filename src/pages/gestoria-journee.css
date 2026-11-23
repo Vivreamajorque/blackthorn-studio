@@ -155,3 +155,9 @@
   .eq-chef-inbox { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 8px; text-align: left; }
   .eq-chef-inbox strong { font-size: 1.4rem; }
 }
+
+.j-focus { padding-right: 140px; }
+.j-focus-alfred { position: absolute; right: 22px; bottom: 18px; z-index: 1; filter: drop-shadow(0 8px 18px rgba(0,0,0,.25)); }
+.j-focus.calme .j-focus-alfred { filter: none; }
+.j-alfred .alf, .j-rapport .alf, .cx-alfred .alf { box-shadow: 0 0 0 2px #fff; }
+@media (max-width: 640px) { .j-focus { padding-right: 18px; padding-top: 22px; } .j-focus-alfred { position: static; align-self: flex-end; margin: -6px 0 -6px; order: -1; } .j-focus-alfred .alf { width: 64px; height: 64px; } }

@@ -6,6 +6,7 @@ import GestoriaConnect, { pendingConnect } from './pages/GestoriaConnect'
 import './style.css'
 import '@fontsource-variable/bricolage-grotesque'
 import './atelier-theme.css'
+import './qg-uniform.css'
 
 const api = '/api/gestoria-auth'
 

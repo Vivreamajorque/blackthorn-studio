@@ -1,0 +1,14 @@
+.alf { display: block; flex: none; border-radius: 50%; overflow: visible; }
+.alf .alf-tete { transform-box: view-box; transform-origin: 50px 66px; animation: alf-respire 4.5s ease-in-out infinite; }
+.alf .alf-corps { transform-box: view-box; transform-origin: 50px 100px; animation: alf-respire-corps 4.5s ease-in-out infinite; }
+.alf .alf-yeux { transform-box: view-box; transform-origin: 50px 43px; animation: alf-cligne 5.5s infinite; }
+.alf .alf-noeud { transform-box: view-box; transform-origin: 50px 76px; }
+.alf:hover .alf-tete, *:hover > .alf.alf-salue .alf-tete { animation: alf-salut .9s ease-in-out; }
+.alf:hover .alf-noeud { animation: alf-noeud .6s ease-in-out; }
+.alf.alf-fier .alf-bouche { d: path('M43.5 52.5 Q50 59 56.5 52.5'); }
+@keyframes alf-respire { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-1.2px) } }
+@keyframes alf-respire-corps { 0%, 100% { transform: scaleY(1) } 50% { transform: scaleY(1.012) } }
+@keyframes alf-cligne { 0%, 93%, 100% { transform: scaleY(1) } 95% { transform: scaleY(.08) } 97% { transform: scaleY(1) } }
+@keyframes alf-salut { 0% { transform: rotate(0) } 35% { transform: rotate(-9deg) translateY(2px) } 70% { transform: rotate(4deg) } 100% { transform: rotate(0) } }
+@keyframes alf-noeud { 0%, 100% { transform: rotate(0) } 30% { transform: rotate(-12deg) } 65% { transform: rotate(10deg) } }
+@media (prefers-reduced-motion: reduce) { .alf *, .alf:hover * { animation: none !important; } }

@@ -38,7 +38,7 @@ export default function GestoriaPortals({ capture, year, dossier, canSave, onDis
   const captureRows = capture ? portalRowsForYear(capture.rows, year) : []
   return <div className="mg-portal">
     <section className="mg-panel mg-portal-intro">
-      <div><p className="mg-section-label">HACIENDA ET SEGURIDAD SOCIAL</p><h2>Consulter mes portails</h2>
+      <div><p className="mg-section-label">Hacienda et Seguridad Social</p><h2>Consulter mes portails</h2>
         <p>Retrouve un dépôt, un courrier ou un montant directement sur le site officiel. Le connecteur Chrome ramène le tableau affiché dans ton dossier privé après ta connexion.</p></div>
       <details className="mg-install">
         <summary>Installer le connecteur Chrome</summary>
@@ -53,7 +53,7 @@ export default function GestoriaPortals({ capture, year, dossier, canSave, onDis
       </details>
     </section>
     {capture && <section className="mg-panel mg-capture" aria-labelledby="mg-capture-title">
-      <p className="mg-section-label">À RELIRE AVANT D’ENREGISTRER</p>
+      <p className="mg-section-label">À relire avant d’enregistrer</p>
       <h2 id="mg-capture-title">{source.portal} · {source.title}</h2>
       <p>Vérifie que ces informations concernent bien <strong>{dossier.name}</strong> pour <strong>{year}</strong>. Choisis le dossier et l’exercice en haut si besoin.</p>
       {captureRows.length ? <PortalRows rows={captureRows} kind={kind} /> : <p>Aucune ligne datée de {year} dans cette lecture. Vérifie l’exercice sélectionné.</p>}

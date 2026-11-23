@@ -175,7 +175,7 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
     (row.taxAmountCents == null || !row.vat || row.taxReview)).length
 
   return <div className="mg-dashboard mg-clean-dashboard">
-    <header className="mg-clean-heading"><div><p className="mg-section-label">MON ESPACE DE GESTION</p><h1>Mon trimestre</h1></div><span>{quarterLabels[quarter - 1]} {year}</span></header>
+    <header className="mg-clean-heading"><div><p className="mg-section-label">Mon espace de gestion</p><h1>Mon trimestre</h1></div><span>{quarterLabels[quarter - 1]} {year}</span></header>
     <section className="mg-clean-context" aria-label="Activité et trimestre affichés">
       <div className="mg-switch" role="group" aria-label="Choisir l’activité">{dossiers.map(({id,name}) => <button type="button" key={id} aria-pressed={id === activity} onClick={() => onActivity(id)}>{name}</button>)}</div>
       <div className="mg-switch" role="group" aria-label="Choisir le trimestre">{quarterLabels.map((label,index) => <button type="button" key={label} aria-label={'T' + (index + 1) + ' · ' + label} aria-pressed={quarter === index + 1} onClick={() => setQuarters(previous => ({...previous,[year]:index+1}))}>T{index+1}</button>)}</div>
@@ -187,19 +187,19 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
     </section>
     <section className="mg-start-grid mg-quarter-grid" aria-label="Chiffres du trimestre">
       <article className="mg-start-card mg-start-estimate">
-        <span className="mg-section-label">{ledgers[activity].income.toUpperCase()}</span>
+        <span className="mg-section-label">{ledgers[activity].income}</span>
         <strong>{ledger ? money(quarterIncome) : 'En attente'}</strong>
         <p>{missingIncome > 0 ? `Montant hors TVA à compléter sur ${missingIncome} facture(s).` : ledgers[activity].source}</p>
       </article>
       <article className="mg-start-card mg-start-date">
-        <span className="mg-section-label">DÉPENSES SAISIES</span>
+        <span className="mg-section-label">Dépenses saisies</span>
         <strong>{money(quarterExpenses + confirmedQuarterExpenses)}</strong>
         <p>Dépenses en euros, cotisations confirmées comprises.</p>
       </article>
     <GestoriaTaxDashboard compact key={activity + ':' + year} dossier={selected} year={year} quarter={quarter} entries={activityEntries}
       settings={activityIrpf} today={today} contributions={contributions} studio={activity === 'blackthorn' ? studio : undefined} canSave={canSave} onSave={settings => onIrpf(activity, settings)} onOpen={onOpen} />
     </section>
-    <section className="mg-clean-next" aria-label="Prochaine action"><div><p className="mg-section-label">PROCHAINE ÉTAPE</p><strong>{action.title}</strong><p>{action.note}</p></div><button type="button" onClick={() => onOpen(focus.id, action.tab, action.model)}>Voir →</button></section>
+    <section className="mg-clean-next" aria-label="Prochaine action"><div><p className="mg-section-label">Prochaine étape</p><strong>{action.title}</strong><p>{action.note}</p></div><button type="button" onClick={() => onOpen(focus.id, action.tab, action.model)}>Voir →</button></section>
     <div className="mg-clean-links"><button type="button" onClick={() => onOpen(activity,'payments')}>Calendrier & prélèvements →</button><button type="button" onClick={() => onOpen(activity,'finance')}>Factures & paiements →</button></div>
     <details className="mg-clean-detail" onToggle={event => setShowCalculations(event.currentTarget.open)}><summary>Comprendre les montants et vérifier les calculs</summary>
       {showCalculations && <GestoriaTaxDashboard dossier={selected} year={year} quarter={quarter} entries={activityEntries} settings={activityIrpf} today={today} contributions={contributions} studio={activity === 'blackthorn' ? studio : undefined} canSave={canSave} onSave={settings => onIrpf(activity, settings)} onOpen={onOpen} />}
@@ -216,7 +216,7 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
       <p><strong>Estimation</strong> : calcul qui évolue avec les pièces. <strong>Déposée</strong> : déclaration enregistrée avec son justificatif. <strong>Payée</strong> : paiement confirmé séparément.</p>
     </details>
     <details className="mg-panel mg-action-plan"><summary>Mes priorités · {firstActions.length} point(s) à consulter pour les deux activités</summary><div aria-labelledby="mg-plan-title">
-      <div className="mg-panel-heading"><div><p className="mg-section-label">TES DEUX ACTIVITÉS · {year}</p>
+      <div className="mg-panel-heading"><div><p className="mg-section-label">Tes deux activités · {year}</p>
         <h2 id="mg-plan-title">À faire dans cet ordre</h2></div><span className="mg-tag calm">Pas à pas</span></div>
       <p className="mg-muted">Les délais proches et les points anciens à vérifier passent en premier. « À vérifier » ne veut pas dire que tu es forcément en retard.</p>
       {firstActions.length ? <ol className="mg-action-list">{firstActions.map((item, index) => <li key={item.key}>
@@ -245,7 +245,7 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
       <summary>Voir l’agenda et le suivi détaillé des deux activités</summary>
       {showDetails && <div className="mg-dashboard mg-more-body">
     {debts.length > 0 && <section className="mg-panel">
-      <p className="mg-section-label">COTISATIONS À VÉRIFIER · {selected.name}</p>
+      <p className="mg-section-label">Cotisations à vérifier · {selected.name}</p>
       <h2>{debts.some(item => item.amountCents != null) ? money(debtTotal) : 'À consulter'}</h2>
       <p className="mg-muted">Le solde actuel se vérifie dans Importass.</p>
       <button type="button" onClick={() => onOpen(activity, 'payments')}>Voir les montants →</button>
@@ -255,7 +255,7 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
     <div className="mg-agenda-grid">
       <section className="mg-panel" aria-labelledby="mg-priorities">
         <div className="mg-panel-heading">
-          <div><p className="mg-section-label">POINTS À SURVEILLER</p><h2 id="mg-priorities">À traiter</h2></div>
+          <div><p className="mg-section-label">Points à surveiller</p><h2 id="mg-priorities">À traiter</h2></div>
           <span className="mg-tag warning">{priorities.length}</span>
         </div>
         <p className="mg-muted">Délais proches ou passés, courriers sans date et démarches bloquées.</p>
@@ -270,7 +270,7 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
 
       <section className="mg-panel" aria-labelledby="mg-agenda" id="mg-agenda-panel">
         <div className="mg-panel-heading">
-          <div><p className="mg-section-label">{longDate.format(new Date(today)).toUpperCase()}</p><h2 id="mg-agenda">Agenda des échéances</h2></div>
+          <div><p className="mg-section-label">{(t => t[0].toUpperCase() + t.slice(1))(longDate.format(new Date(today)))}</p><h2 id="mg-agenda">Agenda des échéances</h2></div>
           <span className="mg-tag calm">{visible.length}</span>
         </div>
         <div className="mg-switch" role="group" aria-label="Horizon de l’agenda">
@@ -284,7 +284,7 @@ export default function GestoriaDashboard({ year, dossiers, personalStart, entri
     </div>
 
     <section aria-labelledby="mg-activities">
-      <div className="mg-block-heading"><p className="mg-section-label">EXERCICE {year}</p><h2 id="mg-activities">{personal ? 'Tes deux activités' : 'Activité suivie'}</h2></div>
+      <div className="mg-block-heading"><p className="mg-section-label">Exercice {year}</p><h2 id="mg-activities">{personal ? 'Tes deux activités' : 'Activité suivie'}</h2></div>
       <div className="mg-activity-grid">
         {dossiers.map(dossier => <ActivityCard key={dossier.id} dossier={dossier} ledger={summaries[dossier.id]}
           studioStatus={studio.status} warnings={studio.data?.reconciliationWarnings} reload={studio.reload} onOpen={onOpen} />)}

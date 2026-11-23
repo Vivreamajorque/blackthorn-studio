@@ -202,7 +202,7 @@ export default function GestoriaAgenda({ crm, saveCrm, canSave, onGo }) {
 
   return <>
     <div className="mgc-between">
-      <div><p className="mg-section-label">PILOTER</p>
+      <div><p className="mg-section-label">Piloter</p>
         <h1 style={{ margin: '.1em 0', fontSize: 'clamp(1.65rem, 4vw, 2.6rem)' }}>Agenda</h1>
         <p className="mgc-muted" style={{ margin: 0 }}>Tes rendez-vous Google, tes visios LiveMentor, tes clients, tes relances et tes échéances de compta, au même endroit.</p></div>
       <div className="mgc-row">

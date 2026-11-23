@@ -19,7 +19,7 @@ export default function GestoriaControl({ dossier, entries, year, today, irpf, o
   ]
   return <section className="mg-panel" aria-labelledby="mg-control">
     <div className="mg-panel-heading">
-      <div><p className="mg-section-label">MON ACTIVITÉ · SUIVI</p><h2 id="mg-control">Ce qui reste à faire</h2></div>
+      <div><p className="mg-section-label">Mon activité · suivi</p><h2 id="mg-control">Ce qui reste à faire</h2></div>
     </div>
     <div className="mg-control-grid">
       {checks.map(({ label, count, action, tab, model }) => <button type="button" key={label}

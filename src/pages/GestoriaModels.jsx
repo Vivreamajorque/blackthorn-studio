@@ -148,7 +148,7 @@ export function GestoriaPayments({ year, dossier, data, onOpen, studio }) {
     <GestoriaCalendar key={id + ':' + year} year={year} dossier={{ ...dossier, record: { ...dossier.record, paymentPlans, socialReview } }} rows={rows} ledger={ledger} settings={settings} today={today} onOpen={onOpen} />
     <details className="mg-panel" style={{ marginTop: 16 }}><summary>Voir le tableau détaillé des montants et de leur origine</summary>
     <section className="mg-panel">
-      <div className="mg-panel-heading"><div><p className="mg-section-label">TRÉSORERIE</p><h2>Ce que je dois prévoir</h2></div></div>
+      <div className="mg-panel-heading"><div><p className="mg-section-label">Trésorerie</p><h2>Ce que je dois prévoir</h2></div></div>
       <p className="mg-muted">Les projections incluent les hypothèses fiscales signalées dans Compta, ainsi que les encaissements et paiements prévus pour l’IRPF. Les dates indicatives et les échéances passées restent à vérifier. Le statut du dépôt et le paiement se rapprochent séparément.</p>
       <div className="mg-tax-table"><table>
         <thead><tr><th>Échéance</th><th>Obligation</th><th>Montant</th><th>Origine</th></tr></thead>

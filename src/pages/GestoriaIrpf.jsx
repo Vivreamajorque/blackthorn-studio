@@ -72,7 +72,7 @@ export default function GestoriaIrpf({ year, startDate, entries, filings, settin
   const unconfirmedFilings = filings.filter(row => row.model === '130' && row.status === 'filed' && !settings.filed?.[row.quarter])
   return <section className="mg-panel mg-evolution" aria-labelledby="mg-irpf">
     <div className="mg-panel-heading">
-      <div><p className="mg-section-label">{activityName.toUpperCase()} · ESTIMATION</p><h2 id="mg-irpf">IRPF à prévoir</h2></div>
+      <div><p className="mg-section-label">{activityName} · estimation</p><h2 id="mg-irpf">IRPF à prévoir</h2></div>
       <span className="mg-tag calm">Modelo 130</span>
     </div>
     <p className="mg-muted">Le 130 estimé se recalcule quand tu enregistres une facture ou une charge avec son montant fiscal. Il s’appuie sur le régime simplifié et les écritures suivies dans Mi Gestoría.

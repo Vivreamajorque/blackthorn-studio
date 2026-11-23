@@ -95,7 +95,7 @@ export function useStudioLedger(year) {
 export function StudioData({ ledger }) {
   const { data, status, reload } = ledger
   return <section className="mg-panel mg-ledger-panel">
-    <p className="mg-section-label">VENTES DU HUB</p>
+    <p className="mg-section-label">Ventes du Hub</p>
     <h2>Encaissements Blackthorn</h2>
     <p style={muted}>Les ventes confirmées viennent du Hub. Les charges ci-dessous viennent du registre Mi Gestoría.</p>
     <button disabled={status === 'loading'} onClick={reload}>Actualiser les ventes</button>
@@ -329,7 +329,7 @@ export function PersonalData({ entity = 'independent', year, startDate, entries,
   return <>
     <section className="mg-panel mg-ledger-panel">
       <div className="mg-panel-heading mg-ledger-heading">
-        <div><p className="mg-section-label">REGISTRE ET JUSTIFICATIFS</p>
+        <div><p className="mg-section-label">Registre et justificatifs</p>
           <h2>{entity === 'blackthorn' ? 'Factures et tickets de Blackthorn' : 'Factures et dépenses'}</h2>
           {entity === 'blackthorn' && <p className="mg-muted">Ces charges alimentent le suivi Blackthorn dans Mi Gestoría et dans l’onglet de Tony.</p>}</div>
         <div className="mg-actions">
