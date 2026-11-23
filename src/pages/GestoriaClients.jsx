@@ -385,6 +385,7 @@ function AtelierPanel({ project, canSave, saveConstruction }) {
   const k = project.construction
   const [open, setOpen] = useState(false)
   const [retour, setRetour] = useState({})
+  const [cahierOpen, setCahierOpen] = useState(false)
   if (!k || !k.actif) return <div className="atl atl-off">
     <span className="mgc-muted">{k ? 'Atelier en pause.' : 'Un outil à construire pour ce projet ?'}</span>
     <button disabled={!canSave} onClick={() => saveConstruction(project, x => ({ etapes: [], ...x, actif: true, demande: new Date().toISOString().slice(0, 16) }), 'L’Atelier va préparer le cahier de construction.')}>
@@ -401,16 +402,21 @@ function AtelierPanel({ project, canSave, saveConstruction }) {
       </button>
       <div className="mgc-row">
         {k.urlTest && <a href={k.urlTest} target="_blank" rel="noopener noreferrer">Version de test ↗</a>}
-        <button className="mgc-primary" disabled={!canSave || !!k.demande} onClick={() => saveConstruction(project, x => ({ ...x, demande: new Date().toISOString().slice(0, 16) }), 'Demande envoyée à l’Atelier.')}>
-          {k.demande ? 'Demandé · l’Atelier passe bientôt' : (k.cahier ? 'Construis l’étape suivante' : 'Prépare le cahier')}</button>
+        {k.cahier && !k.cahierValide
+          ? <button className="mgc-primary" onClick={() => { setOpen(true); setCahierOpen(true) }}>Relire et valider le cahier</button>
+          : <button className="mgc-primary" disabled={!canSave || !!k.demande} onClick={() => saveConstruction(project, x => ({ ...x, demande: new Date().toISOString().slice(0, 16) }), 'Demande envoyée à l’Atelier.')}>
+          {k.demande ? 'Demandé · l’Atelier passe bientôt' : (k.cahier ? 'Construis l’étape suivante' : 'Prépare le cahier')}</button>}
       </div>
     </div>
     {open && <div className="atl-body">
       {k.note && <p className="atl-note">{k.note}</p>}
-      {k.cahier && <details className="atl-cahier">
-        <summary>Cahier de construction {k.cahierValide ? '· validé' : '· à relire'}</summary>
+      {k.cahier && <details className="atl-cahier" open={cahierOpen || !k.cahierValide} onToggle={ev => setCahierOpen(ev.currentTarget.open)}>
+        <summary>Cahier de construction {k.cahierValide ? '· validé' : '· à relire puis valider'}</summary>
         <div className="atl-text">{k.cahier}</div>
-        {!k.cahierValide && <button disabled={!canSave} onClick={() => saveConstruction(project, x => ({ ...x, cahierValide: true }), 'Cahier validé.')}>Valider le cahier</button>}
+        {!k.cahierValide && <div className="atl-actions">
+          <button className="mgc-primary" disabled={!canSave} onClick={() => saveConstruction(project, x => ({ ...x, cahierValide: true }), 'Cahier validé. Tu peux lancer la construction.')}>Valider le cahier</button>
+          <span className="mgc-muted">Une fois validé, le bouton « Construis l’étape suivante » apparaît en haut du bloc.</span>
+        </div>}
       </details>}
       {k.etapes.length > 0 && <ol className="atl-steps">{k.etapes.map(e => <li key={e.id} className={'atl-step s-' + e.etat}>
         <div className="mgc-between"><strong>{e.titre}</strong><span className={'mgc-badge ' + (e.etat === 'validee' ? 'ok' : e.etat === 'a_tester' || e.etat === 'a_corriger' ? 'warn' : '')}>{ETAPE_LABEL[e.etat]}</span></div>
