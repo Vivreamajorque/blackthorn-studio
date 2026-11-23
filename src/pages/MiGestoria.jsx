@@ -14,6 +14,7 @@ import { contributionInputs } from '../lib/gestoria-quarter-estimates.mjs'
 import { dossierFor, isComplete } from '../lib/gestoria-dashboard.mjs'
 import { useGestoriaWorkspace } from '../lib/gestoria-workspace'
 import { useCrm } from '../lib/gestoria-crm'
+import AlfredChat from '../components/AlfredChat'
 import GestoriaClients from './GestoriaClients'
 import GestoriaProspection from './GestoriaProspection'
 import GestoriaPilotage from './GestoriaPilotage'
@@ -488,5 +489,6 @@ export default function MiGestoria() {
       {feedback?.scope === scope && <p role="status" style={muted}>{feedback.text}</p>}
     </section>
     </>}
+    <AlfredChat />
   </main>
 }

@@ -74,6 +74,14 @@ export function useVersionedStore(path, emptyData) {
     return () => controller.abort()
   }, [request])
 
+  // Alfred (la bulle de discussion) a modifié le QG : on recharge en silence.
+  useEffect(() => {
+    if (path !== '/api/gestoria-crm') return
+    const refresh = () => setRequest(r => r + 1)
+    window.addEventListener('qg-crm-change', refresh)
+    return () => window.removeEventListener('qg-crm-change', refresh)
+  }, [path])
+
   async function save(update, message = 'Enregistré.') {
     if (!state || pending.current) return false
     pending.current = true

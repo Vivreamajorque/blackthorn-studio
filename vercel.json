@@ -66,6 +66,10 @@
   "functions": {
     "api/gestoria-mcp.js": {
       "includeFiles": "src/lib/gestoria-matrice.mjs"
+    },
+    "api/gestoria-alfred.js": {
+      "includeFiles": "src/lib/gestoria-matrice.mjs",
+      "maxDuration": 60
     }
   }
 }
