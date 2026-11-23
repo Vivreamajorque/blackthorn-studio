@@ -100,7 +100,7 @@ function App() {
   if (status === 'connected' && connectRequest) return <GestoriaConnect request={connectRequest} onDone={() => setConnectRequest(null)} />
   if (status === 'connected') return <>
     <header className="app-header">
-      <strong className="app-brand"><img src="/qg-icon.svg" alt="" width="34" height="34" /> Le QG</strong>
+      <strong className="app-brand"><img src="/qg-icon-96.png" alt="" width="34" height="34" /> Le QG</strong>
       <button onClick={logout} disabled={busy}>Se déconnecter</button>
     </header>
     {feedback && <p className="auth-feedback" role="alert">{feedback.text}</p>}
@@ -108,7 +108,7 @@ function App() {
   </>
 
   return <main className="login">
-    <img src="/qg-icon.svg" alt="" width="72" height="72" style={{ borderRadius: 18 }} />
+    <img src="/qg-icon-192.png" alt="" width="72" height="72" />
     <p className="eyebrow">Mon espace privé</p>
     <h1>Le QG</h1>
     <p>Ton pilotage, tes clients, ta prospection et ta compta (avec le dossier Blackthorn Tattoo), au même endroit.</p>
