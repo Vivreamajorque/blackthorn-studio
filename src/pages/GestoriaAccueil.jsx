@@ -27,7 +27,7 @@ function useActions(crm, saveCrm, today) {
     done: item => item.auto
       ? saveAlfred(a => ({ ...a, ecartes: { ...a.ecartes, [item.id]: today } }), 'C’est noté.')
       : saveCrm(d => ({ ...d, taches: d.taches.map(t => t.id === item.id ? { ...t, fait: true, faitLe: today } : t) }), 'Bravo, c’est fait.'),
-    add: (titre, q, echeance = '') => saveCrm(d => ({ ...d, taches: [...(d.taches || []), { id: uid('tac'), titre, quadrant: q, source: 'moi', creeLe: today, echeance }] })),
+    add: (titre, q, echeance = '', domaine = '') => saveCrm(d => ({ ...d, taches: [...(d.taches || []), { id: uid('tac'), titre, quadrant: q, source: 'moi', creeLe: today, echeance, domaine }] })),
   }
 }
 
@@ -64,6 +64,96 @@ function Item({ i, canSave, act, onGo }) {
     <select aria-label="Déplacer" value={i.quadrant} disabled={!canSave} onChange={e => act.move(i, e.target.value)}>
       {QUADRANTS.map(x => <option key={x.id} value={x.id}>{x.titre}</option>)}</select>
   </li>
+}
+
+// Le tableau de bord en cartes : une carte par domaine, avec le mot d'Alfred et ce qu'il y a à faire.
+export const CARTES = [
+  { id: 'clients', nom: 'Clients', couleur: '#2e7d72', agents: ['clients'], go: 'clients', page: 'Ouvrir mes clients' },
+  { id: 'atelier', nom: 'Atelier', couleur: '#103c42', agents: ['atelier'], go: 'clients', page: 'Ouvrir les projets' },
+  { id: 'messages', nom: 'Messages', couleur: '#24527a', agents: ['courrier', 'plateformes'], go: null },
+  { id: 'compta', nom: 'Compta', couleur: '#b5651d', agents: ['compta'], go: 'finance', page: 'Ouvrir la compta' },
+  { id: 'developper', nom: 'Développer', couleur: '#7a4bb0', agents: ['commercial', 'communication'], go: 'prospection', page: 'Ouvrir Développer' },
+  { id: 'livementor', nom: 'LiveMentor', couleur: '#c0457a', agents: ['plateformes'], go: 'livementor', page: 'Ouvrir LiveMentor' },
+  { id: 'perso', nom: 'Perso et divers', couleur: '#6b7a3a', agents: [], go: null },
+]
+export const carteOf = i => {
+  if (String(i.id).startsWith('auto:atelier')) return 'atelier'
+  const d = i.domaine
+  if (d === 'commercial' || d === 'communication') return 'developper'
+  if (['clients', 'compta', 'messages', 'livementor', 'atelier'].includes(d)) return d
+  return 'perso'
+}
+
+function Cartes({ m, crm, saveCrm, canSave, act, onGo, msgs, projets, today }) {
+  const [open, setOpen] = useState(null)
+  const al = crm.alfred || {}
+  const cards = CARTES.map(c => {
+    const mine = i => c.id !== 'messages' && carteOf(i) === c.id // les messages ont leur propre liste
+    const now = m.faire.filter(mine)
+    const next = [...m.planifier, ...m.deleguer].filter(mine)
+    const later = m.plus_tard.filter(mine)
+    const ag = c.agents.map(a => crm.agents?.[a]).filter(Boolean)
+    const mot = al.cartes?.[c.id] || ag.map(g => g.attente).filter(Boolean)[0] || ag.map(g => g.resume).filter(Boolean)[0] || ''
+    const count = c.id === 'messages' ? msgs.length : now.length + next.length
+    return { ...c, now, next, later, mot, count, urgent: c.id === 'messages' ? msgs.filter(x => x.source === 'client').length : now.length }
+  })
+  const ordre = [...cards].sort((a, b) => (b.urgent - a.urgent) || (b.count - a.count))
+  const card = cards.find(c => c.id === open)
+  useEffect(() => {
+    if (!open) return
+    const k = e => { if (e.key === 'Escape') setOpen(null) }
+    window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k)
+  }, [open])
+  const effacer = x => saveCrm(d => ({ ...d, messages: { ...d.messages, items: (d.messages?.items || []).map(y => y.id === x.id ? { ...y, vu: true } : y) } }), 'Message effacé.')
+  return <>
+    <section className="cx-grid" aria-label="Tes domaines">
+      {ordre.map(c => <button key={c.id} className={'cx-card' + (c.count ? '' : ' calme') + (c.urgent ? ' chaud' : '')} style={{ '--c': c.couleur }} onClick={() => setOpen(c.id)}>
+        <span className="cx-top"><span className="cx-pastille" aria-hidden="true">{c.nom[0]}</span>
+          <span className="cx-count">{c.count ? c.count + (c.id === 'messages' ? ' non lu' + (c.count > 1 ? 's' : '') : ' à faire') : '✓'}</span></span>
+        <strong>{c.nom}</strong>
+        <span className="cx-mot">{c.count ? (c.mot || (c.now[0] || c.next[0] || {}).titre || (c.id === 'messages' && msgs[0] ? msgs[0].de + ' · ' + msgs[0].sujet : '')) : 'Rien à faire ici. Tranquille.'}</span>
+      </button>)}
+    </section>
+
+    {card && <div className="cx-veil" onClick={e => { if (e.target === e.currentTarget) setOpen(null) }}>
+      <section className="cx-panel" role="dialog" aria-modal="true" aria-label={card.nom} style={{ '--c': card.couleur }}>
+        <header><span className="cx-pastille" aria-hidden="true">{card.nom[0]}</span><h2>{card.nom}</h2>
+          <button className="cx-close" onClick={() => setOpen(null)} aria-label="Fermer">×</button></header>
+        <div className="cx-alfred"><span className="acc-avatar">A</span><p>{card.mot || (card.count ? 'Voici ce qui t’attend ici. Commence par le premier.' : 'Rien à faire ici pour l’instant. Je te préviens dès que ça bouge.')}</p></div>
+
+        {card.id === 'messages' && (msgs.length === 0 ? <p className="acc-empty">Tout est lu.</p> :
+          <ul className="cx-msgs">{msgs.map(x => <li key={x.id}>
+            <div><span className={'acc-src s-' + x.source}>{SRC[x.source]}</span> <strong>{x.sujet}</strong>
+              <small>{x.de}{x.date ? ' · ' + ago(x.date) : ''}</small>
+              {x.apercu && <p>{x.apercu}</p>}</div>
+            <div className="cx-msg-act">{x.lien && <a href={x.lien} target="_blank" rel="noreferrer">Ouvrir</a>}
+              <button disabled={!canSave} onClick={() => effacer(x)}>Effacer</button></div>
+          </li>)}</ul>)}
+
+        {card.now.length > 0 && <><h3>Maintenant</h3><ul className="mj-list">{card.now.map(i => <Item key={i.id} i={i} canSave={canSave} act={act} onGo={onGo} />)}</ul></>}
+        {card.next.length > 0 && <><h3>Ensuite</h3><ul className="mj-list">{card.next.map(i => <Item key={i.id} i={i} canSave={canSave} act={act} onGo={onGo} />)}</ul></>}
+        {card.later.length > 0 && <details className="mj-more"><summary>Plus tard ({card.later.length})</summary>
+          <ul className="mj-list">{card.later.map(i => <Item key={i.id} i={i} canSave={canSave} act={act} onGo={onGo} />)}</ul></details>}
+
+        {card.id === 'clients' && projets.length > 0 && <><h3>Mes projets</h3>
+          <ul className="mj-projects">{projets.map(({ p, c, a, pct }) => <li key={p.id} onClick={() => { setOpen(null); onGo('clients', c.id) }} role="button">
+            <div className="mgc-between"><strong>{c.nom}</strong>{pct !== null && <small>{pct} %</small>}</div><small>{p.nom}</small>
+            {pct !== null && <i className="acc-meter"><i style={{ width: pct + '%' }} /></i>}
+            {a && <small className="mj-next">Prochaine action : {a.label}</small>}</li>)}</ul></>}
+
+        <AjoutCarte carte={card.id} canSave={canSave} act={act} today={today} />
+        {card.go && <button className="cx-go" onClick={() => { setOpen(null); onGo(card.go) }}>{card.page}</button>}
+      </section>
+    </div>}
+  </>
+}
+
+const DOMAINE = { clients: 'clients', atelier: 'atelier', messages: 'messages', compta: 'compta', developper: 'commercial', livementor: 'livementor', perso: 'perso' }
+function AjoutCarte({ carte, canSave, act, today }) {
+  const [t, setT] = useState('')
+  const ok = () => { const x = t.trim(); if (x) act.add(x, 'faire', today, DOMAINE[carte]).then(r => r !== false && setT('')) }
+  return <div className="acc-add cx-add"><input placeholder="Ajouter une tâche ici" value={t} onChange={e => setT(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') ok() }} />
+    <button disabled={!canSave || !t.trim()} onClick={ok}>OK</button></div>
 }
 
 export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }) {
@@ -138,39 +228,7 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
 
     {events !== null && <DayRibbon events={todayEvents} today={today} />}
 
-    <div className="mj-cols">
-      <section className="acc-card mj-today">
-        <header><h2>À faire maintenant</h2><small>{urgent.length ? urgent.length + ' urgent' + (urgent.length > 1 ? 's' : '') : ''}</small></header>
-        {urgent.length === 0 ? <p className="acc-empty">Rien d’urgent. Profites-en pour avancer un projet.</p> :
-          <ul className="mj-list">{urgent.slice(0, 7).map(i => <Item key={i.id} i={i} canSave={canSave} act={act} onGo={onGo} />)}</ul>}
-        {urgent.length > 7 && <p className="acc-empty">+ {urgent.length - 7} autres</p>}
-        <div className="acc-add" style={{ marginTop: 8 }}><input placeholder="Ajouter une tâche pour aujourd’hui" value={newTask} onChange={e => setNewTask(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') addToday() }} />
-          <button disabled={!canSave || !newTask.trim()} onClick={addToday}>OK</button></div>
-      </section>
-
-      <div className="mj-side">
-        <section className="acc-card">
-          <header><h2>Messages{msgs.length ? ' · ' + msgs.length : ''}</h2>{crm.messages?.majLe && <small>relevé {ago(crm.messages.majLe)}</small>}</header>
-          {msgs.length === 0 ? <p className="acc-empty">{crm.messages?.majLe ? 'Tout est lu.' : 'Premier relevé ce matin à 8 h 53.'}</p> :
-            <ul className="acc-msgs">{msgs.slice(0, 5).map(x => <li key={x.id}>
-              <span className={'acc-src s-' + x.source}>{SRC[x.source]}</span>
-              <div><strong>{x.sujet}</strong><small>{x.de}{x.date ? ' · ' + ago(x.date) : ''}</small></div>
-              {x.lien && <a href={x.lien} target="_blank" rel="noreferrer">Ouvrir</a>}</li>)}</ul>}
-        </section>
-        <section className="acc-card">
-          <header><h2>Mes projets</h2><button onClick={() => onGo('clients')}>Tous les clients</button></header>
-          {projets.length === 0 ? <p className="acc-empty">Aucun projet en cours.</p> :
-            <ul className="mj-projects">{projets.slice(0, 4).map(({ p, c, a, pct }) => <li key={p.id} className={a || p.prochainRdv ? '' : 'idle'} onClick={() => onGo('clients', c.id)} role="button">
-              <div className="mgc-between"><strong>{c.nom}</strong>{pct !== null && <small>{pct} %</small>}</div>
-              <small>{p.nom}</small>
-              {pct !== null && <i className="acc-meter"><i style={{ width: pct + '%' }} /></i>}
-              {(a || p.prochainRdv) && <small className="mj-next">{a ? 'Prochaine action : ' + a.label : 'RDV ' + dateCourte(p.prochainRdv)}</small>}
-            </li>)}</ul>}
-          {projets.length > 4 && <button className="mgc-link" onClick={() => onGo('clients')}>+ {projets.length - 4} autre{projets.length - 4 > 1 ? 's' : ''} projet{projets.length - 4 > 1 ? 's' : ''}</button>}
-        </section>
-      </div>
-    </div>
+    <Cartes m={m} crm={crm} saveCrm={saveCrm} canSave={canSave} act={act} onGo={onGo} msgs={msgs} projets={projets} today={today} />
 
     <section className="acc-card mj-week">
       <header><h2>Cette semaine</h2><button onClick={() => onGo('agenda')}>Ouvrir l’agenda</button></header>

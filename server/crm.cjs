@@ -146,6 +146,7 @@ function cleanAlfred(a) {
   const map = (o, f) => Object.fromEntries(Object.entries(o && typeof o === 'object' ? o : {}).slice(-200).filter(([k]) => /^[\w:.-]{1,120}$/.test(k)).map(([k, v]) => [k, f(v)]).filter(([, v]) => v))
   return {
     priorite: str(a.priorite, 300), brief: str(a.brief, 3000), rapport: str(a.rapport, 6000), majLe: str(a.majLe, 25),
+    cartes: Object.fromEntries(['clients', 'atelier', 'messages', 'compta', 'developper', 'livementor', 'perso'].map(k => [k, str(a.cartes && a.cartes[k], 600)]).filter(([, v]) => v)),
     inbox: (Array.isArray(a.inbox) ? a.inbox : []).filter(x => x && str(x.texte).trim()).slice(-100).map(x => ({
       id: id(x.id) || newId('inb'), date: str(x.date, 25), texte: str(x.texte, 3000).trim(), traite: x.traite === true, resultat: str(x.resultat, 500),
     })),

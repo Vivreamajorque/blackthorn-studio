@@ -226,6 +226,7 @@ const TOOLS = [
     traites: { type: 'array', items: object({ id: text, resultat: text }, ['id']), maxItems: 50 },
     taches: { type: 'array', maxItems: 30, items: object({ titre: text, detail: text, quadrant: { type: 'string', enum: ['faire', 'planifier', 'deleguer', 'plus_tard'] }, echeance: text, domaine: text }, ['titre', 'quadrant']) },
     priorite: text, brief: text, rapport: { type: 'string', description: 'Alfred seulement : rapport d’équipe (ce que chaque agent a fait et ce qu’il attend, messages importants). Texte court, une ligne par agent.' },
+    cartes: { type: 'object', description: 'Alfred seulement : le mot d’Alfred affiché sur chaque carte du tableau de bord (1 à 2 phrases : ce qu’Amely a à faire dans ce domaine, dans l’ordre). Clés : clients, atelier, messages, compta, developper, livementor, perso. Chaîne vide = rien à faire.', additionalProperties: { type: 'string' } },
     agent: object({ id: { type: 'string', enum: ['alfred', 'courrier', 'clients', 'commercial', 'communication', 'compta', 'plateformes', 'atelier'] }, resume: text, attente: text }, ['id']),
   }), false),
   tool('atelier_lire', 'Atelier (construction des outils clients) : lire les projets en construction avec leur carnet (cahier, étapes, liens de test, demande d’Amely), le devis du client (lignes = ce qui est vendu) et le cadrage du projet. Sans argument : tous les projets dont la construction est active.', object({ projet: text })),
@@ -384,7 +385,7 @@ async function callTool(name, args, blob) {
       const a = c.alfred || {}
       return { ...c, taches: [...(c.taches || []), ...taches],
         alfred: { ...a, inbox: (a.inbox || []).map(x => traites.has(x.id) ? { ...x, traite: true, resultat: String(traites.get(x.id)).slice(0, 500) } : x),
-          ...(args.priorite != null && { priorite: String(args.priorite).slice(0, 300) }), ...(args.brief != null && { brief: String(args.brief).slice(0, 3000) }), ...(args.rapport != null && { rapport: String(args.rapport).slice(0, 6000) }),
+          ...(args.priorite != null && { priorite: String(args.priorite).slice(0, 300) }), ...(args.brief != null && { brief: String(args.brief).slice(0, 3000) }), ...(args.rapport != null && { rapport: String(args.rapport).slice(0, 6000) }), ...(args.cartes && typeof args.cartes === 'object' && { cartes: { ...(a.cartes || {}), ...Object.fromEntries(Object.entries(args.cartes).map(([k, v]) => [k, String(v || '').slice(0, 600)])) } }),
           ...((!args.agent || args.agent.id === 'alfred') && { majLe: nowParis() }) },
         agents: { ...(c.agents || {}), ...((!args.agent || args.agent.id === 'alfred') && { alfred: { ...(c.agents?.alfred || {}), majLe: nowParis() } }),
           ...(args.agent && { [args.agent.id]: { majLe: nowParis(), resume: String(args.agent.resume || '').slice(0, 600), attente: String(args.agent.attente || '').slice(0, 400) } }) } }
