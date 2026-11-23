@@ -125,6 +125,7 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
         {priorite ? <p className="mj-prio"><span>{prioFaite ? 'Et maintenant' : 'Ta priorité du jour'}</span>{priorite}</p> : <p className="mj-prio calm"><span>Aujourd’hui</span>Rien d’urgent. Avance ce qui compte.</p>}
         {prioFaite && <p className="mj-brief">✓ Fait : {al.priorite}. Bravo.</p>}
         {al.brief && !prioFaite && <p className="mj-brief">{al.brief}</p>}
+        {al.rapport && <details className="mj-rapport"><summary>Le rapport d’Alfred{al.majLe ? ' · ' + al.majLe.slice(11, 16).replace(':', ' h ') : ''}</summary><div>{al.rapport}</div></details>}
       </div>
       <div className="mj-alfred">
         <div className="acc-alfred-head"><span className="acc-avatar">A</span><div><strong>Dis-le à Alfred</strong><small>{inbox.length ? inbox.length + ' en attente de classement' : 'Une idée, une tâche, un rendez-vous…'}</small></div></div>

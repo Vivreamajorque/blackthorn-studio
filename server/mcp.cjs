@@ -225,7 +225,7 @@ const TOOLS = [
   tool('alfred_classer', 'Alfred (ou un agent de l’équipe) range : marque des éléments de la boîte comme traités, crée des tâches dans la matrice (le détail peut contenir un brouillon de message à valider), et met à jour la fiche de l’agent. Alfred range sa boîte : marque des éléments comme traités, crée les tâches correspondantes dans la matrice, et peut écrire la priorité du jour, le brief du matin et l’état d’un agent. Ne touche jamais à la compta.', object({
     traites: { type: 'array', items: object({ id: text, resultat: text }, ['id']), maxItems: 50 },
     taches: { type: 'array', maxItems: 30, items: object({ titre: text, detail: text, quadrant: { type: 'string', enum: ['faire', 'planifier', 'deleguer', 'plus_tard'] }, echeance: text, domaine: text }, ['titre', 'quadrant']) },
-    priorite: text, brief: text,
+    priorite: text, brief: text, rapport: { type: 'string', description: 'Alfred seulement : rapport d’équipe (ce que chaque agent a fait et ce qu’il attend, messages importants). Texte court, une ligne par agent.' },
     agent: object({ id: { type: 'string', enum: ['alfred', 'courrier', 'clients', 'commercial', 'communication', 'compta', 'plateformes', 'atelier'] }, resume: text, attente: text }, ['id']),
   }), false),
   tool('atelier_lire', 'Atelier (construction des outils clients) : lire les projets en construction avec leur carnet (cahier, étapes, liens de test, demande d’Amely), le devis du client (lignes = ce qui est vendu) et le cadrage du projet. Sans argument : tous les projets dont la construction est active.', object({ projet: text })),
@@ -354,7 +354,10 @@ async function callTool(name, args, blob) {
       date: d, priorite_actuelle: crm.alfred?.priorite || null, dernier_passage_alfred: crm.alfred?.majLe || null,
       matrice: Object.fromEntries(QUADRANTS.map(q => [q.id, { titre: q.titre, elements: m[q.id].map(i => ({ id: i.id, titre: i.titre, detail: i.detail || '', auto: !!i.auto, agent: i.agent || null })) }])),
       boite_alfred_a_classer: (crm.alfred?.inbox || []).filter(x => !x.traite).map(x => ({ id: x.id, date: x.date, texte: x.texte })),
-      messages_non_lus: (crm.messages?.items || []).filter(x => !x.vu).map(x => ({ source: x.source, de: x.de, sujet: x.sujet, date: x.date })),
+      messages_non_lus: (crm.messages?.items || []).filter(x => !x.vu).map(x => ({ source: x.source, de: x.de, sujet: x.sujet, apercu: x.apercu || '', date: x.date })),
+      equipe: Object.fromEntries(Object.entries(crm.agents || {}).map(([k, v]) => [k, { dernier_passage: v.majLe, resume: v.resume, attente: v.attente }])),
+      canaux: Object.fromEntries(Object.entries(crm.canaux || {}).map(([k, v]) => [k, { statut: v.statut, lien: v.lien || '', action: v.action || '' }])),
+      taches_faites_aujourdhui: (crm.taches || []).filter(t => t.fait && t.faitLe === d).map(t => t.titre),
       chiffres: { facture_annee: euros(inv.filter(e => e.date.startsWith(d.slice(0, 4))).reduce((s, e) => s + base(e), 0)),
         a_encaisser: euros(inv.filter(e => e.payment !== 'paid').reduce((s, e) => s + e.amountCents, 0)) },
       agenda_qg_7_jours: qgEvents(crm, data.entries, d, to).map(e => ({ date: e.start, titre: e.title })),
@@ -381,7 +384,7 @@ async function callTool(name, args, blob) {
       const a = c.alfred || {}
       return { ...c, taches: [...(c.taches || []), ...taches],
         alfred: { ...a, inbox: (a.inbox || []).map(x => traites.has(x.id) ? { ...x, traite: true, resultat: String(traites.get(x.id)).slice(0, 500) } : x),
-          ...(args.priorite != null && { priorite: String(args.priorite).slice(0, 300) }), ...(args.brief != null && { brief: String(args.brief).slice(0, 3000) }),
+          ...(args.priorite != null && { priorite: String(args.priorite).slice(0, 300) }), ...(args.brief != null && { brief: String(args.brief).slice(0, 3000) }), ...(args.rapport != null && { rapport: String(args.rapport).slice(0, 6000) }),
           ...((!args.agent || args.agent.id === 'alfred') && { majLe: nowParis() }) },
         agents: { ...(c.agents || {}), ...((!args.agent || args.agent.id === 'alfred') && { alfred: { ...(c.agents?.alfred || {}), majLe: nowParis() } }),
           ...(args.agent && { [args.agent.id]: { majLe: nowParis(), resume: String(args.agent.resume || '').slice(0, 600), attente: String(args.agent.attente || '').slice(0, 400) } }) } }

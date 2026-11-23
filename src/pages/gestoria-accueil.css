@@ -293,3 +293,7 @@
   .mj-figures button { padding: 10px 12px !important; }
   .mj-figures strong { font-size: 1.15rem; }
 }
+
+.mj-rapport { margin-top: 10px; background: rgba(255,255,255,.6); border-radius: 14px; padding: 8px 14px; max-width: 640px; }
+.mj-rapport summary { cursor: pointer; font-weight: 700; min-height: 32px; display: flex; align-items: center; }
+.mj-rapport div { white-space: pre-line; padding: 4px 0 8px; line-height: 1.5; }
