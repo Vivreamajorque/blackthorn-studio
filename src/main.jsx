@@ -130,3 +130,19 @@ function App() {
 
 const espace = window.location.pathname.match(/^\/espace\/([A-Za-z0-9_-]{32})\/?$/)
 createRoot(document.getElementById('root')).render(espace ? <GestoriaEspace token={espace[1]} /> : <App />)
+
+// Sur l'écran d'accueil du téléphone, l'appli reste ouverte en arrière-plan et garde l'ancienne version.
+// Quand on y revient, on vérifie si une nouvelle version est en ligne et on recharge tout seul.
+const currentBundle = () => document.querySelector('script[type="module"][src*="/assets/"]')?.getAttribute('src') || ''
+let lastCheck = 0
+async function checkForUpdate() {
+  if (!import.meta.env.PROD || Date.now() - lastCheck < 60000) return
+  lastCheck = Date.now()
+  try {
+    const html = await (await fetch('/?v=' + Date.now(), { cache: 'no-store' })).text()
+    const next = html.match(/<script[^>]+type="module"[^>]+src="([^"]*\/assets\/[^"]+)"/)?.[1]
+    if (next && currentBundle() && next !== currentBundle()) window.location.reload()
+  } catch { /* hors ligne : on réessaiera au prochain retour */ }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate() })
+window.addEventListener('pageshow', event => { if (event.persisted) checkForUpdate() })
