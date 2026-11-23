@@ -162,3 +162,6 @@
 .j-alfred .alf, .j-rapport .alf, .cx-alfred .alf { box-shadow: 0 0 0 2px #fff; }
 @media (max-width: 640px) { .j-focus { padding-right: 18px; padding-top: 22px; } .j-focus-alfred { position: static; align-self: flex-end; margin: -6px 0 -6px; order: -1; } .j-focus-alfred .alf { width: 64px; height: 64px; } }
 .j-focus-alfred .alf { box-shadow: 0 0 0 3px rgba(159,211,199,.55); }
+
+.j .mj-facturer, .mj-facturer { background: #103c42; color: #fff !important; border: 0; border-radius: 999px; padding: 0 14px; min-height: 34px; font: inherit; font-weight: 700; font-size: .85rem; cursor: pointer; flex: none; }
+.mj-facturer:hover:not(:disabled) { background: #1b545b; }

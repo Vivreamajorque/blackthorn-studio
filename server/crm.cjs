@@ -40,6 +40,9 @@ function cleanLivementor(l) {
     tarifMoisCents: cents(l.tarifMoisCents) || 6510,
     releve: r && date(r.date) ? { date: date(r.date), montantCents: cents(r.montantCents), actifs: Math.max(0, Math.min(500, Math.round(Number(r.actifs) || 0))),
       apprenants: (Array.isArray(r.apprenants) ? r.apprenants : []).slice(0, 100).map(a => ({ nom: str(a.nom, 80), montantCents: cents(a.montantCents), jours: Math.max(0, Math.min(31, Math.round(Number(a.jours) || 0))) })) } : null,
+    // Mois terminé pas encore facturé, tel que LiveMentor l'affiche (« période terminée, envoie ta facture »).
+    aFacturer: l.aFacturer && /^\d{4}-\d{2}$/.test(String(l.aFacturer.mois || '')) && cents(l.aFacturer.montantCents) > 0
+      ? { mois: String(l.aFacturer.mois), montantCents: cents(l.aFacturer.montantCents) } : null,
   }
 }
 

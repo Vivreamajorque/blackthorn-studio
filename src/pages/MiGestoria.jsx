@@ -195,6 +195,7 @@ export default function MiGestoria() {
   const { data, personalStart, loadState, saving, feedback: saveFeedback, save, reload } = useGestoriaWorkspace()
   const crmState = useCrm()
   const [clientToOpen, setClientToOpen] = useState(null)
+  const [invoiceToOpen, setInvoiceToOpen] = useState(null)
   const canSave = loadState === 'ready' && !saving
   const [formFilter, setFormFilter] = useState('all')
   const [feedback, setFeedback] = useState(null)
@@ -384,7 +385,7 @@ export default function MiGestoria() {
     {['clients', 'prospection', 'pilotage', 'agenda', 'accueil', 'livementor', 'equipe'].includes(tab) && crmState.loadState === 'error' && <div role="alert"><p>Les fiches clients n’ont pas pu être chargées.</p><button onClick={crmState.reload}>Réessayer</button></div>}
     {['clients', 'prospection', 'pilotage', 'agenda', 'accueil', 'livementor', 'equipe'].includes(tab) && crmState.feedback && <div className="mg-save-feedback" role={crmState.feedback.error ? 'alert' : 'status'}><p>{crmState.feedback.text}</p></div>}
     {tab === 'clients' && loadState === 'ready' && crmState.loadState === 'ready' &&
-      <GestoriaClients key={clientToOpen || 'liste'} initialClient={clientToOpen} crm={crmState.crm} entries={data.entries} saveCrm={crmState.save} saveWorkspace={save}
+      <GestoriaClients key={(clientToOpen || 'liste') + (invoiceToOpen ? ':f' + JSON.stringify(invoiceToOpen) : '')} initialClient={clientToOpen} initialInvoice={invoiceToOpen} onInvoiceDone={() => setInvoiceToOpen(null)} crm={crmState.crm} entries={data.entries} saveCrm={crmState.save} saveWorkspace={save}
         canSave={canSave && !crmState.saving} saving={saving || crmState.saving}
         onFinance={() => openDossier('independent', 'finance')} />}
     {tab === 'agenda' && crmState.loadState === 'ready' &&
@@ -394,7 +395,7 @@ export default function MiGestoria() {
     {tab === 'equipe' && crmState.loadState === 'ready' && <GestoriaEquipe crm={crmState.crm} entries={data.entries} saveCrm={crmState.save} canSave={!crmState.saving} />}
     {tab === 'accueil' && loadState === 'ready' && crmState.loadState === 'ready' &&
       <GestoriaAccueil entries={data.entries} crm={crmState.crm} saveCrm={crmState.save} canSave={!crmState.saving}
-        onGo={(next, clientId) => { if (next === 'tasks') openDossier('independent', 'tasks', 'declarations', true); else if (next === 'finance') openDossier('independent', 'finance'); else if (next === 'livementor') setTab('livementor'); else { setClientToOpen(next === 'clients' && clientId ? clientId : null); setTab(next) } window.scrollTo(0, 0) }} />}
+        onGo={(next, clientId, facturer) => { if (next === 'tasks') openDossier('independent', 'tasks', 'declarations', true); else if (next === 'finance') openDossier('independent', 'finance'); else if (next === 'livementor') setTab('livementor'); else { setClientToOpen(next === 'clients' && clientId ? clientId : null); setInvoiceToOpen(next === 'clients' && clientId && facturer ? facturer : null); setTab(next) } window.scrollTo(0, 0) }} />}
     {tab === 'pilotage' && loadState === 'ready' && crmState.loadState === 'ready' &&
       <GestoriaPilotage entries={data.entries} crm={crmState.crm} year={year} saveCrm={crmState.save} canSave={!crmState.saving}
         studio={studio} onGo={next => { if (next === 'tasks') openDossier('independent', 'tasks', 'declarations', true); else if (next === 'blackthorn') openDossier('blackthorn', 'finance'); else { setClientToOpen(null); setTab(next) } window.scrollTo(0, 0) }} />}

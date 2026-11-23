@@ -50,12 +50,20 @@ export function autoItems({ entries = [], crm, today, lm = null }) {
     const prev = new Date(Date.parse(today.slice(0, 7) + '-01T12:00:00Z') - DAY).toISOString().slice(0, 7)
     const done = mine.some(e => e.kind === 'invoice' && e.source === 'livementor' && e.date >= today.slice(0, 7) + '-01') ||
       mine.some(e => e.kind === 'invoice' && /livementor/i.test(e.label || '') && e.date.slice(0, 7) === today.slice(0, 7))
-    if (!done) add('lm:' + prev, 'faire', 'Envoyer ta facture LiveMentor de ' + MOIS[Number(prev.slice(5, 7)) - 1], { detail: 'Le montant est sur ton tableau de facturation LiveMentor.', domaine: 'compta', go: 'clients' })
+    if (!done && !crm.livementor?.aFacturer) add('lm:' + prev, 'faire', 'Envoyer ta facture LiveMentor de ' + MOIS[Number(prev.slice(5, 7)) - 1], { detail: 'Le montant est sur ton tableau de facturation LiveMentor.', domaine: 'compta', go: 'clients' })
   }
   for (const e of (crm.echeances || []).filter(e => !e.factureId && e.date)) {
     const n = days(today, e.date), c = client(e.clientId)
-    if (n <= 3) add('ech:' + e.id, 'faire', 'Facturer ' + (c ? c.nom : '') + ' · ' + e.label, { detail: eur(e.montantCents) + ' · prévu le ' + fr(e.date), domaine: 'compta', go: 'clients', clientId: e.clientId })
-    else if (n <= 14) add('ech:' + e.id, 'planifier', 'Facturer ' + (c ? c.nom : '') + ' · ' + e.label, { detail: eur(e.montantCents) + ' · le ' + fr(e.date), echeance: e.date, domaine: 'compta', go: 'clients', clientId: e.clientId })
+    if (n <= 3) add('ech:' + e.id, 'faire', 'Facturer ' + (c ? c.nom : '') + ' · ' + e.label, { detail: eur(e.montantCents) + ' · prévu le ' + fr(e.date), domaine: 'compta', go: 'clients', clientId: e.clientId, facturer: { echeanceId: e.id } })
+    else if (n <= 14) add('ech:' + e.id, 'planifier', 'Facturer ' + (c ? c.nom : '') + ' · ' + e.label, { detail: eur(e.montantCents) + ' · le ' + fr(e.date), echeance: e.date, domaine: 'compta', go: 'clients', clientId: e.clientId, facturer: { echeanceId: e.id } })
+  }
+  // Mois LiveMentor terminé et pas encore facturé : prêt à facturer en un geste.
+  const lmf = crm.livementor?.aFacturer
+  const lmClient = crm.clients.find(c => c.source === 'livementor') || crm.clients.find(c => /livementor/i.test(c.nom))
+  if (lmf && lmClient) {
+    const moisNom = new Date(lmf.mois + '-15T12:00:00').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+    add('lmfact:' + lmf.mois, 'faire', 'Facturer LiveMentor · ' + moisNom, { detail: eur(lmf.montantCents) + ' HT · à envoyer avant le 16', domaine: 'livementor', go: 'clients', clientId: lmClient.id,
+      facturer: { label: 'Mentorat LiveMentor · ' + moisNom, montantCents: lmf.montantCents, lmMois: lmf.mois } })
   }
   for (const p of crm.projets) {
     const c = client(p.clientId)

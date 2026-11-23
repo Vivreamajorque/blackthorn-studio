@@ -245,13 +245,15 @@ function InvoiceForm({ client, project, projects, entries, emetteur, echeance, o
     }
     const detail = { regime: d.regime, irpf: Number(d.irpf) || 0, note: d.note, echeance: d.due,
       lignes: t.lines.map(l => ({ description: l.description, quantite: Number(l.qty) || 0, prixCents: toCents(l.price || 0) })) }
-    onCreate(entry, d.projetId, detail, echeance?.id).then(ok => ok && setCreated(true))
+    onCreate(entry, d.projetId, detail, echeance?.id, echeance?.lmMois).then(ok => ok && setCreated(true))
   }
 
   if (created) return <Dialog title={'Facture ' + d.reference + ' émise'} onClose={onClose}
     footer={<><button onClick={onClose}>Fermer</button><button className="mgc-primary" onClick={() => printInvoice(d, t, client, emetteur)}>Imprimer ou enregistrer en PDF</button></>}>
     <p>Elle est dans ton registre « Factures &amp; dépenses », en attente de paiement : {money(t.total)}.</p>
-    <p className="mgc-muted">Dans la fenêtre d’impression, choisis « Enregistrer en PDF » pour l’envoyer à {client.nom}.</p>
+    {client.source === 'livementor'
+      ? <p className="mgc-muted">Enregistre-la en PDF (« Imprimer », puis « Enregistrer en PDF ») et dépose-la sur ta page de facturation LiveMentor.</p>
+      : <p className="mgc-muted">Elle apparaît déjà dans l’espace de {client.nom.split(' ')[0]}, avec les coordonnées pour payer. Tu peux aussi l’enregistrer en PDF pour l’envoyer par e-mail.</p>}
   </Dialog>
 
 
@@ -624,11 +626,17 @@ function ProjectCard({ p, client, canSave, toggle, onEdit, onShared, onInvoice, 
   </section>
 }
 
-function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onBack, onFinance, saving }) {
+function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onBack, onFinance, saving, initialInvoice, onInvoiceDone }) {
   const [tab, setTab] = useState('projets')
   const [editClient, setEditClient] = useState(false)
   const [editProject, setEditProject] = useState(null)
-  const [invoiceFor, setInvoiceFor] = useState(null)
+  // Facturer en un geste : on arrive de Ma journée avec l'échéance (ou le mois LiveMentor) déjà choisie.
+  const [invoiceFor, setInvoiceFor] = useState(() => {
+    if (!initialInvoice) return null
+    if (initialInvoice.echeanceId) { const e = (crm.echeances || []).find(x => x.id === initialInvoice.echeanceId && !x.factureId); return e ? { echeance: e } : null }
+    if (initialInvoice.montantCents) return { echeance: { label: initialInvoice.label, montantCents: initialInvoice.montantCents, lmMois: initialInvoice.lmMois } }
+    return null
+  })
   const [editIndic, setEditIndic] = useState(false)
   const [editShared, setEditShared] = useState(null)
   const [copied, setCopied] = useState(false)
@@ -643,12 +651,13 @@ function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onB
   const toggle = (p, a) => saveCrm(data => ({ ...data, projets: data.projets.map(x => x.id !== p.id ? x : {
     ...x, actions: x.actions.map(y => y.id === a.id ? { ...y, fait: !y.fait, faitLe: !y.fait ? todayInSpain() : '' } : y) }) }), 'Action mise à jour.')
 
-  async function createInvoice(entry, projetId, detail, echeanceId) {
+  async function createInvoice(entry, projetId, detail, echeanceId, lmMois) {
     const ok = await saveWorkspace(workspace => ({ ...workspace, entries: [...workspace.entries, entry] }))
     if (!ok) return false
     await saveCrm(data => ({ ...data, liens: { ...data.liens, [entry.id]: { clientId: client.id, ...(projetId && { projetId }) } },
       factures: { ...data.factures, [entry.id]: detail },
       ...(echeanceId && { echeances: (data.echeances || []).map(e => e.id === echeanceId ? { ...e, factureId: entry.id } : e) }),
+      ...(lmMois && data.livementor?.aFacturer?.mois === lmMois && { livementor: { ...data.livementor, aFacturer: null } }),
       journal: [{ date: new Date().toISOString(), texte: 'Facture ' + entry.reference + ' émise pour ' + client.nom }, ...data.journal] }), 'Facture ajoutée au registre.')
     return true
   }
@@ -723,11 +732,11 @@ function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onB
     {editProject && <ProjectForm project={editProject} saving={saving} onClose={() => setEditProject(null)} onSave={saveProject}
       onDelete={id => saveCrm(data => ({ ...data, projets: data.projets.filter(p => p.id !== id) }), 'Projet supprimé.').then(ok => ok && setEditProject(null))} />}
     {invoiceFor && <InvoiceForm client={client} project={invoiceFor.project} echeance={invoiceFor.echeance} projects={projects} entries={entries} emetteur={crm.emetteur || {}}
-      saving={saving} onClose={() => setInvoiceFor(null)} onCreate={createInvoice} />}
+      saving={saving} onClose={() => { setInvoiceFor(null); onInvoiceDone?.() }} onCreate={createInvoice} />}
   </>
 }
 
-export default function GestoriaClients({ crm, entries, saveCrm, saveWorkspace, canSave, saving, onFinance, initialClient }) {
+export default function GestoriaClients({ crm, entries, saveCrm, saveWorkspace, canSave, saving, onFinance, initialClient, initialInvoice, onInvoiceDone }) {
   const [openId, setOpenId] = useState(initialClient || null)
   const [query, setQuery] = useState('')
   const [view, setView] = useState('actifs')
@@ -736,6 +745,7 @@ export default function GestoriaClients({ crm, entries, saveCrm, saveWorkspace, 
   const independent = useMemo(() => entries.filter(e => (e.entity || 'independent') === 'independent'), [entries])
   const open = crm.clients.find(c => c.id === openId)
   if (open) return <ClientPage client={open} crm={crm} entries={independent} saveCrm={saveCrm} saveWorkspace={saveWorkspace}
+    initialInvoice={open.id === initialClient ? initialInvoice : null} onInvoiceDone={onInvoiceDone}
     canSave={canSave} saving={saving} onBack={() => setOpenId(null)} onFinance={onFinance} />
 
   const list = crm.clients

@@ -63,6 +63,7 @@ function Item({ i, canSave, act, onGo }) {
       <strong>{i.titre}</strong>
       {(i.detail || agent || by) && <small className="acc-detail">{[i.detail, agent && '→ ' + agent, by && 'préparé par ' + by].filter(Boolean).join(' · ')}</small>}
     </div>
+    {i.facturer && <button className="mj-facturer" disabled={!canSave} onClick={() => onGo('clients', i.clientId, i.facturer)}>Facturer</button>}
     <select aria-label="Déplacer" value={i.quadrant} disabled={!canSave} onChange={e => act.move(i, e.target.value)}>
       {QUADRANTS.map(x => <option key={x.id} value={x.id}>{x.titre}</option>)}</select>
   </li>
@@ -240,7 +241,8 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
           {al.brief && !prioFaite && <p className="j-brief">{al.brief}</p>}
           {priorite && <div className="j-focus-act">
             <button className="j-btn-on" disabled={!canSave} onClick={prioDone}>C’est fait</button>
-            {prioItem && (prioItem.go || prioItem.lien) && <button className="j-btn-ghost" onClick={() => prioItem.lien ? window.open(prioItem.lien, '_blank', 'noopener') : onGo(prioItem.go, prioItem.clientId)}>Y aller</button>}
+            {prioItem?.facturer && <button className="j-btn-ghost" onClick={() => onGo('clients', prioItem.clientId, prioItem.facturer)}>Facturer maintenant</button>}
+            {prioItem && !prioItem.facturer && (prioItem.go || prioItem.lien) && <button className="j-btn-ghost" onClick={() => prioItem.lien ? window.open(prioItem.lien, '_blank', 'noopener') : onGo(prioItem.go, prioItem.clientId)}>Y aller</button>}
           </div>}
         </section>
 
