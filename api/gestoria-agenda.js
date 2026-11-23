@@ -29,7 +29,9 @@ module.exports = async function handler(req, res) {
       const from = dayAdd(today(), -31), to = dayAdd(today(), 400)
       res.setHeader('Content-Type', 'text/calendar; charset=utf-8')
       res.setHeader('Content-Disposition', 'inline; filename="le-qg.ics"')
-      return res.status(200).send(toIcs(qgEvents(crm, await entriesOf(blob), from, to)))
+      const own = (crm.agenda.importes || []).filter(e => e.source === 'Le QG' && e.debut.slice(0, 10) >= from && e.debut.slice(0, 10) <= to)
+        .map(e => ({ id: 'rdv-qg-' + e.id.replace(/[^A-Za-z0-9_-]/g, ''), type: 'perso', title: e.titre, start: e.debut, end: e.fin, allDay: e.journee }))
+      return res.status(200).send(toIcs([...qgEvents(crm, await entriesOf(blob), from, to), ...own]))
     }
 
     const user = await requireSession(req, res)
@@ -45,6 +47,10 @@ module.exports = async function handler(req, res) {
       try { await writeCrm(blob, crm, revision) } catch { /* une autre fenêtre vient d'enregistrer : le lien sera fixé au prochain passage */ }
     }
     const events = qgEvents(crm, await entriesOf(blob), from, to)
+    for (const e of crm.agenda.importes || []) {
+      if (e.debut.slice(0, 10) > to || (e.fin || e.debut).slice(0, 10) < from) continue
+      events.push({ id: 'imp-' + e.id, type: e.source === 'Le QG' ? 'perso' : 'entreprise', title: e.titre, start: e.debut, end: e.fin, allDay: e.journee, lieu: e.lieu, source: e.source })
+    }
     const sources = await Promise.all(crm.agenda.sources.map(async source => {
       try {
         const list = await fetchSource(source, from, to)
@@ -56,7 +62,7 @@ module.exports = async function handler(req, res) {
     }))
     events.sort((a, b) => a.start.localeCompare(b.start))
     return res.status(200).json({
-      from, to, events, sources,
+      from, to, events, sources, importesMaj: crm.agenda.importesMaj || '',
       feedUrl: appOrigin().origin + '/api/gestoria-agenda?feed=' + crm.agenda.feedToken,
     })
   } catch {

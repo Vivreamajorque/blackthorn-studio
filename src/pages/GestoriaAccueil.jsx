@@ -195,14 +195,14 @@ export function GestoriaEquipe({ crm, saveCrm, canSave }) {
   const inbox = (al.inbox || []).slice().reverse()
   const state = id => {
     const g = crm.agents?.[id]
-    if (id === 'alfred') return { on: !!(g?.majLe || al.majLe), last: g?.majLe || al.majLe, resume: g?.resume || (al.priorite ? 'Priorité du jour : ' + al.priorite : 'Premier passage demain à 7 h 43'), attente: g?.attente }
+    if (id === 'alfred') return { on: !!(g?.majLe || al.majLe), last: g?.majLe || al.majLe, resume: g?.resume || (al.priorite ? 'Priorité du jour : ' + al.priorite : 'Premier passage à 9 h'), attente: g?.attente }
     if (id === 'plateformes') {
       const last = [crm.livementor?.releve?.date, crm.messages?.majLe].filter(Boolean).sort().at(-1)
       return { on: !!last, last, resume: g?.resume || (crm.livementor?.releve ? crm.livementor.releve.actifs + ' apprenants actifs' : 'Relevés programmés'), attente: g?.attente }
     }
     return { on: !!g?.majLe, last: g?.majLe, resume: g?.resume || (id === 'courrier' ? 'Démarre quand ta boîte pro existe' : 'Premier passage programmé'), attente: g?.attente }
   }
-  const SCHEDULE = { alfred: 'Chaque matin, 7 h 43', compta: 'Le lundi, 8 h 17', plateformes: 'Chaque jour, 8 h 47 + 3 relevés de messages', clients: 'Du lundi au vendredi, 9 h 13', commercial: 'Lundi et jeudi, 9 h 37', communication: 'Le lundi, 10 h 07', courrier: 'En attente' }
+  const SCHEDULE = { alfred: 'Matin, midi et soir · 9 h, 13 h, 19 h', compta: 'Le lundi, 8 h 17', plateformes: 'LiveMentor 8 h 47 · messages et agenda Decathlon 3 fois par jour', clients: 'Du lundi au vendredi, 9 h 13', commercial: 'Lundi et jeudi, 9 h 37', communication: 'Le lundi, 10 h 07', courrier: 'En attente' }
   return <div className="acc">
     <section className="acc-agents">
       <header><h2>Ton équipe</h2><small>Ils préparent, tu valides. Aucun n’envoie, ne publie ou ne touche à ta compta seul.</small></header>

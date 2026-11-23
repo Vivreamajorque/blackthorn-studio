@@ -8,7 +8,7 @@
   color: var(--encre); display: grid; gap: 18px;
 }
 .qg-board button { font-family: inherit; }
-.qg-hero-num, .qg-facts dd, .qg-legend b, .qg-now-next small, .qg-charts svg { font-variant-numeric: tabular-nums lining-nums; }
+.qg-facts dd, .qg-legend b, .qg-now-next small, .qg-charts svg { font-variant-numeric: tabular-nums lining-nums; }
 .qg-board :focus-visible { outline: 2px solid var(--mer); outline-offset: 2px; }
 .qg-board .qg-compta :focus-visible { outline-color: var(--mer-clair); }
 

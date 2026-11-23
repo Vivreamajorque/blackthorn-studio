@@ -11,6 +11,8 @@ export const TYPES = {
   compta: { label: 'Compta', color: '#d07a2e' },
   livementor: { label: 'LiveMentor', color: '#e87ba4' },
   google: { label: 'Google Agenda', color: '#7a6fd0' },
+  entreprise: { label: 'Agenda entreprise', color: '#8a5a3c' },
+  perso: { label: 'Mes rendez-vous', color: '#c0457a' },
 }
 const SOURCE_TYPES = { google: 'Agenda principal', livementor: 'LiveMentor', perso: 'Perso', autre: 'Autre' }
 const addDays = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10) }
@@ -20,16 +22,17 @@ const hour = e => e.allDay ? 'Journée' : e.start.slice(11, 16) + (e.end && e.en
 // Un événement sur plusieurs jours apparaît chaque jour qu'il couvre.
 const covers = (e, day) => e.start.slice(0, 10) === day || (e.end && e.start.slice(0, 10) < day && e.end.slice(0, 10) >= day && (e.allDay || e.end.slice(0, 10) > day || e.end.slice(11) > '00:00'))
 
-function Chip({ event }) {
+function Chip({ event, onOpen }) {
   const t = TYPES[event.type] || TYPES.google
-  return <div className="qga-event" style={{ borderLeftColor: t.color }}>
+  const own = event.type === 'perso' && onOpen
+  return <div className="qga-event" style={{ borderLeftColor: t.color, cursor: own ? 'pointer' : undefined }} onClick={own ? () => onOpen(event) : undefined} role={own ? 'button' : undefined} title={own ? 'Modifier ou supprimer' : undefined}>
     <span className="qga-time">{hour(event)}</span>
     <span className="qga-title">{event.title}</span>
-    <span className="qga-type"><i style={{ background: t.color }} />{t.label}{event.lieu ? ' · ' + event.lieu : ''}</span>
+    <span className="qga-type"><i style={{ background: t.color }} />{event.type === 'entreprise' && event.source ? event.source : t.label}{event.lieu ? ' · ' + event.lieu : ''}</span>
   </div>
 }
 
-function Settings({ crm, saveCrm, canSave, feedUrl, sources, onClose }) {
+function Settings({ crm, saveCrm, canSave, feedUrl, sources, importesMaj, onClose }) {
   const [form, setForm] = useState({ label: '', type: 'google', url: '' })
   const [error, setError] = useState('')
   const okUrl = /^(https|webcal):\/\/(calendar\.google\.com|outlook\.live\.com|outlook\.office365\.com|p\d+-caldav\.icloud\.com)\//i.test(form.url.trim())
@@ -67,6 +70,11 @@ function Settings({ crm, saveCrm, canSave, feedUrl, sources, onClose }) {
         <button className="mgc-primary" disabled={!canSave || !form.url.trim()} onClick={add}>Relier cet agenda</button>
       </section>
       <section style={{ marginTop: 18 }}>
+        <h3>Ton agenda d’entreprise (sans adresse iCal)</h3>
+        <p className="mgc-muted">Certaines entreprises bloquent l’adresse secrète iCal. Ton agenda Decathlon est déjà visible depuis ton Google Agenda : un agent le recopie dans le QG trois fois par jour (vers 8 h 40, 12 h 40 et 18 h 40). Rien à coller ici.</p>
+        <p className="mgc-muted">{importesMaj ? 'Dernière copie : ' + importesMaj.replace('T', ' à ') : 'Première copie au prochain passage de l’agent.'}</p>
+      </section>
+      <section style={{ marginTop: 18 }}>
         <h3>2. Le QG dans ton Google Agenda (et sur ton téléphone)</h3>
         <p className="mgc-muted">Échéances fiscales, rendez-vous des projets, relances de prospects et paiements attendus apparaîtront dans Google Agenda, dans un agenda « Le QG ».</p>
         {feedUrl ? <div className="mgc-row">
@@ -85,6 +93,50 @@ function Settings({ crm, saveCrm, canSave, feedUrl, sources, onClose }) {
   </Dialog>
 }
 
+// Rendez-vous créés dans le QG : ils vont aussi dans Google Agenda (et sur le téléphone) via l'agenda « Le QG ».
+function RdvForm({ initial, saveCrm, canSave, onClose }) {
+  const editing = initial && initial.id
+  const [f, setF] = useState(() => editing
+    ? { titre: initial.title, date: initial.start.slice(0, 10), debut: initial.allDay ? '' : initial.start.slice(11, 16), fin: initial.allDay || !initial.end ? '' : initial.end.slice(11, 16), journee: initial.allDay, lieu: initial.lieu || '' }
+    : { titre: '', date: initial?.date || todayInSpain(), debut: '09:00', fin: '10:00', journee: false, lieu: '' })
+  const [error, setError] = useState('')
+  const set = k => e => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value })
+  const rawId = editing ? initial.id.replace(/^imp-/, '') : ''
+  async function save() {
+    setError('')
+    if (!f.titre.trim()) return setError('Donne un titre au rendez-vous.')
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(f.date)) return setError('Choisis une date.')
+    if (!f.journee && !/^\d{2}:\d{2}$/.test(f.debut)) return setError('Indique l’heure de début, ou coche « Toute la journée ».')
+    if (!f.journee && f.fin && f.fin <= f.debut) return setError('L’heure de fin doit être après l’heure de début.')
+    const ev = { id: rawId || 'Le QG|' + uid('rdv'), source: 'Le QG', titre: f.titre.trim(), lieu: f.lieu.trim(),
+      debut: f.journee ? f.date : f.date + 'T' + f.debut, fin: f.journee || !f.fin ? '' : f.date + 'T' + f.fin, journee: f.journee }
+    const ok = await saveCrm(data => ({ ...data, agenda: { ...data.agenda, importes: [...(data.agenda.importes || []).filter(x => x.id !== ev.id), ev] } }), editing ? 'Rendez-vous modifié.' : 'Rendez-vous ajouté.')
+    if (ok) onClose(true)
+  }
+  async function remove() {
+    if (!window.confirm('Supprimer ce rendez-vous du QG ?')) return
+    const ok = await saveCrm(data => ({ ...data, agenda: { ...data.agenda, importes: (data.agenda.importes || []).filter(x => x.id !== rawId) } }), 'Rendez-vous supprimé.')
+    if (ok) onClose(true)
+  }
+  return <Dialog title={editing ? 'Modifier le rendez-vous' : 'Nouveau rendez-vous'} onClose={() => onClose(false)}
+    footer={<>{editing && <button disabled={!canSave} onClick={remove}>Supprimer</button>}<button className="mgc-primary" disabled={!canSave} onClick={save}>{editing ? 'Enregistrer' : 'Ajouter'}</button></>}>
+    <div className="mgc-form">
+      <label>Titre<input autoFocus placeholder="ex. Visio avec Nisha" value={f.titre} onChange={set('titre')} /></label>
+      <div className="mgc-cols">
+        <label>Date<input type="date" value={f.date} onChange={set('date')} /></label>
+        <label className="mgc-check" style={{ alignSelf: 'end' }}><input type="checkbox" checked={f.journee} onChange={set('journee')} /> Toute la journée</label>
+      </div>
+      {!f.journee && <div className="mgc-cols">
+        <label>Début<input type="time" value={f.debut} onChange={set('debut')} /></label>
+        <label>Fin<input type="time" value={f.fin} onChange={set('fin')} /></label>
+      </div>}
+      <label>Lieu ou lien (facultatif)<input placeholder="ex. Google Meet, Campos…" value={f.lieu} onChange={set('lieu')} /></label>
+      <p className="mgc-muted">Il apparaît aussi dans ton Google Agenda et sur ton téléphone, dans l’agenda « Le QG » (mise à jour par Google plusieurs fois par jour).</p>
+      {error && <p className="mgc-error">{error}</p>}
+    </div>
+  </Dialog>
+}
+
 export default function GestoriaAgenda({ crm, saveCrm, canSave }) {
   const today = todayInSpain()
   const [view, setView] = useState('semaine')
@@ -93,6 +145,7 @@ export default function GestoriaAgenda({ crm, saveCrm, canSave }) {
   const [state, setState] = useState({ load: 'loading' })
   const [settings, setSettings] = useState(false)
   const [reload, setReload] = useState(0)
+  const [rdv, setRdv] = useState(null)
 
   const range = useMemo(() => {
     if (view === 'semaine') return { from: anchor, to: addDays(anchor, 6) }
@@ -127,7 +180,10 @@ export default function GestoriaAgenda({ crm, saveCrm, canSave }) {
       <div><p className="mg-section-label">PILOTER</p>
         <h1 style={{ margin: '.1em 0', fontSize: 'clamp(1.65rem, 4vw, 2.6rem)' }}>Agenda</h1>
         <p className="mgc-muted" style={{ margin: 0 }}>Tes rendez-vous Google, tes visios LiveMentor, tes clients, tes relances et tes échéances de compta, au même endroit.</p></div>
-      <button className="mgc-primary" onClick={() => setSettings(true)}>{crm.agenda?.sources.length ? 'Agendas reliés' : 'Relier Google Agenda'}</button>
+      <div className="mgc-row">
+        <button className="mgc-primary" disabled={!canSave} onClick={() => setRdv({})}>+ Rendez-vous</button>
+        <button onClick={() => setSettings(true)}>{crm.agenda?.sources.length ? 'Agendas reliés' : 'Relier Google Agenda'}</button>
+      </div>
     </div>
 
     {crm.agenda && crm.agenda.sources.length === 0 && <section className="mgc-panel mgc-note" style={{ background: '#f4ecd9' }}>
@@ -161,7 +217,7 @@ export default function GestoriaAgenda({ crm, saveCrm, canSave }) {
         const list = events.filter(e => covers(e, d))
         return <section key={d} className={'qga-day' + (d === today ? ' is-today' : '')}>
           <h3>{dayLabel(d)}{d === today && <span className="mgc-badge ok" style={{ marginLeft: 8 }}>Aujourd’hui</span>}</h3>
-          {list.length ? list.map(e => <Chip key={e.id + d} event={e} />) : <p className="mgc-muted">Rien de prévu.</p>}
+          {list.length ? list.map(e => <Chip key={e.id + d} event={e} onOpen={setRdv} />) : <p className="mgc-muted">Rien de prévu.</p>}
         </section>
       })}
     </div>}
@@ -175,12 +231,13 @@ export default function GestoriaAgenda({ crm, saveCrm, canSave }) {
           <button className="qga-num" onClick={() => { setAnchor(d); setView('semaine') }} aria-label={'Voir les 7 jours à partir du ' + dayLabel(d)}>{Number(d.slice(8))}</button>
           {list.slice(0, 3).map(e => { const t = TYPES[e.type] || TYPES.google
             return <div key={e.id + d} className="qga-mini" title={hour(e) + ' · ' + e.title + ' · ' + t.label}><i style={{ background: t.color }} />{e.allDay ? '' : e.start.slice(11, 16) + ' '}{e.title}</div> })}
-          {list.length > 3 && <button className="mgc-link qga-more" onClick={() => { setAnchor(d); setView('semaine') }}>+ {list.length - 3} autres</button>}
+          {list.length > 3 && <button className="mgc-link qga-more" onClick={() => { setAnchor(d); setView('semaine') }}>+ {list.length - 3} autre{list.length - 3 > 1 ? 's' : ''}</button>}
         </div>
       })}
     </div>}
 
+    {rdv && <RdvForm initial={rdv} saveCrm={saveCrm} canSave={canSave} onClose={changed => { setRdv(null); if (changed) setReload(r => r + 1) }} />}
     {settings && <Settings crm={crm} saveCrm={saveCrm} canSave={canSave} feedUrl={state.feedUrl} sources={state.sources || []}
-      onClose={() => { setSettings(false); setReload(r => r + 1) }} />}
+      importesMaj={state.importesMaj} onClose={() => { setSettings(false); setReload(r => r + 1) }} />}
   </>
 }

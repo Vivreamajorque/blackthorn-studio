@@ -177,6 +177,15 @@ function cleanEcheance(e) {
   }
 }
 
+const STAMP = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/
+function cleanImporte(x) {
+  if (!x || typeof x !== 'object') return null
+  const debut = str(x.debut, 16), fin = str(x.fin, 16), titre = str(x.titre, 200).trim()
+  if (!STAMP.test(debut) || !titre) return null
+  return { id: str(x.id, 160) || debut + '-' + titre.slice(0, 40), source: str(x.source, 60).trim() || 'Agenda entreprise', titre,
+    debut, fin: STAMP.test(fin) ? fin : '', journee: debut.length === 10, lieu: str(x.lieu, 200) }
+}
+
 function cleanCrm(data) {
   const d = data && typeof data === 'object' ? data : {}
   const clients = (Array.isArray(d.clients) ? d.clients : []).slice(0, 300).map(cleanClient)
@@ -220,6 +229,9 @@ function cleanCrm(data) {
       id: id(x && x.id) || newId('cal'), label: str(x && x.label, 60).trim() || 'Google Agenda',
       url: icalUrl(x && x.url), type: oneOf(x && x.type, ['google', 'livementor', 'perso', 'autre'], 'google'),
     })).filter(x => x.url),
+    // Agendas sans adresse iCal (ex. agenda d'entreprise) : événements recopiés par un agent via le connecteur.
+    importes: (Array.isArray(a.importes) ? a.importes : []).map(cleanImporte).filter(Boolean).slice(0, 800),
+    importesMaj: str(a.importesMaj, 20),
   }
   return {
     version: 1, emetteur, objectifs, clients, projets, liens, factures, devis, echeances, journal, canaux: cleanCanaux(d.canaux), agenda, livementor: cleanLivementor(d.livementor), messages: cleanMessages(d.messages), taches: cleanTaches(d.taches), alfred: cleanAlfred(d.alfred), agents: cleanAgents(d.agents),

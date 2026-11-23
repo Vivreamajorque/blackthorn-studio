@@ -228,6 +228,10 @@ const TOOLS = [
     priorite: text, brief: text,
     agent: object({ id: { type: 'string', enum: ['alfred', 'courrier', 'clients', 'commercial', 'communication', 'compta', 'plateformes'] }, resume: text, attente: text }, ['id']),
   }), false),
+  tool('agenda_importer', 'Recopier dans l’agenda du QG les événements d’un agenda qui n’a pas d’adresse iCal (ex. agenda Decathlon lu avec Google Agenda). Remplace tous les événements déjà importés de cette source entre du et au. Lecture seule ailleurs : ne touche ni aux clients ni à la compta.', object({
+    source: text, du: text, au: text,
+    evenements: { type: 'array', maxItems: 300, items: object({ id: text, titre: text, debut: { type: 'string', description: 'AAAA-MM-JJ (journée entière) ou AAAA-MM-JJTHH:MM, heure de Majorque' }, fin: text, lieu: text }, ['titre', 'debut']) },
+  }, ['source', 'du', 'au', 'evenements']), false),
   tool('alfred_terminer', 'Marquer une tâche de la matrice comme faite (par son id donné par alfred_point), à la demande d’Amely.', object({ id: text }, ['id']), false),
 ]
 
@@ -378,6 +382,19 @@ async function callTool(name, args, blob) {
           ...(args.agent && { [args.agent.id]: { majLe: nowParis(), resume: String(args.agent.resume || '').slice(0, 600), attente: String(args.agent.attente || '').slice(0, 400) } }) } }
     })
     return { classes: traites.size, taches_creees: taches.length }
+  }
+  if (name === 'agenda_importer') {
+    const src = String(args.source || '').trim().slice(0, 60)
+    if (!src || !/^\d{4}-\d{2}-\d{2}$/.test(args.du || '') || !/^\d{4}-\d{2}-\d{2}$/.test(args.au || '') || args.au < args.du) throw fail('Indique la source et une période du … au … (AAAA-MM-JJ).')
+    const STAMP = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/
+    const list = (args.evenements || []).filter(e => STAMP.test(String(e.debut || '').slice(0, 16))).map(e => ({ id: src + '|' + String(e.id || e.debut + e.titre).slice(0, 100), source: src,
+      titre: String(e.titre).slice(0, 200), debut: String(e.debut).slice(0, 16), fin: STAMP.test(String(e.fin || '').slice(0, 16)) ? String(e.fin).slice(0, 16) : '', lieu: String(e.lieu || '').slice(0, 200) }))
+    await updateCrm(blob, c => {
+      const ag = c.agenda || {}
+      const keep = (ag.importes || []).filter(e => e.source !== src || e.debut.slice(0, 10) < args.du || e.debut.slice(0, 10) > args.au)
+      return { ...c, agenda: { ...ag, importes: [...keep, ...list], importesMaj: nowParis() } }
+    })
+    return { importes: list.length, source: src, du: args.du, au: args.au }
   }
   if (name === 'alfred_terminer') {
     const d = today()

@@ -122,3 +122,4 @@ body { background: var(--qg-ecume); color: var(--qg-mer); font-family: 'Bricolag
   .mg-subtabs button { flex: 0 0 auto; }
   .mg-shell table { display: block; overflow-x: auto; }
 }
+.app-brand img { display: block; border-radius: 9px; }

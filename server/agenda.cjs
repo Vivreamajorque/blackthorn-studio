@@ -126,7 +126,7 @@ function toIcs(events) {
       const f = s => s.replace(/[-:]/g, '') + '00'
       lines.push('DTSTART;TZID=' + TZ + ':' + f(e.start), 'DTEND;TZID=' + TZ + ':' + f(e.end || e.start))
     }
-    lines.push('CATEGORIES:' + esc({ compta: 'Compta', client: 'Client', prospection: 'Prospection' }[e.type] || 'QG'), 'END:VEVENT')
+    lines.push('CATEGORIES:' + esc({ compta: 'Compta', client: 'Client', prospection: 'Prospection', perso: 'Rendez-vous' }[e.type] || 'QG'), 'END:VEVENT')
   }
   lines.push('END:VCALENDAR')
   return lines.map(fold).join('\r\n') + '\r\n'
