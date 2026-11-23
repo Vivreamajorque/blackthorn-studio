@@ -95,6 +95,8 @@ export function buildDocumentHtml({ kind, numero, date, due, serviceDate, validi
   }<tr><td><strong>Total à régler</strong></td><td></td><td class="n"><strong>${money(echeances.reduce((s, e) => s + e.montantCents, 0))}</strong></td></tr></tbody></table></div>` : ''
   const vatLine = regime === 'eu' && client.nif ? `<p><b>TVA du client :</b> ${esc(client.nif)}</p>` : ''
   const legalBlock = legal.es || vatLine || note ? `<div class="legal avoid">${vatLine}${legal.es ? `<p>${esc(legal.es)}</p><p class="muted">${esc(legal.fr)}</p>` : ''}${note ? `<p>${esc(note)}</p>` : ''}</div>` : ''
+  const devisPayment = isDevis ? `<div class="avoid"><h2>Modalités de règlement</h2><p>Chaque échéance fait l’objet d’une facture, payable par virement à réception.</p>${emetteur.iban ? `<div class="pay"><span>Virement</span><b>${esc(iban(emetteur.iban))}</b>
+    <span>Bénéficiaire</span><b>${esc(emetteur.nom)}</b><span>Référence</span><b>le numéro de la facture</b></div>` : ''}</div>` : ''
   const payment = !isDevis && emetteur.iban ? `<div class="avoid"><h2>Paiement <span class="es">· Pago</span></h2><div class="pay"><span>Virement</span><b>${esc(iban(emetteur.iban))}</b>
     <span>Bénéficiaire</span><b>${esc(emetteur.nom)}</b><span>Référence</span><b>${esc(numero)}</b></div></div>` : ''
   const title = isDevis ? 'Devis <span class="es">· Presupuesto</span>' : 'Facture <span class="es">· Factura</span>'
@@ -117,7 +119,7 @@ ${legalBlock}
 ${isDevis && perimetre.length ? `<div class="avoid"><h2>Périmètre</h2><ul>${perimetre.map(x => `<li>${esc(x)}</li>`).join('')}</ul><p class="muted">Tout ce qui n’est pas listé est chiffré séparément, après accord de la cliente.</p></div>` : ''}
 ${schedule}
 ${isDevis && outils ? `<div class="avoid"><h2>Frais des outils</h2><p>${nl(outils)}</p></div>` : ''}
-${payment}
+${payment}${devisPayment}
 ${isDevis ? `<div class="avoid"><h2>Bon pour accord</h2><p class="muted">En signant, la cliente accepte les prestations, les prix et les modalités de règlement de ce devis.</p>
 <div class="sig"><div>Nom et qualité</div><div>Date</div><div>Signature</div></div></div>` : ''}
 <footer>${esc(emetteur.nom)}${emetteur.nif ? ' · NIF ' + esc(emetteur.nif) : ''}${emetteur.email ? ' · ' + esc(emetteur.email) : ''}</footer>
