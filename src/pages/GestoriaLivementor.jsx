@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useLivementor, livementorEstimate, money, uid } from '../lib/gestoria-crm'
 import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
 import './gestoria-clients.css'
@@ -26,6 +26,19 @@ export default function GestoriaLivementor({ crm }) {
   const shown = useMemo(() => list.filter(a => !!a.archive === showArchive)
     .sort((a, b) => (a.prochain || '9999').localeCompare(b.prochain || '9999') || a.nom.localeCompare(b.nom)), [list, showArchive])
   const current = list.find(a => a.id === sel) || null
+  // Prochains rendez-vous lus dans l'agenda (RDV LiveMentor reconnus grâce à l'e-mail de la fiche).
+  const [rdvs, setRdvs] = useState({})
+  useEffect(() => {
+    const plus = new Date(Date.now() + 60 * 864e5).toISOString().slice(0, 10)
+    fetch('/api/gestoria-agenda?from=' + today + '&to=' + plus, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => {
+      if (!j) return
+      const now = new Date().toISOString().slice(0, 16)
+      const map = {}
+      for (const e of j.events || []) if (e.apprenantId && e.start >= now.slice(0, 10) && !map[e.apprenantId]) map[e.apprenantId] = e.start
+      setRdvs(map)
+    }).catch(() => {})
+  }, [today])
+  const rdvLabel = v => v ? d(v) + (v.length > 10 ? ' à ' + v.slice(11, 16) : '') : ''
   const e = livementorEstimate(crm?.livementor, today)
   const orals = list.filter(a => !a.archive && a.certification && a.certification >= today).sort((a, b) => a.certification.localeCompare(b.certification))
   const tasks = list.filter(a => !a.archive).reduce((s, a) => s + openTasks(a).length, 0)
@@ -64,27 +77,29 @@ export default function GestoriaLivementor({ crm }) {
         </div>
         {shown.length === 0 ? <p className="mgc-muted">{showArchive ? 'Aucune fiche archivée.' : 'Aucun apprenant. Ajoute le premier.'}</p> :
           shown.map(a => {
-            const late = a.prochain && a.prochain < today
+            const rdv = rdvs[a.id] || (a.prochain && a.prochain >= today ? a.prochain : '')
+            const oralPasse = a.certification && a.certification < today && a.statut === 'oral_prog'
             const n = openTasks(a).length
             return <button key={a.id} className={'lm-item' + (a.id === sel ? ' on' : '')} onClick={() => setSel(a.id)}>
               <span className="lm-avatar">{first(a.nom)[0]}</span>
               <span className="lm-item-main"><strong>{a.nom}</strong>
                 <small><span className={'lm-st st-' + (a.statut || '')}>{label(STATUTS, a.statut)}</span>
-                  {a.prochain && <span className={late ? 'late' : ''}> · RDV {d(a.prochain)}</span>}
-                  {a.certification && <span> · Oral {d(a.certification)}</span>}</small></span>
+                  {rdv && <span> · RDV {rdvLabel(rdv)}</span>}
+                  {a.certification && a.certification >= today && <span> · Oral {d(a.certification)}</span>}
+                  {oralPasse && <span className="late"> · oral passé, à mettre à jour</span>}</small></span>
               {n > 0 && <b className="lm-count" title="Tâches ouvertes">{n}</b>}
             </button>
           })}
       </aside>
       <main className="lm-fiche">
         {!current ? <div className="lm-empty"><p>Choisis un apprenant à gauche.</p><p className="mgc-muted">Tu y retrouves son diagnostic, son coaching, son journal de suivi et ses tâches.</p></div>
-          : <Fiche key={current.id} a={current} saving={store.saving} update={(p, m) => update(current.id, p, m)} today={today} />}
+          : <Fiche key={current.id} a={current} saving={store.saving} update={(p, m) => update(current.id, p, m)} today={today} rdvAuto={rdvs[current.id] ? rdvLabel(rdvs[current.id]) : ''} />}
       </main>
     </div>
   </div>
 }
 
-function Fiche({ a, saving, update, today }) {
+function Fiche({ a, saving, update, today, rdvAuto }) {
   const [tab, setTab] = useState('suivi')
   const [note, setNote] = useState('')
   const [task, setTask] = useState('')
@@ -113,8 +128,11 @@ function Fiche({ a, saving, update, today }) {
         {FORMATS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
       <label>Diagnostic<input type="date" value={a.diagnostic || ''} disabled={saving} onChange={ev => field('diagnostic', ev.target.value)} /></label>
       <label className={a.prochain && a.prochain < today ? 'late' : ''}>Prochain RDV<input type="date" value={a.prochain || ''} disabled={saving} onChange={ev => field('prochain', ev.target.value)} /></label>
-      <label>Oral de certification<input type="date" value={a.certification || ''} disabled={saving} onChange={ev => field('certification', ev.target.value)} /></label>
+      <label className={a.certification && a.certification < today && a.statut === 'oral_prog' ? 'late' : ''}>Oral de certification<input type="date" value={a.certification || ''} disabled={saving} onChange={ev => field('certification', ev.target.value)} /></label>
+      <label>E-mail (pour l’agenda)<input type="email" placeholder="adresse utilisée pour les RDV" defaultValue={a.email || ''} key={a.id + '-email'} disabled={saving} onBlur={ev => ev.target.value.trim() !== (a.email || '') && field('email', ev.target.value.trim())} /></label>
     </div>
+    {rdvAuto && <p className="mgc-muted" style={{ marginTop: 6 }}>Prochain rendez-vous dans ton agenda : <strong>{rdvAuto}</strong></p>}
+    {a.certification && a.certification < today && a.statut === 'oral_prog' && <p className="mg-error" style={{ marginTop: 6 }}>L’oral du {d(a.certification)} est passé : mets à jour le statut (certifié, à reprogrammer…).</p>}
 
     <div className="mgc-tabs" style={{ marginTop: 14 }}>
       {[['suivi', 'Suivi'], ['coaching', 'Coaching'], ['diagnostic', 'Diagnostic'], ['profil', 'Profil'], ['conduite', 'Ma conduite']].map(([k, l]) =>

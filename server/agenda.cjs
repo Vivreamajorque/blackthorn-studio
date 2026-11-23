@@ -67,8 +67,10 @@ function parseIcal(text, source, from, to) {
     const end = endTime ? (allDay ? endTime.toString().slice(0, 10) : stamp(endTime)) : ''
     const title = (event.summary || '(sans titre)').slice(0, 200)
     const livementor = /live\s*mentor/i.test(title + ' ' + (event.description || '') + ' ' + (event.location || ''))
+    // Invités (adresses e-mail) : servent à reconnaître l'apprenant LiveMentor d'un rendez-vous. Jamais renvoyés au navigateur.
+    const invites = event.component.getAllProperties('attendee').map(a => String(a.getFirstValue() || '').replace(/^mailto:/i, '').trim().toLowerCase()).filter(x => x.includes('@')).slice(0, 12)
     out.push({ id: source.id + '-' + event.uid + '-' + start, type: livementor ? 'livementor' : source.type === 'livementor' ? 'livementor' : 'google',
-      title, start, end: allDay && end ? dayAdd(end, -1) : end, allDay, lieu: (event.location || '').slice(0, 200), source: source.label })
+      title, start, end: allDay && end ? dayAdd(end, -1) : end, allDay, lieu: (event.location || '').slice(0, 200), source: source.label, invites })
   }
   for (const v of vevents) {
     const event = new ICAL.Event(v)
@@ -132,4 +134,21 @@ function toIcs(events) {
   return lines.map(fold).join('\r\n') + '\r\n'
 }
 
-module.exports = { qgEvents, parseIcal, fetchSource, toIcs, localStamp, dayAdd }
+// Met le nom de l'apprenant LiveMentor dans le titre du rendez-vous (« Benjamin Leroy · Rendez-vous de suivi »).
+const normEmail = e => String(e || '').trim().toLowerCase()
+function nommerLivementor(events, apprenants) {
+  const byEmail = new Map()
+  for (const a of apprenants || []) for (const e of String(a.email || '').split(/[\s,;]+/)) if (e.includes('@')) byEmail.set(normEmail(e), a)
+  for (const ev of events) {
+    const invites = ev.invites || []
+    delete ev.invites
+    if (ev.type !== 'livementor' || !invites.length) continue
+    const a = invites.map(e => byEmail.get(e)).find(Boolean)
+    if (a) { ev.title = a.nom + ' · ' + ev.title; ev.apprenantId = a.id; continue }
+    const autre = invites.find(e => !/amely\.attias@/.test(e))
+    if (autre) ev.title = ev.title + ' · ' + autre.split('@')[0] + ' (à relier à une fiche)'
+  }
+  return events
+}
+
+module.exports = { nommerLivementor, qgEvents, parseIcal, fetchSource, toIcs, localStamp, dayAdd }

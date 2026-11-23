@@ -1,7 +1,8 @@
 // Agenda du QG : vue combinée (connectée) et flux iCal d'abonnement pour Google Agenda (lien secret).
 const { requireSession, appOrigin } = require('../server/session.cjs')
 const { readCrm, writeCrm } = require('../server/crm.cjs')
-const { qgEvents, fetchSource, toIcs, dayAdd } = require('../server/agenda.cjs')
+const { qgEvents, fetchSource, toIcs, dayAdd, nommerLivementor } = require('../server/agenda.cjs')
+const { readLivementor } = require('../server/livementor.cjs')
 
 const validDay = d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && !isNaN(new Date(d))
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date())
@@ -60,6 +61,9 @@ module.exports = async function handler(req, res) {
         return { id: source.id, label: source.label, ok: false }
       }
     }))
+    let apprenants = []
+    try { apprenants = (await readLivementor(blob)).data.apprenants } catch { /* suivi LiveMentor illisible : titres d'origine */ }
+    nommerLivementor(events, apprenants)
     events.sort((a, b) => a.start.localeCompare(b.start))
     return res.status(200).json({
       from, to, events, sources, importesMaj: crm.agenda.importesMaj || '',
