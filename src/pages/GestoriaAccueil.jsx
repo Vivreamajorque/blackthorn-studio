@@ -315,7 +315,7 @@ export function GestoriaEquipe({ crm, saveCrm, canSave }) {
     }
     return { on: !!g?.majLe, last: g?.majLe, resume: g?.resume || (id === 'courrier' ? 'Démarre quand ta boîte pro existe' : 'Premier passage programmé'), attente: g?.attente }
   }
-  const SCHEDULE = { alfred: '9 h 07 · 13 h 07 · 19 h 07, juste après l’équipe', compta: 'Matin et soir', plateformes: 'Chaque matin', clients: 'Matin, midi et soir', commercial: 'Chaque matin', communication: 'Chaque matin', courrier: 'Matin, midi et soir', atelier: 'La nuit, et toutes les heures en journée si tu lui demandes' }
+  const SCHEDULE = { alfred: '8 h 07 · 13 h 07 · 19 h 07, juste après l’équipe', compta: 'Matin et soir', plateformes: 'Chaque matin', clients: 'Matin, midi et soir', commercial: 'Chaque matin', communication: 'Chaque matin', courrier: 'Matin, midi et soir', atelier: 'La nuit, et toutes les heures en journée si tu lui demandes' }
   const COULEUR = { alfred: '#103c42', clients: '#2e7d72', commercial: '#7a4bb0', communication: '#7a4bb0', compta: '#b5651d', plateformes: '#c0457a', courrier: '#24527a', atelier: '#103c42' }
   const chef = AGENTS.find(a => a.id === 'alfred')
   const s0 = state('alfred')
