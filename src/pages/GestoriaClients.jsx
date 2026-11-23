@@ -441,6 +441,33 @@ function AtelierPanel({ project, canSave, saveConstruction, defaultOpen = false 
 }
 
 function SharedSpaceForm({ project, onSave, onClose, saving }) {
+  // 3 créneaux libres trouvés dans l'agenda : jours de semaine, à l'heure habituelle des visios du projet, un par jour.
+  const [cherche, setCherche] = useState(false)
+  const [creneauxMsg, setCreneauxMsg] = useState('')
+  async function trouverCreneaux() {
+    setCherche(true); setCreneauxMsg('')
+    try {
+      const day = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10) }
+      const today = todayInSpain(), from = day(today, 1), to = day(today, 15)
+      const j = await fetch('/api/gestoria-agenda?from=' + from + '&to=' + to, { cache: 'no-store' }).then(r => r.ok ? r.json() : Promise.reject())
+      const busy = (j.events || []).filter(e => !e.allDay || /bloqu/i.test(e.title)).map(e => ({ s: e.allDay ? e.start.slice(0, 10) + 'T00:00' : e.start, e: e.allDay ? (e.end || e.start).slice(0, 10) + 'T23:59' : (e.end || e.start) }))
+      const habit = [...(p.creneaux || []).map(c => c.date), project.prochainRdv].filter(d => d && d.length > 10).map(d => d.slice(11, 16))
+      const heures = [...new Set([...habit.slice(-1), '10:00', '14:00', '18:30'])]
+      const add = (hm, m) => { const [h, mi] = hm.split(':').map(Number); const t = h * 60 + mi + m; return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0') }
+      const libre = (d, hm) => { const a = d + 'T' + add(hm, -15), b = d + 'T' + add(hm, 75); return !busy.some(x => x.s < b && x.e > a) }
+      const pris = new Set((p.creneaux || []).map(c => (c.date || '').slice(0, 10)))
+      const found = []
+      for (let n = 1; n <= 15 && found.length < 3; n++) {
+        const d = day(today, n), wd = new Date(d + 'T12:00:00Z').getUTCDay()
+        if (wd === 0 || wd === 6 || pris.has(d)) continue
+        const hm = heures.find(h => libre(d, h))
+        if (hm) { found.push(d + 'T' + hm); n++ } // un jour sur deux, pour étaler
+      }
+      if (!found.length) { setCreneauxMsg('Je n’ai pas trouvé de créneau libre dans les 15 prochains jours.'); return }
+      setP(x => ({ ...x, creneaux: [...x.creneaux, ...found.map(date => ({ id: uid('crn'), titre: x.creneaux.at(-1)?.titre || 'Point hebdo', date, lien: x.creneaux.at(-1)?.lien || '', reserve: false }))] }))
+      setCreneauxMsg(found.length + ' créneau' + (found.length > 1 ? 'x' : '') + ' ajouté' + (found.length > 1 ? 's' : '') + ' : ajuste-les si besoin, puis enregistre pour qu’ils s’affichent dans son espace.')
+    } catch { setCreneauxMsg('Ton agenda n’a pas pu être lu. Ajoute les créneaux à la main.') } finally { setCherche(false) }
+  }
   const [p, setP] = useState(() => ({ type: project.type || 'standard', brief: project.brief || [], creneaux: project.creneaux || [],
     questions: project.questions || [], lecons: project.lecons || [] }))
   const upd = (k, id, field, v) => setP(x => ({ ...x, [k]: x[k].map(r => r.id === id ? { ...r, [field]: v } : r) }))
@@ -469,7 +496,11 @@ function SharedSpaceForm({ project, onSave, onClose, saving }) {
         <input placeholder="Lien visio (https://…)" value={c.lien} onChange={e => upd('creneaux', c.id, 'lien', e.target.value)} />
         <span className={'mgc-badge ' + (c.reserve ? 'ok' : '')}>{c.reserve ? 'Réservé' : 'Libre'}</span>
         <button type="button" aria-label="Retirer" onClick={() => del('creneaux', c.id)}>×</button></div>)}
-      <button type="button" className="mgc-link" onClick={() => setP(x => ({ ...x, creneaux: [...x.creneaux, { id: uid('crn'), titre: x.creneaux.at(-1)?.titre || 'Point hebdo', date: '', lien: x.creneaux.at(-1)?.lien || '', reserve: false }] }))}>+ Proposer un créneau</button>
+      <div className="mgc-row" style={{ flexWrap: 'wrap', gap: 10 }}>
+        <button type="button" className="mgc-primary" disabled={cherche} onClick={trouverCreneaux}>{cherche ? 'Je regarde ton agenda…' : 'Trouver 3 créneaux libres dans mon agenda'}</button>
+        <button type="button" className="mgc-link" onClick={() => setP(x => ({ ...x, creneaux: [...x.creneaux, { id: uid('crn'), titre: x.creneaux.at(-1)?.titre || 'Point hebdo', date: '', lien: x.creneaux.at(-1)?.lien || '', reserve: false }] }))}>+ Ajouter un créneau à la main</button>
+      </div>
+      {creneauxMsg && <p className="mgc-muted">{creneauxMsg}</p>}
 
       <h4>Questions du client</h4>
       {p.questions.length === 0 ? <p className="mgc-muted">Aucune question.</p> : p.questions.slice().reverse().map(q => <div key={q.id} className="mgc-note-row">
