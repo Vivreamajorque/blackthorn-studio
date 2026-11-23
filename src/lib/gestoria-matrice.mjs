@@ -10,12 +10,12 @@ export const QUADRANTS = [
 
 export const AGENTS = [
   { id: 'alfred', nom: 'Alfred', role: 'Majordome et chef de cabinet', mission: 'Reçoit tout ce que tu lui donnes, le classe, remplit ta matrice et te donne ta priorité du jour.' },
-  { id: 'courrier', nom: 'Courrier', role: 'Tri des mails', mission: 'Trie ta boîte pro, résume et prépare des brouillons. N’envoie jamais rien seul.' },
+  { id: 'courrier', nom: 'Messages', role: 'Proton, Malt et Decathlon', mission: 'Relève tes mails et messages pro 3 fois par jour et les résume pour Alfred. N’envoie jamais rien.' },
   { id: 'clients', nom: 'Clients & projets', role: 'Suivi des clients', mission: 'Surveille les espaces partagés, prépare les comptes rendus, signale un client qui bloque.' },
   { id: 'commercial', nom: 'Prospection', role: 'Nouvelles pistes et relances', mission: 'Cherche des pistes qui collent à ton offre, prépare les premiers messages et les relances.' },
   { id: 'communication', nom: 'Communication', role: 'Contenus et canaux', mission: 'Prépare tes contenus de la semaine et te rappelle tes actions Instagram, LinkedIn, page web.' },
   { id: 'compta', nom: 'Compta & fiscal', role: 'Factures et déclarations', mission: 'Factures, dépenses, 303/130, alertes de trésorerie.' },
-  { id: 'plateformes', nom: 'Plateformes', role: 'LiveMentor et Malt', mission: 'Relève les gains LiveMentor et les messages Malt/LiveMentor.' },
+  { id: 'plateformes', nom: 'LiveMentor', role: 'Gains et apprenants', mission: 'Relève chaque matin tes gains LiveMentor.' },
   { id: 'atelier', nom: 'Atelier', role: 'Construction des outils clients', mission: 'Rédige le cahier de construction, puis construit une étape à la fois dans une version de test. Tu testes et tu valides.' },
 ]
 

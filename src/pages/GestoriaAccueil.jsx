@@ -4,6 +4,7 @@ import { todayInSpain } from '../lib/gestoria-calendar.mjs'
 import { QUADRANTS, AGENTS, matrice, dateCourte } from '../lib/gestoria-matrice.mjs'
 import '@fontsource-variable/bricolage-grotesque'
 import './gestoria-accueil.css'
+import './gestoria-journee.css'
 
 const DAY = 864e5
 const addDays = (d, n) => new Date(Date.parse(d + 'T12:00:00Z') + n * DAY).toISOString().slice(0, 10)
@@ -207,50 +208,89 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
   const give = () => { const t = note.trim(); if (t) act.give(t).then(ok => ok && setNote('')) }
   const addToday = () => { const t = newTask.trim(); if (t) act.add(t, 'faire', today).then(ok => ok && setNewTask('')) }
 
-  return <div className="acc mj">
-    <section className="mj-head">
-      <div>
-        <p className="acc-date">{new Date(today + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-        <h1>{hello()} Amely.</h1>
-        {priorite ? <p className="mj-prio"><span>{prioFaite ? 'Et maintenant' : 'Ta priorité du jour'}</span>{priorite}</p> : <p className="mj-prio calm"><span>Aujourd’hui</span>Rien d’urgent. Avance ce qui compte.</p>}
-        {prioFaite && <p className="mj-brief">✓ Fait : {al.priorite}. Bravo.</p>}
-        {al.brief && !prioFaite && <p className="mj-brief">{al.brief}</p>}
-        {al.rapport && <details className="mj-rapport"><summary>Le rapport d’Alfred{al.majLe ? ' · ' + al.majLe.slice(11, 16).replace(':', ' h ') : ''}</summary><div>{al.rapport}</div></details>}
+  const prioItem = prioFaite ? null : [...m.faire, ...m.planifier, ...m.deleguer].find(i => same(i.titre, priorite))
+  const prioDone = () => prioItem ? act.done(prioItem)
+    : saveCrm(d => ({ ...d, taches: [...(d.taches || []), { id: uid('tac'), titre: priorite, quadrant: 'faire', source: 'moi', creeLe: today, fait: true, faitLe: today }] }), 'Bravo, c’est fait.')
+  const nowHM = new Date().toTimeString().slice(0, 5)
+  const weekItems = upcomingDays.flatMap(d => upcoming[d].map(x => ({ d, x })))
+  const pct = Math.min(100, Math.round(billed2027 / goal * 100))
+
+  return <div className="j">
+    <header className="j-top">
+      <div className="j-hello">
+        <p className="j-date">{(d => d[0].toUpperCase() + d.slice(1))(new Date(today + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }))}</p>
+        <h1>{hello()} Amely</h1>
       </div>
-      <div className="mj-alfred">
-        <div className="acc-alfred-head"><span className="acc-avatar">A</span><div><strong>Dis-le à Alfred</strong><small>{inbox.length ? inbox.length + ' en attente de classement' : 'Une idée, une tâche, un rendez-vous…'}</small></div></div>
-        <div className="acc-give">
-          <textarea rows={2} placeholder="Je dois…" value={note} onChange={e => setNote(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) give() }} />
-          <button disabled={!canSave || !note.trim()} onClick={give}>Confier</button>
-        </div>
+      <nav className="j-kpis" aria-label="Chiffres clés">
+        <button onClick={() => onGo('pilotage')}><span>Facturé {year}</span><strong>{money(billed)}</strong></button>
+        <button onClick={() => onGo('pilotage')}><span>À venir</span><strong>{money(coming)}</strong></button>
+        <button onClick={() => onGo('finance')} className={due ? 'warn' : ''}><span>À encaisser</span><strong>{money(due)}</strong></button>
+        <button onClick={() => onGo('pilotage')} className="j-goal"><span>Objectif 2027</span><strong>{pct} %</strong><i aria-hidden="true"><i style={{ width: pct + '%' }} /></i></button>
+      </nav>
+    </header>
+
+    <div className="j-layout">
+      <div className="j-main">
+        <section className={'j-focus' + (priorite ? '' : ' calme')}>
+          <p className="j-label">{prioFaite ? 'Bravo, et maintenant' : priorite ? 'Ta priorité du jour' : 'Aujourd’hui'}</p>
+          <h2>{priorite || 'Rien d’urgent. Avance ce qui compte pour toi.'}</h2>
+          {prioFaite && <p className="j-done">✓ {al.priorite}</p>}
+          {al.brief && !prioFaite && <p className="j-brief">{al.brief}</p>}
+          {priorite && <div className="j-focus-act">
+            <button className="j-btn-on" disabled={!canSave} onClick={prioDone}>C’est fait</button>
+            {prioItem && (prioItem.go || prioItem.lien) && <button className="j-btn-ghost" onClick={() => prioItem.lien ? window.open(prioItem.lien, '_blank', 'noopener') : onGo(prioItem.go, prioItem.clientId)}>Y aller</button>}
+          </div>}
+        </section>
+
+        <form className="j-alfred" onSubmit={e => { e.preventDefault(); give() }}>
+          <span className="acc-avatar" aria-hidden="true">A</span>
+          <label className="j-sr" htmlFor="j-give">Dis-le à Alfred</label>
+          <input id="j-give" placeholder="Dis-le à Alfred : une idée, une tâche, un rendez-vous…" value={note} onChange={e => setNote(e.target.value)} />
+          <button disabled={!canSave || !note.trim()}>Confier</button>
+          {inbox.length > 0 && <small>{inbox.length} en attente de classement</small>}
+        </form>
+
+        <div className="j-section-head"><h2>Tes domaines</h2>{al.majLe && <small>Alfred est passé {ago(al.majLe)}</small>}</div>
+        <Cartes m={m} crm={crm} saveCrm={saveCrm} canSave={canSave} act={act} onGo={onGo} msgs={msgs} projets={projets} today={today} />
+
+        {al.rapport && <details className="j-rapport">
+          <summary><span className="acc-avatar" aria-hidden="true">A</span><span><strong>Le rapport d’Alfred</strong><small>ce que l’équipe a fait et ce qu’elle attend de toi</small></span></summary>
+          <ul>{al.rapport.split('\n').filter(l => l.trim()).map((l, k) => { const [t, ...r] = l.split(' : '); return <li key={k}>{r.length ? <><b>{t.replace(/^[-•]\s*/, '')}</b> {r.join(' : ')}</> : l}</li> })}</ul>
+        </details>}
       </div>
-    </section>
 
-    {events !== null && <DayRibbon events={todayEvents} today={today} />}
+      <aside className="j-side">
+        <section className="j-panel">
+          <header><h2>Aujourd’hui</h2><button onClick={() => onGo('agenda')}>Agenda</button></header>
+          {events === null ? <p className="acc-empty">Chargement…</p> : todayEvents.length === 0 ? <p className="acc-empty">Aucun rendez-vous. Journée libre pour avancer.</p> :
+            <ol className="j-tl">{todayEvents.map((e, k) => {
+              const passe = !e.allDay && (e.end || e.start).slice(11, 16) < nowHM
+              const showNow = !e.allDay && !passe && (k === 0 || (todayEvents[k - 1].allDay || (todayEvents[k - 1].end || todayEvents[k - 1].start).slice(11, 16) < nowHM))
+              return <React.Fragment key={e.id}>
+                {showNow && <li className="j-now" aria-label="Maintenant"><span>{nowHM}</span></li>}
+                <li className={'t-' + e.type + (passe ? ' passe' : '')}>
+                  <span className="j-h">{e.allDay ? 'Journée' : e.start.slice(11, 16)}</span>
+                  <span className="j-ev"><strong>{e.title}</strong>{e.lieu && !/^https?:/.test(e.lieu) && <small>{e.lieu}</small>}</span>
+                </li></React.Fragment>
+            })}</ol>}
+        </section>
 
-    <Cartes m={m} crm={crm} saveCrm={saveCrm} canSave={canSave} act={act} onGo={onGo} msgs={msgs} projets={projets} today={today} />
-
-    <section className="acc-card mj-week">
-      <header><h2>Cette semaine</h2><button onClick={() => onGo('agenda')}>Ouvrir l’agenda</button></header>
-      {upcomingDays.length === 0 ? <p className="acc-empty">Rien de daté cette semaine.</p> :
-        <div className="mj-days">{upcomingDays.map(d => <div key={d} className="acc-day">
-          <h3>{dayLabel(d, today)}</h3>
-          <ul>{upcoming[d].map((x, k) => x.kind === 'ev'
-            ? <li key={'e' + k}><i className={'t-' + x.e.type} /><span className="acc-hour">{x.e.allDay ? 'Journée' : x.e.start.slice(11, 16)}</span><span>{x.e.title}</span></li>
-            : <li key={'i' + k}><i className="t-task" /><span className="acc-hour">tâche</span><span>{x.i.titre}</span></li>)}</ul>
-        </div>)}</div>}
-      {later.length + m.plus_tard.length > 0 && <details className="mj-more">
-        <summary>{[later.length && later.length + ' autre' + (later.length > 1 ? 's' : '') + ' chose' + (later.length > 1 ? 's' : '') + ' à planifier ou à confier', m.plus_tard.length && m.plus_tard.length + ' pour plus tard'].filter(Boolean).join(' · ')}</summary>
-        <ul className="mj-list">{[...later, ...m.plus_tard].map(i => <Item key={i.id} i={i} canSave={canSave} act={act} onGo={onGo} />)}</ul>
-      </details>}
-    </section>
-
-    <section className="mj-figures" aria-label="Chiffres">
-      <button onClick={() => onGo('pilotage')}><span>Facturé {year}</span><strong>{money(billed)}</strong></button>
-      <button onClick={() => onGo('pilotage')}><span>À venir</span><strong>{money(coming)}</strong></button>
-      <button onClick={() => onGo('finance')} className={due ? 'warn' : ''}><span>À encaisser</span><strong>{money(due)}</strong></button>
-      <button onClick={() => onGo('pilotage')}><span>Objectif 2027</span><strong>{Math.round(billed2027 / goal * 100)} %</strong></button>
-    </section>
+        <section className="j-panel">
+          <header><h2>Cette semaine</h2></header>
+          {weekItems.length === 0 ? <p className="acc-empty">Rien de daté cette semaine.</p> :
+            <ul className="j-week">{upcomingDays.map(d => <li key={d}>
+              <span className="j-day">{(t => t[0].toUpperCase() + t.slice(1))(dayLabel(d, today))}</span>
+              <ul>{upcoming[d].map((x, k) => <li key={k} className={x.kind === 'ev' ? 't-' + x.e.type : 't-task'}>
+                <span className="j-h">{x.kind === 'ev' ? (x.e.allDay ? 'Journée' : x.e.start.slice(11, 16)) : 'Tâche'}</span>
+                <span>{x.kind === 'ev' ? x.e.title : x.i.titre}</span></li>)}</ul>
+            </li>)}</ul>}
+          {later.length + m.plus_tard.length > 0 && <details className="mj-more">
+            <summary>{later.length + m.plus_tard.length} autre{later.length + m.plus_tard.length > 1 ? 's' : ''} chose{later.length + m.plus_tard.length > 1 ? 's' : ''} sans date</summary>
+            <ul className="mj-list">{[...later, ...m.plus_tard].map(i => <Item key={i.id} i={i} canSave={canSave} act={act} onGo={onGo} />)}</ul>
+          </details>}
+        </section>
+      </aside>
+    </div>
   </div>
 }
 
@@ -261,33 +301,60 @@ export function GestoriaEquipe({ crm, saveCrm, canSave }) {
   const state = id => {
     const g = crm.agents?.[id]
     if (id === 'alfred') return { on: !!(g?.majLe || al.majLe), last: g?.majLe || al.majLe, resume: g?.resume || (al.priorite ? 'Priorité du jour : ' + al.priorite : 'Premier passage à 9 h'), attente: g?.attente }
+    if (id === 'courrier') {
+      const n = (crm.messages?.items || []).filter(x => !x.vu).length
+      return { on: !!crm.messages?.majLe, last: crm.messages?.majLe, resume: g?.resume || (crm.messages?.majLe ? (n ? n + ' message' + (n > 1 ? 's' : '') + ' non lu' + (n > 1 ? 's' : '') : 'Tout est lu') : 'Premier relevé bientôt'), attente: g?.attente }
+    }
     if (id === 'plateformes') {
-      const last = [crm.livementor?.releve?.date, crm.messages?.majLe].filter(Boolean).sort().at(-1)
-      return { on: !!last, last, resume: g?.resume || (crm.livementor?.releve ? crm.livementor.releve.actifs + ' apprenants actifs' : 'Relevés programmés'), attente: g?.attente }
+      const last = crm.livementor?.releve?.date
+      return { on: !!last, last, resume: g?.resume || (crm.livementor?.releve ? (crm.livementor.releve.montantCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) + ' HT ce mois · ' + crm.livementor.releve.actifs + ' apprenants actifs' : 'Relevés programmés'), attente: g?.attente }
     }
     return { on: !!g?.majLe, last: g?.majLe, resume: g?.resume || (id === 'courrier' ? 'Démarre quand ta boîte pro existe' : 'Premier passage programmé'), attente: g?.attente }
   }
-  const SCHEDULE = { alfred: 'Matin, midi et soir · 9 h, 13 h, 19 h', compta: 'Le lundi, 8 h 17', plateformes: 'LiveMentor 8 h 47 · messages et agenda Decathlon 3 fois par jour', clients: 'Du lundi au vendredi, 9 h 13', commercial: 'Lundi et jeudi, 9 h 37', communication: 'Le lundi, 10 h 07', courrier: 'En attente', atelier: 'Chaque nuit vers 22 h · en journée quand tu le demandes' }
-  return <div className="acc">
-    <section className="acc-agents">
-      <header><h2>Ton équipe</h2><small>Ils préparent, tu valides. Aucun n’envoie, ne publie ou ne touche à ta compta seul.</small></header>
-      <div className="acc-agent-grid">{AGENTS.map(a => {
-        const s = state(a.id)
-        return <article key={a.id} className={'acc-agent' + (a.id === 'alfred' ? ' chief' : '')}>
-          <div className="acc-agent-top"><span className="acc-avatar">{a.nom[0]}</span><i className={'acc-dot ' + (s.on ? 'on' : '')} title={s.on ? 'Actif' : 'Pas encore passé'} /></div>
-          <strong>{a.nom}</strong><small>{a.role}</small>
-          <p>{s.resume}</p>
-          {s.attente && <p className="acc-wait">Attend de toi : {s.attente}</p>}
-          <small className="acc-last">{s.last ? 'Dernier passage ' + ago(s.last) : SCHEDULE[a.id]}</small>
-        </article>
-      })}</div>
+  const SCHEDULE = { alfred: '9 h · 13 h · 19 h', compta: 'Le lundi à 8 h 17', plateformes: 'Chaque matin à 8 h 47', clients: 'En semaine à 9 h 13', commercial: 'Lundi et jeudi à 9 h 37', communication: 'Le lundi à 10 h 07', courrier: '8 h 53 · 12 h 53 · 18 h 53', atelier: 'Chaque nuit à 22 h · en journée à la demande' }
+  const COULEUR = { alfred: '#103c42', clients: '#2e7d72', commercial: '#7a4bb0', communication: '#7a4bb0', compta: '#b5651d', plateformes: '#c0457a', courrier: '#24527a', atelier: '#103c42' }
+  const chef = AGENTS.find(a => a.id === 'alfred')
+  const s0 = state('alfred')
+  const autres = AGENTS.filter(a => a.id !== 'alfred')
+  const attendent = autres.filter(a => state(a.id).attente)
+  const aClasser = inbox.filter(x => !x.traite)
+  return <div className="eq">
+    <header className="eq-top">
+      <div><h1>Ton équipe</h1><p>Ils préparent, tu valides. Personne n’envoie, ne publie ni ne touche à ta compta sans toi.</p></div>
+      {attendent.length > 0 && <span className="eq-pill">{attendent.length} attend{attendent.length > 1 ? 'ent' : ''} quelque chose de toi</span>}
+    </header>
+
+    <section className="eq-chef">
+      <span className="eq-av" style={{ '--c': COULEUR.alfred }} aria-hidden="true">A</span>
+      <div className="eq-chef-txt">
+        <div className="eq-line"><strong>{chef.nom}</strong><span className={'eq-st' + (s0.on ? ' on' : '')}>{s0.on ? 'Actif' : 'Bientôt'}</span></div>
+        <small>{chef.role} · {SCHEDULE.alfred}</small>
+        <p>{s0.resume}</p>
+        {s0.attente && <p className="eq-wait">Attend de toi : {s0.attente}</p>}
+        <small>{s0.last ? 'Dernier passage ' + ago(s0.last) : ''}</small>
+      </div>
+      <div className="eq-chef-inbox"><strong>{aClasser.length}</strong><small>à classer dans sa boîte</small></div>
     </section>
-    <section className="acc-card">
-      <header><h2>La boîte d’Alfred</h2><small>{inbox.filter(x => !x.traite).length} à classer</small></header>
+
+    <section className="eq-grid">{autres.map(a => {
+      const s = state(a.id)
+      return <article key={a.id} className={'eq-card' + (s.attente ? ' wait' : '')} style={{ '--c': COULEUR[a.id] || '#2e7d72' }}>
+        <div className="eq-line"><span className="eq-av" aria-hidden="true">{a.nom[0]}</span><span className={'eq-st' + (s.on ? ' on' : '')}>{s.on ? 'Actif' : 'Bientôt'}</span></div>
+        <strong>{a.nom}</strong>
+        <small className="eq-role">{a.role}</small>
+        <p>{s.resume}</p>
+        {s.attente && <p className="eq-wait">Attend de toi : {s.attente}</p>}
+        <small className="eq-when">{s.last ? 'Passé ' + ago(s.last) : ''}{s.last ? ' · ' : ''}{SCHEDULE[a.id]}</small>
+      </article>
+    })}</section>
+
+    <section className="eq-box">
+      <header><h2>La boîte d’Alfred</h2><small>{aClasser.length ? aClasser.length + ' à classer' : 'Tout est classé'}</small></header>
       {inbox.length === 0 ? <p className="acc-empty">Vide. Confie-lui quelque chose depuis « Ma journée ».</p> :
-        <ul className="mj-inbox">{inbox.map(x => <li key={x.id} className={x.traite ? 'done' : ''}>
-          <p>{x.texte}</p><small>{ago(x.date)}{x.traite ? ' · classé' + (x.resultat ? ' : ' + x.resultat : '') : ''}</small>
-          {!x.traite && <button className="mgc-link" disabled={!canSave} onClick={() => saveCrm(d => ({ ...d, alfred: { ...d.alfred, inbox: d.alfred.inbox.filter(y => y.id !== x.id) } }), 'Retiré.')}>Retirer</button>}
+        <ul>{inbox.slice(0, 30).map(x => <li key={x.id} className={x.traite ? 'done' : ''}>
+          <span className="eq-dot" aria-hidden="true" />
+          <div><p>{x.texte}</p><small>{ago(x.date)}{x.traite ? ' · classé' + (x.resultat ? ' : ' + x.resultat : '') : ' · en attente'}</small></div>
+          {!x.traite && <button disabled={!canSave} onClick={() => saveCrm(d => ({ ...d, alfred: { ...d.alfred, inbox: d.alfred.inbox.filter(y => y.id !== x.id) } }), 'Retiré.')}>Retirer</button>}
         </li>)}</ul>}
     </section>
   </div>
