@@ -37,7 +37,7 @@ const NAV = [
 ]
 const SUBTABS = {
   clients: [['clients', 'Clients'], ['livementor', 'LiveMentor']],
-  overview: [['overview', 'Vue d’ensemble'], ['finance', 'Factures & dépenses'], ['payments', 'À prévoir'], ['tasks', 'Déclarations'], ['pilotage', 'Pilotage & objectif'], ['archives', 'Archives']],
+  overview: [['overview', 'Vue d’ensemble'], ['finance', 'Factures & dépenses'], ['payments', 'À prévoir'], ['tasks', 'Déclarations'], ['pilotage', 'Chiffre d’affaires & objectif'], ['archives', 'Archives']],
 }
 const navOf = tab => NAV.find(n => n[3].includes(tab))
 const pageCopy = {

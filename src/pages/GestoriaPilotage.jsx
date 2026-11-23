@@ -164,113 +164,51 @@ export default function GestoriaPilotage({ entries, crm, year, saveCrm, canSave,
   const [first, ...others] = list
   const share = v => studioTotal ? Math.round(v / studioTotal * 1000) / 10 : 0
 
-  return <div className="qg-board">
-    <header className="qg-head">
-      <p>{new Date(today + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-      <h1>Où tu en es</h1>
+  // Répartition du facturé par source (Malt, LiveMentor, clients directs).
+  const bySource = { direct: 0, malt: 0, livementor: 0 }
+  for (const e of independent) if (e.kind === 'invoice' && e.date.startsWith(String(year))) bySource[['malt', 'livementor'].includes(e.source) ? e.source : 'direct'] += baseCents(e)
+  const SOURCES = [['direct', 'Clients directs', '#2e7d72'], ['livementor', 'LiveMentor', '#c0457a'], ['malt', 'Malt', '#7a4bb0']]
+
+  return <div className="qg-board ca">
+    <header className="ca-head">
+      <div><p className="mgc-muted">Compta · {year}</p><h1>Ton chiffre d’affaires</h1></div>
     </header>
 
-    <section className="qg-now" aria-label="À faire maintenant">
-      {first ? <>
-        <div className="qg-now-main">
-          <span className="qg-now-tag">À faire maintenant</span>
-          <strong>{first.text}</strong>
-          <span className="qg-sub">{first.when}</span>
-          <button className="qg-primary" onClick={() => onGo(first.go)}>Ouvrir</button>
-        </div>
-        {others.length > 0 && <ul className="qg-now-next">
-          {(showAll ? others : others.slice(0, 3)).map((item, i) => <li key={i}>
-            <button onClick={() => onGo(item.go)}><span>{item.text}</span><small>{item.when}</small></button></li>)}
-          {others.length > 3 && <li><button className="qg-more" onClick={() => setShowAll(!showAll)}>{showAll ? 'Réduire' : 'Voir les ' + (others.length - 3) + ' autres'}</button></li>}
-        </ul>}
-      </> : <div className="qg-now-main"><strong>Rien d’urgent aujourd’hui.</strong>
-        <span className="qg-sub">Aucune facture en retard, aucune échéance proche, aucune relance due. Bon moment pour prospecter ou avancer un projet.</span></div>}
-    </section>
+    <nav className="ca-kpis" aria-label="Chiffres de l’année">
+      <div className="key"><span>Facturé en {year} (HT)</span><strong>{euros(total)}</strong></div>
+      <div className={pending ? 'warn' : ''}><span>Facturé, pas encore encaissé</span><strong>{euros(pending)}</strong></div>
+      <div><span>Devis signés, reste à facturer</span><strong>{euros(resteAFacturer)}</strong></div>
+      <div><span>Missions en cours, pas facturées</span><strong>{euros(enCours)}</strong></div>
+      <div className="pot"><span>Potentiel {year}</span><strong>{euros(total + resteAFacturer + enCours)}</strong></div>
+    </nav>
 
-    <section className="mgc-panel qg-messages" aria-label="Messages">
-      <div className="mgc-between"><h2>Messages{msgUnread.length ? ' · ' + msgUnread.length + ' non lu' + (msgUnread.length > 1 ? 's' : '') : ''}</h2>
-        <span className="mgc-muted">{['livementor', 'malt', 'client'].map(k => {
-          const n = msgUnread.filter(m => m.source === k).length
-          return n ? { livementor: 'LiveMentor', malt: 'Malt', client: 'Clients' }[k] + ' ' + n : null
-        }).filter(Boolean).join(' · ')}{crm.messages?.majLe ? (msgUnread.length ? ' · ' : '') + 'relevé le ' + formatDate(crm.messages.majLe.slice(0, 10)) + (crm.messages.majLe.length > 10 ? ' à ' + crm.messages.majLe.slice(11, 16) : '') : ''}</span></div>
-      <MessagesList items={crm.messages?.items || []} canSave={canSave} onVu={id => markMessageVu(saveCrm, id)}
-        empty={crm.messages?.majLe ? 'Aucun nouveau message LiveMentor, Malt ou client.' : 'Pas encore de relevé : le premier passe automatiquement dans la journée.'} />
-    </section>
-
-    <div className="qg-lanes">
-      <article className="qg-lane qg-clients">
-        <header><h2>Clients</h2><button onClick={() => onGo('clients')}>Ouvrir</button></header>
-        <p className="qg-label">Facturé en {year} (HT)</p>
-        <p className="qg-hero-num">{euros(total)}</p>
-        {objectif > 0 && <>
+    <div className="ca-row">
+      <section className="ca-goal">
+        <div className="mgc-between"><h2>Objectif {year}</h2>
+          <button disabled={!canSave} onClick={() => { setGoalInput(fromCents(objectif)); setEditGoal(true) }}>{objectif ? 'Modifier' : 'Fixer un objectif'}</button></div>
+        {objectif > 0 ? <>
+          <p className="ca-pct"><strong>{pct} %</strong> de {euros(objectif)}</p>
           <div className="qg-meter" role="img" aria-label={pct + ' % de l’objectif'}><span style={{ width: pct + '%' }} /></div>
-          <p className="qg-sub">{pct} % de l’objectif de {euros(objectif)}{currentMonth >= 0 && ' · ' + (gap >= 0 ? 'en avance de ' + euros(gap) : 'en retard de ' + euros(-gap))}</p>
-        </>}
-        <dl className="qg-facts">
-          <div><dt>Facturé, pas encore encaissé</dt><dd>{euros(pending)}</dd></div>
-          <div><dt>Devis signés, reste à facturer</dt><dd>{euros(resteAFacturer)}</dd></div>
-          <div><dt>En cours, pas facturé</dt><dd>{euros(enCours)}</dd></div>
-          <div><dt>Potentiel {year}</dt><dd><b>{euros(total + resteAFacturer + enCours)}</b></dd></div>
-          <div><dt>Pistes ouvertes</dt><dd>{openLeads.length}<small> · {euros(pipeline)}</small></dd></div>
-          <div><dt>À relancer</dt><dd className={leadsToFollow ? 'warn' : ''}>{leadsToFollow}</dd></div>
-          <div><dt>Signées ce mois-ci</dt><dd>{signed}</dd></div>
-        </dl>
-        <button className="qg-link" onClick={() => onGo('prospection')}>Voir la prospection</button>
-      </article>
-
-      <article className="qg-lane qg-compta">
-        <header><h2>Compta</h2><button onClick={() => onGo('tasks')}>Déclarations</button></header>
-        <p className="qg-label">Prochain dépôt (303 / 130)</p>
-        <p className="qg-hero-num">{nextDeadline ? new Date(nextDeadline.date + 'T12:00:00Z').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '—'}</p>
-        {nextDeadline && <p className="qg-sub">dans {daysToDeadline} jours</p>}
-        <details className="qg-secondary">
-          <summary>Blackthorn Tattoo (secondaire)</summary>
-        <p className="qg-label">Blackthorn Tattoo · encaissé en {year}</p>
-        <p className="qg-hero-num">{studio?.status === 'ready' ? euros(studioTotal) : studio?.status === 'error' ? 'Indisponible' : '…'}</p>
-        {studio?.status === 'ready' && studioTotal > 0 && <>
-          <div className="qg-split" role="img" aria-label={'Carte ' + share(byMethod.carte) + ' %, espèces ' + share(byMethod.cash) + ' %'}>
-            <span className="carte" style={{ width: share(byMethod.carte) + '%' }} />
-            <span className="cash" style={{ width: share(byMethod.cash) + '%' }} />
-            <span className="other" style={{ width: share(byMethod.other) + '%' }} />
-          </div>
-          <ul className="qg-legend">
-            <li><i className="carte" />Carte <b>{euros(byMethod.carte)}</b></li>
-            <li><i className="cash" />Espèces <b>{euros(byMethod.cash)}</b></li>
-            {byMethod.other > 0 && <li><i className="other" />Autres <b>{euros(byMethod.other)}</b></li>}
+          <ul className="ca-facts">
+            {currentMonth >= 0 && <li className={gap >= 0 ? 'ok' : 'warn'}>{gap >= 0 ? 'En avance de ' + euros(gap) : 'En retard de ' + euros(-gap)} sur le rythme prévu</li>}
+            {neededPerMonth > 0 && <li>Il faut facturer <b>{euros(neededPerMonth)}</b> par mois d’ici décembre</li>}
+            <li>Reste à trouver : <b>{euros(Math.max(0, objectif - total - resteAFacturer - enCours))}</b> au-delà de ce qui est déjà signé ou en cours</li>
           </ul>
-        </>}
-        <dl className="qg-facts">
-          {studio?.status === 'ready' && studio.data.reconciliationWarnings > 0 &&
-            <div><dt>Lignes à rapprocher</dt><dd className="warn">{studio.data.reconciliationWarnings}</dd></div>}
-        </dl>
-        <p className="qg-sub">Seules les ventes confirmées dans le Hub sont comptées. Les espèces se déclarent comme le reste.</p>
-          <button className="qg-link" onClick={() => onGo('blackthorn')}>Ouvrir Blackthorn</button>
-        </details>
-      </article>
+        </> : <p className="mgc-muted">Fixe un objectif pour voir ton rythme mois par mois.</p>}
+      </section>
 
-      <article className="qg-lane qg-comm">
-        <header><h2>Communication</h2><button onClick={() => onGo('prospection')}>Ouvrir</button></header>
-        <p className="qg-label">Canaux en ligne</p>
-        <p className="qg-hero-num">{canauxActifs}<small> sur 4</small></p>
-        <ul className="qg-canaux">
-          {CANAUX.map(([key, name]) => {
-            const c = crm.canaux?.[key] || {}
-            const st = c.statut || 'a_creer'
-            return <li key={key}>
-              <span className={'qg-dot ' + st} aria-hidden="true" />
-              <div><strong>{name}</strong><span className="qg-sub">{canalLabel[st]}{c.action ? ' · ' + c.action : ''}{c.date ? ' · ' + formatDate(c.date) : ''}</span></div>
-            </li>
-          })}
-        </ul>
-        <button className="qg-link" onClick={() => onGo('prospection')}>Gérer les canaux</button>
-      </article>
+      <section className="ca-src">
+        <h2>D’où vient ton chiffre</h2>
+        {total === 0 ? <p className="mgc-muted">Pas encore de facture en {year}.</p> : <>
+          <div className="ca-split" role="img" aria-label={SOURCES.map(([k, l]) => l + ' ' + Math.round(bySource[k] / total * 100) + ' %').join(', ')}>
+            {SOURCES.map(([k, , c]) => bySource[k] > 0 && <span key={k} style={{ width: (bySource[k] / total * 100) + '%', background: c }} />)}</div>
+          <ul className="ca-legend">{SOURCES.map(([k, l, c]) => <li key={k}><i style={{ background: c }} />{l}<b>{euros(bySource[k])}</b><small>{Math.round(bySource[k] / total * 100)} %</small></li>)}</ul>
+        </>}
+      </section>
     </div>
 
     <section className="qg-trend">
-      <div className="qg-trend-head">
-        <h2>Trajectoire {year}</h2>
-        <button disabled={!canSave} onClick={() => { setGoalInput(fromCents(objectif)); setEditGoal(true) }}>{objectif ? 'Modifier l’objectif' : 'Fixer un objectif'}</button>
-      </div>
+      <div className="qg-trend-head"><h2>Mois par mois</h2></div>
       <div className="qg-charts">
         {objectif > 0 && <div><h3>Chiffre d’affaires cumulé</h3>
           <LineChart months={MONTHS} cumul={cumul} target={target} objectif={objectif} currentMonth={currentMonth} /></div>}
@@ -281,6 +219,15 @@ export default function GestoriaPilotage({ entries, crm, year, saveCrm, canSave,
           </details></div>
       </div>
     </section>
+    {studio && <details className="mgc-panel ca-bt">
+      <summary>Blackthorn Tattoo · encaissé en {year} : {studio?.status === 'ready' ? euros(studioTotal) : '…'}</summary>
+      {studio?.status === 'ready' && studioTotal > 0 && <ul className="qg-legend">
+        <li><i className="carte" />Carte <b>{euros(byMethod.carte)}</b></li>
+        <li><i className="cash" />Espèces <b>{euros(byMethod.cash)}</b></li>
+        {byMethod.other > 0 && <li><i className="other" />Autres <b>{euros(byMethod.other)}</b></li>}
+      </ul>}
+      <button className="qg-link" onClick={() => onGo('blackthorn')}>Ouvrir Blackthorn</button>
+    </details>}
     {editGoal && <Dialog title={'Objectif ' + year} onClose={() => setEditGoal(false)}
       footer={<><span /><button className="mgc-primary" disabled={!canSave} onClick={() => saveCrm(data => ({ ...data, objectifs: { ...data.objectifs, [year]: toCents(goalInput || 0) } }), 'Objectif enregistré.').then(ok => ok && setEditGoal(false))}>Enregistrer</button></>}>
       <div className="mgc-form"><label>Chiffre d’affaires visé sur l’année (€ HT)<input type="number" min="0" step="1000" autoFocus value={goalInput} onChange={e => setGoalInput(e.target.value)} /></label>

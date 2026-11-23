@@ -109,3 +109,29 @@
   .qg-meter span, .qg-split span { transition: width .5s ease; }
 }
 .qg-facts dd { white-space: nowrap; }
+
+/* Chiffre d'affaires & objectif */
+.ca { display: flex; flex-direction: column; gap: 16px; }
+.ca-head h1 { margin: 2px 0 0; font-size: clamp(2rem, 4.2vw, 3rem); }
+.ca-head p { margin: 0; }
+.ca-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.ca-kpis > div { background: #fff; border: 1px solid #e3ecea; border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.ca-kpis span { color: #44646a; font-size: .85rem; }
+.ca-kpis strong { font-size: 1.45rem; color: #103c42; font-variant-numeric: tabular-nums; }
+.ca-kpis .key { background: #103c42; border-color: #103c42; } .ca-kpis .key span { color: #b9d6cf; } .ca-kpis .key strong { color: #fff; }
+.ca-kpis .warn strong { color: #9a3d1f; }
+.ca-kpis .pot { background: #ddefea; border-color: transparent; }
+.ca-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.ca-goal, .ca-src { background: #fff; border: 1px solid #e3ecea; border-radius: 22px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; }
+.ca-goal h2, .ca-src h2 { margin: 0; font-size: 1.15rem; }
+.ca-goal button { border-radius: 999px; border: 1px solid #c9dcd8; background: #fff; padding: 6px 14px; font: inherit; font-weight: 600; cursor: pointer; }
+.ca-pct { margin: 0; color: #44646a; } .ca-pct strong { font-size: 2.2rem; color: #103c42; margin-right: 6px; }
+.ca-facts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ca-facts li { padding-left: 14px; position: relative; } .ca-facts li::before { content: ''; position: absolute; left: 0; top: .55em; width: 6px; height: 6px; border-radius: 50%; background: #9fd3c7; }
+.ca-facts li.ok::before { background: #2e7d72; } .ca-facts li.warn::before { background: #f0b43c; }
+.ca-split { display: flex; height: 14px; border-radius: 999px; overflow: hidden; background: #eef3f2; gap: 2px; }
+.ca-split span { height: 100%; }
+.ca-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ca-legend li { display: grid; grid-template-columns: 12px 1fr auto 44px; gap: 10px; align-items: center; }
+.ca-legend i { width: 12px; height: 12px; border-radius: 4px; } .ca-legend b { font-variant-numeric: tabular-nums; } .ca-legend small { color: #44646a; text-align: right; }
+.ca-bt summary { cursor: pointer; font-weight: 700; }
