@@ -1,14 +1,14 @@
-.alf { display: block; flex: none; border-radius: 50%; overflow: visible; }
-.alf .alf-tete { transform-box: view-box; transform-origin: 50px 66px; animation: alf-respire 4.5s ease-in-out infinite; }
-.alf .alf-corps { transform-box: view-box; transform-origin: 50px 100px; animation: alf-respire-corps 4.5s ease-in-out infinite; }
-.alf .alf-yeux { transform-box: view-box; transform-origin: 50px 43px; animation: alf-cligne 5.5s infinite; }
-.alf .alf-noeud { transform-box: view-box; transform-origin: 50px 76px; }
-.alf:hover .alf-tete, *:hover > .alf.alf-salue .alf-tete { animation: alf-salut .9s ease-in-out; }
-.alf:hover .alf-noeud { animation: alf-noeud .6s ease-in-out; }
-.alf.alf-fier .alf-bouche { d: path('M43.5 52.5 Q50 59 56.5 52.5'); }
-@keyframes alf-respire { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-1.2px) } }
-@keyframes alf-respire-corps { 0%, 100% { transform: scaleY(1) } 50% { transform: scaleY(1.012) } }
-@keyframes alf-cligne { 0%, 93%, 100% { transform: scaleY(1) } 95% { transform: scaleY(.08) } 97% { transform: scaleY(1) } }
-@keyframes alf-salut { 0% { transform: rotate(0) } 35% { transform: rotate(-9deg) translateY(2px) } 70% { transform: rotate(4deg) } 100% { transform: rotate(0) } }
-@keyframes alf-noeud { 0%, 100% { transform: rotate(0) } 30% { transform: rotate(-12deg) } 65% { transform: rotate(10deg) } }
-@media (prefers-reduced-motion: reduce) { .alf *, .alf:hover * { animation: none !important; } }
+.alf { display: block; flex: none; border-radius: 50%; }
+.alf .alf-lettre { transform-box: view-box; transform-origin: 50px 82px; transition: transform .35s cubic-bezier(.3,1.5,.5,1); }
+.alf .alf-noeud { transform-box: view-box; transform-origin: 50px 61px; animation: alf-noeud 6s ease-in-out infinite; }
+.alf .alf-reflet { animation: alf-reflet 7s ease-in-out infinite; }
+.alf .alf-etoiles { opacity: 0; transform-box: view-box; transform-origin: 50px 50px; }
+.alf:hover .alf-lettre { transform: rotate(-7deg); }
+.alf:hover .alf-noeud { animation: alf-frétille .7s ease-in-out; }
+.alf.alf-fier .alf-etoiles { animation: alf-etoiles 2.4s ease-in-out infinite; }
+.alf.alf-fier .alf-noeud { animation: alf-frétille 1.2s ease-in-out 2; }
+@keyframes alf-noeud { 0%, 88%, 100% { transform: rotate(0) } 91% { transform: rotate(-10deg) } 94% { transform: rotate(8deg) } 97% { transform: rotate(-3deg) } }
+@keyframes alf-frétille { 0%, 100% { transform: rotate(0) scale(1) } 30% { transform: rotate(-14deg) scale(1.08) } 65% { transform: rotate(12deg) scale(1.08) } }
+@keyframes alf-reflet { 0%, 70% { transform: rotate(20deg) translateX(0) } 100% { transform: rotate(20deg) translateX(190px) } }
+@keyframes alf-etoiles { 0%, 100% { opacity: 0; transform: scale(.6) } 50% { opacity: 1; transform: scale(1) } }
+@media (prefers-reduced-motion: reduce) { .alf *, .alf:hover * { animation: none !important; transition: none !important; } }
