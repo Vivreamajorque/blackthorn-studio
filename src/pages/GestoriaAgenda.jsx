@@ -24,12 +24,35 @@ const covers = (e, day) => e.start.slice(0, 10) === day || (e.end && e.start.sli
 
 function Chip({ event, onOpen }) {
   const t = TYPES[event.type] || TYPES.google
-  const own = event.type === 'perso' && onOpen
-  return <div className="qga-event" style={{ borderLeftColor: t.color, cursor: own ? 'pointer' : undefined }} onClick={own ? () => onOpen(event) : undefined} role={own ? 'button' : undefined} title={own ? 'Modifier ou supprimer' : undefined}>
+  return <button type="button" className="qga-event" style={{ borderLeftColor: t.color }} onClick={() => onOpen(event)} title={event.type === 'perso' ? 'Modifier ou supprimer' : 'Voir le détail'}>
     <span className="qga-time">{hour(event)}</span>
     <span className="qga-title">{event.title}</span>
     <span className="qga-type"><i style={{ background: t.color }} />{event.type === 'entreprise' && event.source ? event.source : t.label}{event.lieu ? ' · ' + event.lieu : ''}</span>
-  </div>
+  </button>
+}
+
+// Détail d'un événement qui ne vient pas du QG (Google, LiveMentor, échéances) : on l'ouvre là où il se modifie.
+function EventSheet({ event, onClose, onNew, onGo }) {
+  const t = TYPES[event.type] || TYPES.google
+  const d = event.start.slice(0, 10)
+  const google = ['google', 'livementor'].includes(event.type) || event.source === 'Mon agenda'
+  const gUrl = 'https://calendar.google.com/calendar/r/day/' + d.replace(/-/g, '/')
+  const qg = { client: ['clients', 'Ouvrir le client'], prospection: ['prospection', 'Ouvrir Développer'], compta: ['finance', 'Ouvrir la compta'] }[event.type]
+  const lien = /^https?:\/\//.test(event.lieu || '') ? event.lieu : ''
+  return <Dialog title={event.title} onClose={onClose}
+    footer={<>
+      <button onClick={() => onNew(d)}>+ Rendez-vous ce jour-là</button>
+      {google && <a className="mgc-primary-link" href={gUrl} target="_blank" rel="noopener noreferrer">Modifier dans Google Agenda ↗</a>}
+      {qg && onGo && <button className="mgc-primary" onClick={() => onGo(qg[0])}>{qg[1]}</button>}
+    </>}>
+    <div className="qga-sheet">
+      <p><i style={{ background: t.color }} /> {event.type === 'entreprise' && event.source ? event.source : t.label}</p>
+      <p><strong>{dayLabel(d)}</strong> · {hour(event)}</p>
+      {event.lieu && (lien ? <p><a href={lien} target="_blank" rel="noopener noreferrer">Rejoindre / ouvrir le lien ↗</a></p> : <p>{event.lieu}</p>)}
+      {google && <p className="mgc-muted">Cet événement vient de ton Google Agenda : il se modifie là-bas, et le QG se met à jour tout seul.</p>}
+      {!google && !qg && <p className="mgc-muted">Cet événement vient d’un autre agenda relié.</p>}
+    </div>
+  </Dialog>
 }
 
 function Settings({ crm, saveCrm, canSave, feedUrl, sources, importesMaj, onClose }) {
@@ -137,7 +160,7 @@ function RdvForm({ initial, saveCrm, canSave, onClose }) {
   </Dialog>
 }
 
-export default function GestoriaAgenda({ crm, saveCrm, canSave }) {
+export default function GestoriaAgenda({ crm, saveCrm, canSave, onGo }) {
   const today = todayInSpain()
   const [view, setView] = useState('semaine')
   const [anchor, setAnchor] = useState(today)
@@ -146,6 +169,8 @@ export default function GestoriaAgenda({ crm, saveCrm, canSave }) {
   const [settings, setSettings] = useState(false)
   const [reload, setReload] = useState(0)
   const [rdv, setRdv] = useState(null)
+  const [detail, setDetail] = useState(null)
+  const openEvent = e => e.type === 'perso' && String(e.id).startsWith('imp-') ? setRdv(e) : setDetail(e)
 
   const range = useMemo(() => {
     if (view === 'semaine') return { from: anchor, to: addDays(anchor, 6) }
@@ -216,8 +241,9 @@ export default function GestoriaAgenda({ crm, saveCrm, canSave }) {
       {days.map(d => {
         const list = events.filter(e => covers(e, d))
         return <section key={d} className={'qga-day' + (d === today ? ' is-today' : '')}>
-          <h3>{dayLabel(d)}{d === today && <span className="mgc-badge ok" style={{ marginLeft: 8 }}>Aujourd’hui</span>}</h3>
-          {list.length ? list.map(e => <Chip key={e.id + d} event={e} onOpen={setRdv} />) : <p className="mgc-muted">Rien de prévu.</p>}
+          <div className="qga-day-head"><h3>{dayLabel(d)}{d === today && <span className="mgc-badge ok" style={{ marginLeft: 8 }}>Aujourd’hui</span>}</h3>
+            <button className="qga-add" disabled={!canSave} onClick={() => setRdv({ date: d })} aria-label={'Ajouter un rendez-vous le ' + dayLabel(d)}>+</button></div>
+          {list.length ? list.map(e => <Chip key={e.id + d} event={e} onOpen={openEvent} />) : <button className="qga-empty" disabled={!canSave} onClick={() => setRdv({ date: d })}>Rien de prévu · ajouter</button>}
         </section>
       })}
     </div>}
@@ -230,12 +256,13 @@ export default function GestoriaAgenda({ crm, saveCrm, canSave }) {
         return <div key={d} className={'qga-cell' + (out ? ' is-out' : '') + (d === today ? ' is-today' : '')}>
           <button className="qga-num" onClick={() => { setAnchor(d); setView('semaine') }} aria-label={'Voir les 7 jours à partir du ' + dayLabel(d)}>{Number(d.slice(8))}</button>
           {list.slice(0, 3).map(e => { const t = TYPES[e.type] || TYPES.google
-            return <div key={e.id + d} className="qga-mini" title={hour(e) + ' · ' + e.title + ' · ' + t.label}><i style={{ background: t.color }} />{e.allDay ? '' : e.start.slice(11, 16) + ' '}{e.title}</div> })}
+            return <button type="button" key={e.id + d} className="qga-mini" title={hour(e) + ' · ' + e.title + ' · ' + t.label} onClick={() => openEvent(e)}><i style={{ background: t.color }} />{e.allDay ? '' : e.start.slice(11, 16) + ' '}{e.title}</button> })}
           {list.length > 3 && <button className="mgc-link qga-more" onClick={() => { setAnchor(d); setView('semaine') }}>+ {list.length - 3} autre{list.length - 3 > 1 ? 's' : ''}</button>}
         </div>
       })}
     </div>}
 
+    {detail && <EventSheet event={detail} onClose={() => setDetail(null)} onNew={d => { setDetail(null); setRdv({ date: d }) }} onGo={onGo && (k => { setDetail(null); onGo(k) })} />}
     {rdv && <RdvForm initial={rdv} saveCrm={saveCrm} canSave={canSave} onClose={changed => { setRdv(null); if (changed) setReload(r => r + 1) }} />}
     {settings && <Settings crm={crm} saveCrm={saveCrm} canSave={canSave} feedUrl={state.feedUrl} sources={state.sources || []}
       importesMaj={state.importesMaj} onClose={() => { setSettings(false); setReload(r => r + 1) }} />}

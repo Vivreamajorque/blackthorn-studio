@@ -228,3 +228,16 @@
 .fc-add { margin-top: 14px; width: 100%; min-height: 52px; border: 2px dashed #c9dcd8; border-radius: 18px; background: transparent; font: inherit; font-weight: 700; color: #103c42; cursor: pointer; }
 .fc-add:hover:not(:disabled) { border-color: #2e7d72; }
 @media (max-width: 640px) { .fc-head { padding: 16px; } .fc-head-act .fc-btn { flex: 1 1 auto; } .fc-proj { padding: 14px; } }
+
+/* Agenda modifiable */
+button.qga-event { display: flex; flex-direction: column; align-items: flex-start; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; background: #fff; }
+button.qga-event:hover { box-shadow: 0 2px 10px rgba(16,60,66,.12); }
+button.qga-mini { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 1px 0; font: inherit; color: inherit; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+button.qga-mini:hover { text-decoration: underline; }
+.qga-day-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.qga-add { width: 32px; height: 32px; border-radius: 50%; border: 1px solid #c9dcd8; background: #fff; font-size: 1.1rem; line-height: 1; cursor: pointer; flex: none; }
+.qga-add:hover:not(:disabled) { background: #ddefea; }
+.qga-empty { background: none; border: 1px dashed #c9dcd8; border-radius: 10px; padding: 8px 10px; width: 100%; text-align: left; color: #6b8488; font: inherit; font-size: .9rem; cursor: pointer; }
+.qga-empty:hover:not(:disabled) { border-color: #2e7d72; color: #103c42; }
+.qga-sheet p { margin: 0 0 8px; }
+.qga-sheet i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: 0; }

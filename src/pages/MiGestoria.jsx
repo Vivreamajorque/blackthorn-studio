@@ -388,7 +388,8 @@ export default function MiGestoria() {
         canSave={canSave && !crmState.saving} saving={saving || crmState.saving}
         onFinance={() => openDossier('independent', 'finance')} />}
     {tab === 'agenda' && crmState.loadState === 'ready' &&
-      <GestoriaAgenda crm={crmState.crm} saveCrm={crmState.save} canSave={!crmState.saving} />}
+      <GestoriaAgenda crm={crmState.crm} saveCrm={crmState.save} canSave={!crmState.saving}
+        onGo={next => { if (next === 'finance') openDossier('independent', 'finance'); else { setClientToOpen(null); setTab(next) } window.scrollTo(0, 0) }} />}
     {tab === 'livementor' && crmState.loadState === 'ready' && <GestoriaLivementor crm={crmState.crm} />}
     {tab === 'equipe' && crmState.loadState === 'ready' && <GestoriaEquipe crm={crmState.crm} entries={data.entries} saveCrm={crmState.save} canSave={!crmState.saving} />}
     {tab === 'accueil' && loadState === 'ready' && crmState.loadState === 'ready' &&
