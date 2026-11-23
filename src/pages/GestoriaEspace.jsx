@@ -2,8 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { money, devisBase } from '../lib/gestoria-crm'
 import { formatDate } from '../lib/gestoria-calendar.mjs'
 import { printDocument } from '../lib/gestoria-documents.mjs'
-import { ProjectBadge } from './GestoriaClients'
-import './gestoria-clients.css'
+import './gestoria-espace.css'
 
 const api = '/api/gestoria-espace'
 export const formatRdv = value => {
@@ -12,293 +11,363 @@ export const formatRdv = value => {
   if (isNaN(d)) return value
   return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + (value.length > 10 ? ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '')
 }
+const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s
+const shortRdv = value => cap(shortRdv0(value))
+const shortRdv0 = value => {
+  const d = new Date(value.length === 10 ? value + 'T12:00:00' : value)
+  if (isNaN(d)) return value
+  return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) + (value.length > 10 ? ' · ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '')
+}
+const nowIso = () => new Date().toISOString().slice(0, 16)
+const isFuture = v => !!v && (v.length === 10 ? v >= nowIso().slice(0, 10) : v >= nowIso())
 
-const DEVIS_LABEL = { envoye: ['À signer', 'info'], signe: ['Signé', 'ok'] }
 const LECON_LABEL = { brouillon: ['Brouillon', ''], a_valider: ['À relire', 'info'], validee: ['Validée', 'ok'] }
+const TABS = [['accueil', 'Accueil', 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'],
+  ['actions', 'Mes actions', 'M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9'],
+  ['visios', 'Visios', 'M3 8a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM16 10l5-3v10l-5-3'],
+  ['documents', 'Documents', 'M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6']]
 
 export default function GestoriaEspace({ token }) {
   const [view, setView] = useState(null)
   const [error, setError] = useState(false)
-  const [tab, setTab] = useState('start')
+  const [tab, setTab] = useState('accueil')
   const [index, setIndex] = useState(0)
   const [busy, setBusy] = useState(false)
+  const [flash, setFlash] = useState('')
 
   useEffect(() => {
     fetch(api + '?t=' + encodeURIComponent(token), { cache: 'no-store' })
       .then(r => r.ok ? r.json() : Promise.reject()).then(setView).catch(() => setError(true))
   }, [token])
+  useEffect(() => { if (!flash) return; const t = setTimeout(() => setFlash(''), 3500); return () => clearTimeout(t) }, [flash])
 
-  if (error) return <main className="login"><h1>Espace introuvable</h1><p>Ce lien n’est plus valide. Demande le nouveau lien à ta consultante.</p></main>
-  if (!view) return <main className="login"><p role="status">Chargement…</p></main>
+  if (error) return <main className="esp-center"><h1>Espace introuvable</h1><p>Ce lien n’est plus valide. Demande le nouveau lien à ta consultante.</p></main>
+  if (!view) return <main className="esp-center"><p role="status">Chargement…</p></main>
 
-  const project = view.projets[index]
-  const actions = project?.actions || []
-  const done = actions.filter(a => a.fait).length
+  const project = view.projets[Math.min(index, view.projets.length - 1)]
   const first = view.consultante.nom.split(' ')[0]
-  const formation = project?.type === 'formation'
+  const aSigner = view.devis.filter(d => d.statut === 'envoye')
 
-  async function send(payload) {
+  async function send(payload, message) {
     setBusy(true)
     try {
       const response = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ t: token, projetId: project?.id, ...payload }) })
-      if (response.ok) { setView(await response.json()); return true }
+      if (response.ok) { setView(await response.json()); if (message) setFlash(message); return true }
       const err = await response.json().catch(() => ({}))
-      window.alert(err.error || 'Modification non enregistrée. Recharge la page et réessaie.')
+      setFlash(err.error || 'Pas enregistré. Recharge la page et réessaie.')
+      return false
+    } catch {
+      setFlash('Pas de connexion. Réessaie dans un instant.')
       return false
     } finally { setBusy(false) }
   }
-
-  const tabs = [['start', 'Pour commencer'], ['avancement', 'Avancement'], ['actions', 'Mes actions'],
-    ...(formation ? [['lecons', 'Mes leçons']] : []), ['visios', 'Visios'], ['questions', 'Questions'], ['documents', 'Documents et factures']]
-  const current = tabs.some(([k]) => k === tab) ? tab : 'start'
   const go = k => { setTab(k); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  const props = { view, project, first, busy, send, go }
 
-  return <div>
-    <div className="mgc-portal-top"><strong>{view.consultante.nom} · Suivi de projet</strong><span className="mgc-badge late">Espace privé</span></div>
-    <div className="mgc-portal-head"><div className="mgc-portal-in">
-      {project && <div className="mg-section-label" style={{ color: '#8a4b3a', letterSpacing: '.14em' }}>{project.nom.toUpperCase()}</div>}
-      <h1>Bonjour {view.client.nom.split(' ')[0]}.</h1>
-      <p style={{ maxWidth: 540, margin: 0 }}>{project?.messageClient || `Un cap clair, tes prochaines actions et un endroit pour avancer avec ${first}.`}</p>
-      {actions.length > 0 && <div style={{ maxWidth: 440, marginTop: 14 }}>
-        <div className="mgc-bar" style={{ background: 'rgba(0,0,0,.08)' }}><div style={{ width: Math.round(done / actions.length * 100) + '%', background: '#8a4b3a' }} /></div>
-        <strong style={{ fontSize: '.85rem' }}>{project.etape ? project.etape + ' · ' : ''}{done} action{done > 1 ? 's' : ''} terminée{done > 1 ? 's' : ''} sur {actions.length}</strong>
-      </div>}
-    </div></div>
-    <div className="mgc-portal-in" style={{ padding: '0 20px 60px' }}>
-      {view.projets.length > 1 && <div className="mgc-tabs">{view.projets.map((p, i) => <button key={p.id} aria-pressed={i === index} onClick={() => setIndex(i)}>{p.nom}</button>)}</div>}
-      <div className="mgc-tabs" role="tablist">{tabs.map(([k, l]) =>
-        <button key={k} role="tab" aria-selected={current === k} aria-pressed={current === k} onClick={() => setTab(k)}>{l}{k === 'documents' && view.devis.some(d => d.statut === 'envoye') ? ' •' : ''}</button>)}</div>
+  return <div className="esp">
+    <header className="esp-top"><div className="esp-in esp-top-in">
+      <strong>{first} · Range Ton Biz</strong><span className="esp-pill">Espace privé</span>
+    </div></header>
 
-      {!project && current !== 'documents' && <p className="mg-empty">Ton projet arrive bientôt ici.</p>}
-      {project && current === 'start' && <Start project={project} first={first} formation={formation} busy={busy} send={send} go={go} />}
-      {project && current === 'avancement' && <Avancement project={project} first={first} />}
-      {project && current === 'actions' && <Actions project={project} first={first} send={send} />}
-      {project && current === 'lecons' && <Lecons project={project} first={first} busy={busy} send={send} />}
-      {project && current === 'visios' && <Visios project={project} first={first} busy={busy} send={send} />}
-      {project && current === 'questions' && <Questions project={project} first={first} busy={busy} send={send} />}
-      {current === 'documents' && <Documents view={view} project={project} send={send} busy={busy} />}
-      {view.consultante.email && <p className="mgc-muted" style={{ marginTop: 28 }}>Une question ? Écris à {view.consultante.email}.</p>}
-    </div>
+    <main className="esp-in esp-main">
+      <div className="esp-hello">
+        <h1>Bonjour {view.client.nom.split(' ')[0]}</h1>
+        {view.projets.length > 1 && <label className="esp-field">Projet
+          <select value={index} onChange={e => setIndex(Number(e.target.value))}>
+            {view.projets.map((p, i) => <option key={p.id} value={i}>{p.nom}</option>)}
+          </select></label>}
+        {view.projets.length === 1 && <p className="esp-muted">{project.nom}</p>}
+      </div>
+
+      {!project && tab !== 'documents' && <p className="esp-card esp-muted">Ton projet arrive bientôt ici.</p>}
+      {project && tab === 'accueil' && <Accueil {...props} aSigner={aSigner} />}
+      {project && tab === 'actions' && <Actions {...props} />}
+      {project && tab === 'visios' && <Visios {...props} />}
+      {tab === 'documents' && <Documents {...props} />}
+
+      {view.consultante.email && <p className="esp-muted esp-contact">Une question urgente ? <a href={'mailto:' + view.consultante.email}>{view.consultante.email}</a></p>}
+    </main>
+
+    {flash && <div className="esp-flash" role="status">{flash}</div>}
+
+    <nav className="esp-nav" aria-label="Navigation de l’espace"><div className="esp-nav-in">
+      {TABS.map(([k, label, d]) => <button key={k} aria-current={tab === k ? 'page' : undefined} onClick={() => go(k)}>
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>
+        {label}{k === 'documents' && aSigner.length > 0 && <span className="esp-dot" aria-label="à valider" />}
+      </button>)}
+    </div></nav>
   </div>
 }
 
-function Start({ project, first, formation, busy, send, go }) {
-  const next = project.actions.filter(a => a.pour === 'client' && !a.fait).slice(0, 3)
-  const [brief, setBrief] = useState(() => Object.fromEntries(project.brief.map(b => [b.id, b.r])))
-  useEffect(() => { setBrief(Object.fromEntries(project.brief.map(b => [b.id, b.r]))) }, [project.id])
+// ---------- Accueil ----------
+function phaseIndex(project) {
+  const i = project.plan.findIndex(e => e.titre && project.etape && e.titre.trim().toLowerCase() === project.etape.trim().toLowerCase())
+  return i < 0 ? 0 : i
+}
+function nextVisio(project) {
+  const booked = project.creneaux.filter(c => c.reserve && isFuture(c.date)).sort((a, b) => a.date.localeCompare(b.date))[0]
+  if (booked) return { date: booked.date, lien: booked.lien, id: booked.id }
+  if (isFuture(project.prochainRdv)) return { date: project.prochainRdv }
+  return null
+}
+
+function Accueil({ view, project, first, busy, send, go, aSigner }) {
+  const todo = project.actions.filter(a => a.pour === 'client' && !a.fait)
+  const amely = project.actions.filter(a => a.pour !== 'client' && !a.fait)
+  const phase = phaseIndex(project)
+  const current = project.plan[phase]
+  const visio = nextVisio(project)
+  const libres = project.creneaux.filter(c => !c.reserve && isFuture(c.date)).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3)
+  const briefOuvert = project.brief.length > 0 && project.brief.some(b => !String(b.r || '').trim())
+  const doneCount = project.plan.length ? phase : 0
+
   return <>
-    <section className="mgc-panel">
-      <div className="mgc-between"><div className="mg-section-label" style={{ color: '#8a4b3a' }}>TON ESPACE DE TRAVAIL AVEC {first.toUpperCase()}</div><ProjectBadge status={project.statut} /></div>
-      <h2 style={{ marginTop: 4 }}>Une étape à la fois.</h2>
-      <p>{formation
-        ? `Nous préparons une formation claire, utile aux parents et facile à découvrir puis à acheter. Ce suivi t’aide à avancer sur ton offre et tes contenus pendant que ${first} construit l’espace technique.`
-        : `Ce suivi rassemble ce qui reste à faire, l’avancement du projet et tous tes documents. Tu y avances à ton rythme pendant que ${first} construit sa partie.`}</p>
-      <h3>Tes {next.length > 1 ? next.length + ' prochaines actions' : 'prochaine action'}</h3>
-      {next.length === 0 ? <p className="mgc-muted">Rien en attente de ton côté pour l’instant.</p> :
-        <ul className="mgc-list">{next.map(a => <li key={a.id}><span className="mgc-badge">À faire</span>
-          <div style={{ flex: 1 }}><strong>{a.label}</strong>{a.detail && <div className="mgc-muted">{a.detail}</div>}</div></li>)}</ul>}
-      <div className="mgc-row" style={{ marginTop: 10 }}>
-        <button className="mgc-primary" onClick={() => go('actions')}>Ouvrir mes actions</button>
-        {formation && <button onClick={() => go('lecons')}>Préparer une leçon</button>}
-      </div>
+    {aSigner.map(d => <section key={d.id} className="esp-card esp-alert">
+      <span className="esp-tag warn">À valider</span>
+      <h2>Ton devis {d.numero}</h2>
+      <p className="esp-muted">{money(devisBase(d))} HT{d.echeances?.[0] ? ' · ' + d.echeances[0].label.toLowerCase() + ' de ' + money(d.echeances[0].montantCents) + ' pour lancer le projet' : ''}</p>
+      <button className="esp-primary" onClick={() => go('documents')}>Voir et accepter</button>
+    </section>)}
+
+    {briefOuvert && <Brief project={project} busy={busy} send={send} />}
+
+    <section className="esp-card">
+      <h2>Prochaine visio</h2>
+      {visio ? <>
+        <p className="esp-big">{cap(formatRdv(visio.date))}</p>
+        {visio.lien && <a className="esp-primary" href={visio.lien} target="_blank" rel="noopener noreferrer">Rejoindre la visio</a>}
+      </> : libres.length > 0 ? <>
+        <p className="esp-muted">Choisis le créneau qui t’arrange.</p>
+        <div className="esp-chips">{libres.map(c => <button key={c.id} disabled={busy} onClick={() => send({ op: 'creneau', creneauId: c.id }, 'Visio réservée.')}>{shortRdv(c.date)}</button>)}</div>
+      </> : <p className="esp-muted">Pas encore de date. {first} te propose des créneaux ici très vite.</p>}
     </section>
 
-    <section className="mgc-panel">
-      <h3 style={{ marginTop: 0 }}>Comment nous travaillons ensemble</h3>
-      <div className="mgc-grid">
-        <div><strong>Toi</strong><p className="mgc-muted">{formation
-          ? 'Tu apportes ton expertise, les besoins entendus auprès des parents et tes contenus. Tu complètes les fiches, partages tes vidéos et valides les choix.'
-          : 'Tu apportes ta connaissance du métier, tes besoins et tes validations. Tu coches tes actions et poses tes questions ici.'}</p></div>
-        <div><strong>{first}</strong><p className="mgc-muted">{formation
-          ? `${first} structure le projet avec toi, prépare les écrans, construit le parcours d’achat et d’accès, intègre les contenus convenus et t’aide à prendre l’outil en main.`
-          : `${first} structure le projet avec toi, construit l’outil, le teste et t’aide à le prendre en main.`}</p></div>
-        <div><strong>À chaque point</strong><p className="mgc-muted">Nous regardons les avancées, testons ce qui est prêt et choisissons les prochaines actions. Dépose tes questions avant le rendez-vous pour les regrouper.</p></div>
-        <div><strong>Entre deux rendez-vous</strong><p className="mgc-muted">{formation
-          ? 'Mets à jour tes actions, prépare une fiche par leçon et dépose les liens des vidéos. Si tu bloques, écris dans Questions.'
-          : 'Mets à jour tes actions. Si tu bloques, écris dans Questions.'} Les informations enregistrées sont partagées dans cet espace.</p></div>
-      </div>
+    <section className="esp-card">
+      <div className="esp-between"><h2>Ce que j’attends de toi</h2>{todo.length > 0 && <span className="esp-muted">{todo.length} à faire</span>}</div>
+      {todo.length === 0 ? <p className="esp-muted">Rien pour l’instant. Profites-en.</p> :
+        <ul className="esp-checks">{todo.slice(0, 3).map(a => <ActionCheck key={a.id} a={a} busy={busy} send={send} />)}</ul>}
+      {todo.length > 3 && <button className="esp-link" onClick={() => go('actions')}>Voir mes {todo.length} actions</button>}
     </section>
 
-    {project.brief.length > 0 && <section className="mgc-panel">
-      <h3 style={{ marginTop: 0 }}>{formation ? 'Le brief de ta première formation' : 'Ton brief'}</h3>
-      <p className="mgc-muted">Quelques phrases suffisent. Enregistre tout en bas. Tu pourras revenir compléter tes réponses.</p>
-      <div className="mgc-form">{project.brief.map(b => <label key={b.id}>{b.q}
+    {(current?.amely || amely.length > 0) && <section className="esp-card esp-dark">
+      <h2>Ce que fait {first} en ce moment</h2>
+      {current?.amely ? <p>{current.amely}</p> : <ul>{amely.slice(0, 3).map(a => <li key={a.id}>{a.label}</li>)}</ul>}
+    </section>}
+
+    {project.plan.length > 0 && <section className="esp-card">
+      <h2>Où on en est</h2>
+      <div className="esp-bar" aria-hidden="true"><div style={{ width: Math.round((doneCount + 0.5) / project.plan.length * 100) + '%' }} /></div>
+      <ol className="esp-phases">{project.plan.map((e, i) => <li key={e.id} className={i < phase ? 'done' : i === phase ? 'now' : ''}>
+        <span className="esp-step" aria-hidden="true">{i < phase ? '✓' : i + 1}</span>
+        <span><strong>{e.titre}</strong>{e.periode && <span className="esp-muted"> · {e.periode}</span>}{i === phase && <span className="esp-muted"> · en cours</span>}</span>
+      </li>)}</ol>
+    </section>}
+
+    <details className="esp-card esp-details">
+      <summary>Comment on travaille ensemble</summary>
+      <p>Tu apportes ton expertise, tes contenus et tes validations. {first} construit l’outil, le teste et te forme pour le prendre en main.</p>
+      <p>Entre deux visios, coche tes actions et note tes questions dans l’onglet Visios : on les traite au rendez-vous suivant.</p>
+    </details>
+  </>
+}
+
+function ActionCheck({ a, busy, send }) {
+  return <li><label>
+    <input type="checkbox" checked={a.fait} disabled={busy} onChange={() => send({ actionId: a.id, fait: !a.fait }, a.fait ? 'Action remise à faire.' : 'Bravo, c’est noté.')} />
+    <span><strong className={a.fait ? 'esp-done' : ''}>{a.label}</strong>{a.detail && !a.fait && <span className="esp-muted esp-sub">{a.detail}</span>}</span>
+  </label></li>
+}
+
+function Brief({ project, busy, send }) {
+  const [brief, setBrief] = useState(() => Object.fromEntries(project.brief.map(b => [b.id, b.r || ''])))
+  useEffect(() => { setBrief(Object.fromEntries(project.brief.map(b => [b.id, b.r || '']))) }, [project.id])
+  const [open, setOpen] = useState(false)
+  const reste = project.brief.filter(b => !String(b.r || '').trim()).length
+  return <section className="esp-card esp-start">
+    <span className="esp-tag">Pour démarrer</span>
+    <h2>Quelques questions sur ton projet</h2>
+    <p className="esp-muted">{reste} question{reste > 1 ? 's' : ''} sans réponse. Quelques phrases suffisent, tu pourras compléter plus tard.</p>
+    {!open ? <button className="esp-primary" onClick={() => setOpen(true)}>Répondre</button> : <>
+      <div className="esp-form">{project.brief.map(b => <label key={b.id} className="esp-field">{b.q}
         <textarea rows={3} value={brief[b.id] || ''} onChange={e => setBrief(x => ({ ...x, [b.id]: e.target.value }))} /></label>)}</div>
-      <button className="mgc-primary" style={{ marginTop: 10 }} disabled={busy} onClick={() => send({ op: 'brief', reponses: brief }).then(ok => ok && window.alert('Brief enregistré.'))}>Enregistrer mon brief</button>
-    </section>}
-
-    {formation && <section className="mgc-panel">
-      <h3 style={{ marginTop: 0 }}>Des décisions fondées sur les retours</h3>
-      <p className="mgc-muted">Une offre précise, un parcours pédagogique progressif, une vidéo pilote et des retours de parents nous aident à améliorer la formation avant le lancement. Les visites, achats et questions recueillies permettront ensuite de choisir les ajustements. Les ventes dépendront aussi de la demande et de la diffusion.</p>
-    </section>}
-  </>
-}
-
-function Avancement({ project, first }) {
-  const nextEtape = project.plan[0]
-  return <>
-    <section className="mgc-panel">
-      <div className="mg-section-label" style={{ color: '#8a4b3a' }}>OÙ ON EN EST</div>
-      <h2 style={{ marginTop: 4 }}>{project.etape || nextEtape?.titre || 'Démarrage'}</h2>
-      {project.prochainRdv && <p className="mgc-note">Prochain rendez-vous : <strong>{formatRdv(project.prochainRdv)}</strong></p>}
-      {project.rythme && <p className="mgc-muted">{project.rythme}</p>}
-      {project.plan.length === 0 ? <p className="mgc-muted">Le plan arrive bientôt.</p> :
-        <ol className="mgc-plan">{project.plan.map(e => <li key={e.id}>
-          <div className="mgc-muted">{e.periode}</div><strong>{e.titre}</strong>
-          {e.amely && <p><span className="mgc-badge ok">{first}</span> {e.amely}</p>}
-          {e.client && <p><span className="mgc-badge">Toi</span> {e.client}</p>}
-        </li>)}</ol>}
-    </section>
-    <h3 style={{ margin: '22px 0 0' }}>Décisions et comptes rendus</h3>
-    {project.notes.length === 0 ? <p className="mg-empty">Les décisions apparaîtront ici après vos échanges.</p> :
-      project.notes.map(n => <section key={n.id} className="mgc-panel">
-        <div className="mgc-muted">{n.date ? formatRdv(n.date) : ''}</div>
-        {n.titre && <h3>{n.titre}</h3>}
-        <div style={{ whiteSpace: 'pre-line', marginTop: 6 }}>{n.texte}</div>
-      </section>)}
-  </>
-}
-
-function Actions({ project, first, send }) {
-  const actions = project.actions
-  return <section className="mgc-panel">
-    <div className="mgc-between"><h2>Ce qui fait avancer le projet</h2><ProjectBadge status={project.statut} /></div>
-    <p className="mgc-muted">Coche tes actions au fur et à mesure : {first} le voit tout de suite.</p>
-    {actions.length === 0 ? <p className="mgc-muted">Pas encore d’action. {first} les ajoute au fil du projet.</p> :
-      <ul className="mgc-list">{actions.map((a, i) => <React.Fragment key={a.id}>
-        {a.groupe && a.groupe !== actions[i - 1]?.groupe && <li className="mgc-group-title"><strong>{a.groupe}</strong></li>}
-        <li>
-          {a.pour === 'client' ? <input type="checkbox" checked={a.fait} onChange={() => send({ actionId: a.id, fait: !a.fait })} aria-label={a.label} />
-            : <span className={'mgc-badge ' + (a.fait ? 'ok' : '')}>{a.fait ? 'Fait' : first}</span>}
-          <div style={{ flex: 1 }}><div className={a.fait ? 'mgc-done' : ''}>{a.label}</div>{a.detail && <div className="mgc-muted">{a.detail}</div>}</div>
-          {a.pour === 'client' && <span className="mgc-badge">Pour toi</span>}
-        </li></React.Fragment>)}</ul>}
+      <div className="esp-row">
+        <button className="esp-primary" disabled={busy} onClick={() => send({ op: 'brief', reponses: brief }, 'Réponses enregistrées.').then(ok => ok && setOpen(false))}>Enregistrer mes réponses</button>
+        <button className="esp-link" onClick={() => setOpen(false)}>Plus tard</button>
+      </div>
+    </>}
   </section>
+}
+
+// ---------- Mes actions ----------
+function Actions({ project, first, busy, send }) {
+  const todo = project.actions.filter(a => a.pour === 'client' && !a.fait)
+  const fait = project.actions.filter(a => a.pour === 'client' && a.fait)
+  const amely = project.actions.filter(a => a.pour !== 'client')
+  return <>
+    <section className="esp-card">
+      <h2>À faire de ton côté</h2>
+      <p className="esp-muted">Coche dès que c’est fait : {first} le voit tout de suite.</p>
+      {todo.length === 0 ? <p className="esp-muted">Tout est fait. Bravo.</p> :
+        <ul className="esp-checks">{todo.map(a => <ActionCheck key={a.id} a={a} busy={busy} send={send} />)}</ul>}
+      {fait.length > 0 && <details className="esp-details-in"><summary>Déjà fait ({fait.length})</summary>
+        <ul className="esp-checks">{fait.map(a => <ActionCheck key={a.id} a={a} busy={busy} send={send} />)}</ul></details>}
+    </section>
+    {amely.length > 0 && <section className="esp-card">
+      <h2>Du côté de {first}</h2>
+      <ul className="esp-list">{amely.map(a => <li key={a.id}><span className={'esp-tag ' + (a.fait ? 'ok' : '')}>{a.fait ? 'Fait' : 'En cours'}</span><span className={a.fait ? 'esp-done' : ''}>{a.label}</span></li>)}</ul>
+    </section>}
+    {project.type === 'formation' && <Lecons project={project} first={first} busy={busy} send={send} />}
+  </>
 }
 
 const emptyLecon = { titre: '', objectif: '', points: '', video: '' }
-
 function Lecons({ project, first, busy, send }) {
   const [edit, setEdit] = useState(null)
-  const save = statut => send({ op: 'lecon', lecon: { ...edit, statut } }).then(ok => ok && setEdit(null))
-  return <section className="mgc-panel">
-    <div className="mgc-between"><h2>Construire tes leçons</h2>{!edit && <button className="mgc-primary" onClick={() => setEdit({ ...emptyLecon })}>Créer une fiche de leçon</button>}</div>
-    <p className="mgc-muted">Commence par une seule leçon pilote. Nous validons sa structure et la lecture avant de poursuivre les tournages. Les fiches restent modifiables à mesure que le programme se précise.</p>
-    {edit && <div className="mgc-panel mgc-form" style={{ background: '#faf7f1' }}>
-      <label>Titre de la leçon<input value={edit.titre} onChange={e => setEdit({ ...edit, titre: e.target.value })} /></label>
-      <label>Ce que le parent apprendra<textarea rows={2} value={edit.objectif} onChange={e => setEdit({ ...edit, objectif: e.target.value })} /></label>
-      <label>Les points que tu veux montrer<textarea rows={5} value={edit.points} onChange={e => setEdit({ ...edit, points: e.target.value })} /></label>
-      <label>Lien de la vidéo (si prête)<input placeholder="https://…" value={edit.video} onChange={e => setEdit({ ...edit, video: e.target.value })} /></label>
-      <div className="mgc-row">
-        <button disabled={busy || !edit.titre.trim()} onClick={() => save('brouillon')}>Enregistrer le brouillon</button>
-        <button className="mgc-primary" disabled={busy || !edit.titre.trim()} onClick={() => save('a_valider')}>Envoyer à {first} pour relecture</button>
-        <button className="mgc-link" onClick={() => setEdit(null)}>Annuler</button>
+  const save = statut => send({ op: 'lecon', lecon: { ...edit, statut } }, statut === 'a_valider' ? 'Leçon envoyée à ' + first + '.' : 'Brouillon enregistré.').then(ok => ok && setEdit(null))
+  return <section className="esp-card">
+    <div className="esp-between"><h2>Mes leçons</h2>{!edit && <button className="esp-primary" onClick={() => setEdit({ ...emptyLecon })}>Nouvelle leçon</button>}</div>
+    {edit && <div className="esp-form esp-edit">
+      <label className="esp-field">Titre de la leçon<input value={edit.titre} onChange={e => setEdit({ ...edit, titre: e.target.value })} /></label>
+      <label className="esp-field">Ce que le parent apprendra<textarea rows={2} value={edit.objectif} onChange={e => setEdit({ ...edit, objectif: e.target.value })} /></label>
+      <label className="esp-field">Les points que tu veux montrer<textarea rows={5} value={edit.points} onChange={e => setEdit({ ...edit, points: e.target.value })} /></label>
+      <label className="esp-field">Lien de la vidéo, si elle est prête<input placeholder="https://…" value={edit.video} onChange={e => setEdit({ ...edit, video: e.target.value })} /></label>
+      <div className="esp-row">
+        <button className="esp-primary" disabled={busy || !edit.titre.trim()} onClick={() => save('a_valider')}>Envoyer à {first}</button>
+        <button className="esp-secondary" disabled={busy || !edit.titre.trim()} onClick={() => save('brouillon')}>Garder en brouillon</button>
+        <button className="esp-link" onClick={() => setEdit(null)}>Annuler</button>
       </div>
     </div>}
-    {project.lecons.length === 0 && !edit ? <div className="mgc-note"><strong>Ta première fiche de leçon</strong><br />Ouvre « Créer une fiche de leçon » ci-dessus. Donne-lui un titre, explique ce que le parent apprendra et décris les points que tu veux montrer.</div> :
-      <ul className="mgc-list">{project.lecons.map((l, i) => <li key={l.id} style={{ display: 'block' }}>
-        <div className="mgc-between"><div className="mgc-row"><span className="mgc-muted">{i + 1}.</span><strong>{l.titre}</strong><span className={'mgc-badge ' + LECON_LABEL[l.statut][1]}>{LECON_LABEL[l.statut][0]}</span></div>
-          {l.statut !== 'validee' && <button onClick={() => setEdit({ id: l.id, titre: l.titre, objectif: l.objectif, points: l.points, video: l.video })}>Modifier</button>}</div>
-        {l.objectif && <div className="mgc-muted">{l.objectif}</div>}
-        {l.video && <a className="mgc-link" href={l.video} target="_blank" rel="noopener noreferrer">Voir la vidéo ↗</a>}
-        {l.retour && <p className="mgc-note"><strong>Retour de {first} :</strong> {l.retour}</p>}
-      </li>)}</ul>}
-  </section>
-}
-
-function Visios({ project, first, busy, send }) {
-  const groups = {}
-  for (const c of project.creneaux) (groups[c.titre] ||= []).push(c)
-  return <section className="mgc-panel">
-    <h2>Rendez-vous en visio</h2>
-    <p className="mgc-muted">Choisis parmi les créneaux proposés par {first}. Les rendez-vous réservés apparaissent ici.</p>
-    {project.prochainRdv && <p className="mgc-note">Prochain rendez-vous prévu : <strong>{formatRdv(project.prochainRdv)}</strong></p>}
-    {project.creneaux.length === 0 ? <p className="mg-empty">Aucun créneau proposé pour le moment.</p> :
-      Object.entries(groups).map(([titre, list]) => {
-        const booked = list.find(c => c.reserve)
-        return <div key={titre} style={{ marginTop: 12 }}>
-          <strong>{titre}</strong>
-          {booked ? <p className="mgc-note">Réservé : <strong>{formatRdv(booked.date)}</strong>{booked.lien && <> · <a href={booked.lien} target="_blank" rel="noopener noreferrer">Rejoindre la visio ↗</a></>}
-            <br /><button className="mgc-link" disabled={busy} onClick={() => send({ op: 'creneau', creneauId: booked.id, reserve: false })}>Changer de créneau</button></p>
-            : <div className="mgc-row" style={{ marginTop: 6, flexWrap: 'wrap' }}>{list.map(c =>
-              <button key={c.id} disabled={busy} onClick={() => send({ op: 'creneau', creneauId: c.id })}>{formatRdv(c.date)}</button>)}</div>}
+    {project.lecons.length === 0 && !edit ? <p className="esp-muted">Commence par une seule leçon pilote : un titre, ce que le parent apprendra et les points à montrer.</p> :
+      <ul className="esp-list">{project.lecons.map(l => <li key={l.id} className="esp-lecon">
+        <div className="esp-between"><strong>{l.titre}</strong><span className={'esp-tag ' + LECON_LABEL[l.statut][1]}>{LECON_LABEL[l.statut][0]}</span></div>
+        {l.objectif && <span className="esp-muted">{l.objectif}</span>}
+        {l.retour && <p className="esp-note"><strong>Retour de {first} :</strong> {l.retour}</p>}
+        <div className="esp-row">
+          {l.video && <a href={l.video} target="_blank" rel="noopener noreferrer">Voir la vidéo</a>}
+          {l.statut !== 'validee' && <button className="esp-link" onClick={() => setEdit({ id: l.id, titre: l.titre, objectif: l.objectif, points: l.points, video: l.video })}>Modifier</button>}
         </div>
-      })}
-  </section>
-}
-
-function Questions({ project, first, busy, send }) {
-  const [texte, setTexte] = useState('')
-  const list = project.questions.slice().reverse()
-  return <section className="mgc-panel">
-    <h2>Questions avant la visio</h2>
-    <p className="mgc-muted">Note ici les sujets que tu veux aborder, pour les retrouver au prochain rendez-vous.</p>
-    <div className="mgc-form"><textarea rows={3} placeholder="Ta question…" value={texte} onChange={e => setTexte(e.target.value)} /></div>
-    <button className="mgc-primary" style={{ marginTop: 8 }} disabled={busy || !texte.trim()} onClick={() => send({ op: 'question', texte }).then(ok => ok && setTexte(''))}>Ajouter la question</button>
-    {list.length === 0 ? <p className="mg-empty">Aucune question pour le moment.</p> :
-      <ul className="mgc-list" style={{ marginTop: 12 }}>{list.map(q => <li key={q.id} style={{ display: 'block' }}>
-        <div className="mgc-between"><span className="mgc-muted">{q.date ? formatDate(q.date) : ''}</span>{q.traitee && <span className="mgc-badge ok">Traitée</span>}</div>
-        <div style={{ whiteSpace: 'pre-line' }}>{q.texte}</div>
-        {q.reponse && <p className="mgc-note"><strong>{first} :</strong> {q.reponse}</p>}
       </li>)}</ul>}
   </section>
 }
 
+// ---------- Visios et questions ----------
+function Visios({ project, first, busy, send }) {
+  const [texte, setTexte] = useState('')
+  const visio = nextVisio(project)
+  const libres = project.creneaux.filter(c => !c.reserve && isFuture(c.date)).sort((a, b) => a.date.localeCompare(b.date))
+  const questions = project.questions.slice().reverse()
+  const ouvertes = questions.filter(q => !q.traitee)
+  const traitees = questions.filter(q => q.traitee)
+  return <>
+    <section className="esp-card">
+      <h2>Prochaine visio</h2>
+      {visio ? <>
+        <p className="esp-big">{cap(formatRdv(visio.date))}</p>
+        <div className="esp-row">
+          {visio.lien && <a className="esp-primary" href={visio.lien} target="_blank" rel="noopener noreferrer">Rejoindre la visio</a>}
+          {visio.id && <button className="esp-link" disabled={busy} onClick={() => send({ op: 'creneau', creneauId: visio.id, reserve: false }, 'Créneau libéré. Choisis-en un autre.')}>Changer de créneau</button>}
+        </div>
+      </> : libres.length > 0 ? <>
+        <p className="esp-muted">Choisis le créneau qui t’arrange.</p>
+        <div className="esp-chips">{libres.map(c => <button key={c.id} disabled={busy} onClick={() => send({ op: 'creneau', creneauId: c.id }, 'Visio réservée.')}>{shortRdv(c.date)}</button>)}</div>
+      </> : <p className="esp-muted">Pas encore de date. {first} te propose des créneaux ici très vite.</p>}
+    </section>
+
+    <section className="esp-card">
+      <h2>Mes questions pour la prochaine visio</h2>
+      <label className="esp-field">Ta question<textarea rows={3} value={texte} onChange={e => setTexte(e.target.value)} /></label>
+      <button className="esp-primary" disabled={busy || !texte.trim()} onClick={() => send({ op: 'question', texte }, 'Question ajoutée.').then(ok => ok && setTexte(''))}>Ajouter</button>
+      {ouvertes.length > 0 && <ul className="esp-list">{ouvertes.map(q => <li key={q.id} className="esp-q"><span className="esp-muted">{q.date ? formatDate(q.date) : ''}</span><span>{q.texte}</span></li>)}</ul>}
+      {traitees.length > 0 && <details className="esp-details-in"><summary>Questions traitées ({traitees.length})</summary>
+        <ul className="esp-list">{traitees.map(q => <li key={q.id} className="esp-q"><span>{q.texte}</span>{q.reponse && <p className="esp-note"><strong>{first} :</strong> {q.reponse}</p>}</li>)}</ul></details>}
+    </section>
+
+    {project.notes.length > 0 && <section className="esp-card">
+      <h2>Comptes rendus</h2>
+      {project.notes.map((n, i) => <details key={n.id} className="esp-details-in" open={i === 0}>
+        <summary>{n.titre || 'Compte rendu'}{n.date ? ' · ' + formatDate(n.date) : ''}</summary>
+        <div className="esp-pre">{n.texte}</div>
+      </details>)}
+    </section>}
+  </>
+}
+
+// ---------- Documents et paiements ----------
 const ibanFmt = v => String(v || '').replace(/\s+/g, '').replace(/(.{4})/g, '$1 ').trim()
-// Le client accepte le devis en ligne (nom + case cochée), puis voit comment régler l'acompte.
+
 function AcceptDevis({ devis, send, busy, onRead }) {
   const [nom, setNom] = useState('')
   const [ok, setOk] = useState(false)
-  return <div className="mgc-accept">
-    <h4>Accepter le devis {devis.numero}</h4>
-    <p className="mgc-muted">Prends le temps de <button className="mgc-link" onClick={onRead}>relire le devis</button>. En l’acceptant ici, tu valides les prestations, les prix et l’échéancier{devis.validite ? ' (devis valable jusqu’au ' + formatDate(devis.validite) + ')' : ''}.</p>
-    <label>Ton nom et prénom<input value={nom} onChange={e => setNom(e.target.value)} autoComplete="name" /></label>
-    <label className="mgc-check"><input type="checkbox" checked={ok} onChange={e => setOk(e.target.checked)} /> J’ai lu le devis et j’en accepte les prestations, les prix et l’échéancier.</label>
-    <button className="mgc-primary" disabled={busy || !ok || nom.trim().length < 2} onClick={() => send({ op: 'accepter_devis', devisId: devis.id, nom: nom.trim(), accepte: true })}>J’accepte le devis</button>
-  </div>
+  const remises = (devis.lignes || []).filter(l => (l.prixCents || 0) < 0)
+  const brut = (devis.lignes || []).filter(l => (l.prixCents || 0) >= 0).reduce((s, l) => s + Math.round((Number(l.quantite) || 0) * l.prixCents), 0)
+  return <section className="esp-card esp-accept">
+    <div className="esp-between"><span className="esp-tag warn">À accepter</span>{devis.validite && <span className="esp-muted">valable jusqu’au {formatDate(devis.validite)}</span>}</div>
+    <h2>Devis {devis.numero}</h2>
+    <dl className="esp-sum">
+      {remises.length > 0 && <><dt>Prix</dt><dd>{money(brut)}</dd>
+        {remises.map((l, i) => <React.Fragment key={i}><dt>{l.description || 'Remise'}</dt><dd>{money(Math.round((Number(l.quantite) || 0) * l.prixCents))}</dd></React.Fragment>)}</>}
+      <dt className="esp-total">Total HT</dt><dd className="esp-total">{money(devisBase(devis))}</dd>
+    </dl>
+    <button className="esp-link" onClick={onRead}>Lire le devis complet</button>
+    <label className="esp-field">Ton nom et prénom<input value={nom} onChange={e => setNom(e.target.value)} autoComplete="name" /></label>
+    <label className="esp-check"><input type="checkbox" checked={ok} onChange={e => setOk(e.target.checked)} /> J’ai lu le devis et j’en accepte les prestations, les prix et l’échéancier.</label>
+    <button className="esp-primary esp-wide" disabled={busy || !ok || nom.trim().length < 2} onClick={() => send({ op: 'accepter_devis', devisId: devis.id, nom: nom.trim(), accepte: true }, 'Devis accepté. Merci !')}>J’accepte le devis</button>
+    {(!ok || nom.trim().length < 2) && <p className="esp-muted esp-hint">Indique ton nom et coche la case pour accepter.</p>}
+  </section>
 }
-function PayAcompte({ devis, emetteur }) {
-  const first = [...(devis.echeances || [])].sort((a, b) => (a.date || '').localeCompare(b.date || ''))[0]
-  return <div className="mgc-accept done">
-    <h4>Devis {devis.numero} accepté{devis.signeLe ? ' le ' + formatDate(devis.signeLe) : ''}{devis.signePar ? ' par ' + devis.signePar : ''}. Merci !</h4>
-    {first && <p><strong>Pour lancer le projet : {first.label} · {money(first.montantCents)} HT.</strong> Tu reçois la facture correspondante par email.</p>}
-    {emetteur?.iban && <dl className="mgc-pay"><dt>Virement</dt><dd>{ibanFmt(emetteur.iban)}</dd><dt>Bénéficiaire</dt><dd>{emetteur.nom}</dd><dt>Référence</dt><dd>{devis.numero}</dd></dl>}
-    {devis.lienPaiement && <a className="mgc-primary-link" href={devis.lienPaiement} target="_blank" rel="noopener noreferrer">Payer par carte ↗</a>}
-  </div>
+
+function PayAcompte({ devis, next: first, emetteur }) {
+  return <section className="esp-card esp-paid">
+    <span className="esp-tag ok">Accepté{devis.signeLe ? ' le ' + formatDate(devis.signeLe) : ''}</span>
+    <h2>Prochain paiement</h2>
+    {first && <p><strong>{money(first.montantCents)} HT</strong> · {first.label}. Tu reçois la facture par email.</p>}
+    {emetteur?.iban && <dl className="esp-sum esp-pay"><dt>Virement</dt><dd>{ibanFmt(emetteur.iban)}</dd><dt>Bénéficiaire</dt><dd>{emetteur.nom}</dd><dt>Référence</dt><dd>{devis.numero}</dd></dl>}
+    {devis.lienPaiement && <a className="esp-primary" href={devis.lienPaiement} target="_blank" rel="noopener noreferrer">Payer par carte</a>}
+  </section>
 }
 
 function Documents({ view, project, send, busy }) {
   const printDevis = d => printDocument({ kind: 'devis', numero: d.numero, date: d.date, validite: d.validite, regime: d.regime, irpf: 0,
     lignes: d.lignes, intro: d.intro, perimetre: d.perimetre, note: d.note, outils: d.outils, echeances: d.echeances, client: view.client, emetteur: view.emetteur })
+  const aSigner = view.devis.filter(d => d.statut === 'envoye')
+  const signes = view.devis.filter(d => d.statut === 'signe')
+  const payee = label => view.echeancier.some(e => e.statut === 'payee' && e.label === label)
+  const aPayer = signes.filter(d => d.signePar).map(d => ({ d, next: [...(d.echeances || [])].sort((a, b) => (a.date || '').localeCompare(b.date || '')).find(e => !payee(e.label)) })).find(x => x.next)
+  const total = view.echeancier.reduce((s, e) => s + (e.montantCents || 0), 0)
   return <>
-    <section className="mgc-panel"><h3 style={{ marginTop: 0 }}>Devis</h3>
-      {view.devis.length === 0 ? <p className="mgc-muted">Aucun devis pour l’instant.</p> :
-        <table className="mgc-table"><tbody>{view.devis.map(d => <tr key={d.id}>
-          <td><strong>{d.numero}</strong>{d.intro && <div className="mgc-muted" style={{ maxWidth: 420 }}>{d.intro.slice(0, 140)}{d.intro.length > 140 ? '…' : ''}</div>}</td>
-          <td className="mgc-muted">{d.date ? formatDate(d.date) : ''}</td>
-          <td><span className={'mgc-badge ' + DEVIS_LABEL[d.statut][1]}>{DEVIS_LABEL[d.statut][0]}</span></td>
-          <td className="mgc-num">{money(devisBase(d))} HT</td>
-          <td><button onClick={() => printDevis(d)}>Voir / PDF</button></td></tr>)}</tbody></table>}
-      {view.devis.filter(d => d.statut === 'envoye').map(d => <AcceptDevis key={d.id} devis={d} send={send} busy={busy} onRead={() => printDevis(d)} />)}
-      {view.devis.filter(d => d.statut === 'signe' && d.signePar).slice(0, 1).map(d => <PayAcompte key={d.id} devis={d} emetteur={view.emetteur} />)}
+    {aSigner.map(d => <AcceptDevis key={d.id} devis={d} send={send} busy={busy} onRead={() => printDevis(d)} />)}
+    {aPayer && <PayAcompte devis={aPayer.d} next={aPayer.next} emetteur={view.emetteur} />}
+
+    {view.echeancier.length > 0 && <section className="esp-card">
+      <h2>Échéancier{view.projets.length > 1 ? ' · tous tes projets' : ''}</h2>
+      <ul className="esp-rows">{view.echeancier.map((e, i) => <li key={i}>
+        <span>{e.label}</span><span className="esp-muted">{e.date ? formatDate(e.date) : ''}</span>
+        <span className={'esp-tag ' + (e.statut === 'payee' ? 'ok' : e.statut === 'facturee' ? 'warn' : '')}>{e.statut === 'payee' ? 'Réglé' : e.statut === 'facturee' ? 'À régler' : 'À venir'}</span>
+        <strong>{money(e.montantCents)}</strong></li>)}
+        <li className="esp-rows-total"><strong>Total</strong><span /><span /><strong>{money(total)}</strong></li>
+      </ul>
+    </section>}
+
+    <section className="esp-card">
+      <h2>Mes factures</h2>
+      {view.factures.length === 0 ? <p className="esp-muted">Aucune facture pour l’instant.</p> :
+        <ul className="esp-rows">{view.factures.map((f, i) => <li key={i}>
+          <strong>{f.reference}</strong><span className="esp-muted">{formatDate(f.date)}</span>
+          <span className={'esp-tag ' + (f.payment === 'paid' ? 'ok' : 'warn')}>{f.payment === 'paid' ? 'Réglée' : 'À régler'}</span>
+          <strong>{money(f.amountCents)}</strong></li>)}</ul>}
     </section>
-    <section className="mgc-panel"><h3 style={{ marginTop: 0 }}>Échéancier et suivi des règlements</h3>
-      {view.echeancier?.length > 0 ? <table className="mgc-table"><tbody>{view.echeancier.map((e, i) => <tr key={i}>
-        <td>{e.label}</td><td className="mgc-muted">{e.date ? formatDate(e.date) : '—'}</td>
-        <td><span className={'mgc-badge ' + (e.statut === 'payee' ? 'ok' : e.statut === 'facturee' ? 'info' : '')}>{e.statut === 'payee' ? 'Réglée' : e.statut === 'facturee' ? 'À régler' : 'À venir'}</span></td>
-        <td className="mgc-num">{money(e.montantCents)}</td></tr>)}</tbody></table> : <p className="mgc-muted">Pas d’échéancier pour l’instant.</p>}
-    </section>
-    <section className="mgc-panel"><h3 style={{ marginTop: 0 }}>Factures</h3>
-      {view.factures.length === 0 ? <p className="mgc-muted">Aucune facture pour l’instant.</p> :
-        <table className="mgc-table"><tbody>{view.factures.map((f, i) => <tr key={i}>
-          <td>{f.reference}</td><td className="mgc-muted">{formatDate(f.date)}</td>
-          <td><span className={'mgc-badge ' + (f.payment === 'paid' ? 'ok' : 'info')}>{f.payment === 'paid' ? 'Réglée' : 'À régler'}</span></td>
-          <td className="mgc-num">{money(f.amountCents)}</td></tr>)}</tbody></table>}
-    </section>
-    {project && <section className="mgc-panel"><h3 style={{ marginTop: 0 }}>Documents partagés</h3>
-      {project.documents.length === 0 ? <p className="mgc-muted">Aucun document partagé pour l’instant.</p> :
-        <div className="mgc-grid">{project.documents.map((d, i) => <a key={i} className="mgc-panel" style={{ marginTop: 0, textDecoration: 'none' }} href={d.url} target="_blank" rel="noopener noreferrer"><strong>{d.label}</strong> ↗</a>)}</div>}
+
+    {signes.length > 0 && <section className="esp-card">
+      <h2>Devis acceptés</h2>
+      <ul className="esp-rows">{signes.map(d => <li key={d.id}>
+        <strong>{d.numero}</strong><span className="esp-muted">{d.signeLe ? 'accepté le ' + formatDate(d.signeLe) : ''}</span>
+        <span>{money(devisBase(d))} HT</span><button className="esp-link" onClick={() => printDevis(d)}>Voir</button></li>)}</ul>
+    </section>}
+
+    {project && project.documents.length > 0 && <section className="esp-card">
+      <h2>Documents partagés</h2>
+      <ul className="esp-list">{project.documents.map((d, i) => <li key={i}><a href={d.url} target="_blank" rel="noopener noreferrer">{d.label}</a></li>)}</ul>
     </section>}
   </>
 }
