@@ -171,3 +171,16 @@
 .atl-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
 .atl-actions input { flex: 1 1 200px; min-width: 0; }
 .atl-foot { margin: 0; font-size: .9rem; }
+
+/* Espace client : acceptation du devis en ligne et règlement de l'acompte */
+.mgc-accept { margin-top: 16px; padding: 16px; border-radius: 14px; background: #fdf6e6; display: grid; gap: 10px; }
+.mgc-accept.done { background: #e8f4ef; }
+.mgc-accept h4 { margin: 0; }
+.mgc-accept p { margin: 0; }
+.mgc-accept label { display: grid; gap: 4px; }
+.mgc-accept .mgc-check { display: flex; gap: 8px; align-items: flex-start; }
+.mgc-accept > button { justify-self: start; }
+.mgc-pay { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; }
+.mgc-pay dt { color: var(--qg-muted, #5a6d6f); }
+.mgc-pay dd { margin: 0; font-weight: 700; word-break: break-all; }
+.mgc-primary-link { justify-self: start; display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 999px; background: #103c42; color: #fff; font-weight: 700; text-decoration: none; }

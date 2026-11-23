@@ -176,6 +176,7 @@ function cleanDevis(d) {
     id: id(d.id) || newId('dev'), clientId: id(d.clientId) || '', projetId: id(d.projetId) || '',
     numero: str(d.numero, 40).trim(), date: date(d.date), validite: date(d.validite),
     statut: oneOf(d.statut, DEVIS_STATUS, 'brouillon'), signeLe: date(d.signeLe),
+    signePar: str(d.signePar, 120), lienPaiement: url(d.lienPaiement),
     regime: oneOf(d.regime, ['es21', 'eu', 'other'], 'es21'), irpf: Math.min(Math.max(Number(d.irpf) || 0, 0), 50),
     intro: str(d.intro, 1500), perimetre: (Array.isArray(d.perimetre) ? d.perimetre : []).slice(0, 30).map(x => str(x, 300).trim()).filter(Boolean),
     note: str(d.note, 800), outils: str(d.outils, 800),

@@ -59,7 +59,8 @@ function DevisForm({ devis, client, projects, all, onSave, onDelete, onClose, sa
     onSave({
       id: d.id, clientId: client.id, projetId: d.projetId || '', numero: d.numero.trim(), date: d.date, validite: d.validite,
       statut: d.statut, signeLe: d.statut === 'signe' ? (d.signeLe || todayInSpain()) : '', regime: d.regime, irpf: 0,
-      intro: d.intro || '', note: d.note || '', outils: d.outils || '',
+      intro: d.intro || '', note: d.note || '', outils: d.outils || '', lienPaiement: (d.lienPaiement || '').trim(),
+      signePar: d.statut === 'signe' ? (d.signePar || '') : '',
       perimetre: (d.perimetreText || '').split('\n').map(x => x.trim()).filter(Boolean),
       lignes: lines.filter(l => l.description.trim()).map(l => ({ description: l.description, quantite: Number(l.qty) || 0, prixCents: toCents(l.price || 0) })),
     })
@@ -92,6 +93,8 @@ function DevisForm({ devis, client, projects, all, onSave, onDelete, onClose, sa
       </div>
       <label>Périmètre : une fonction ou un livrable par ligne<textarea rows={5} value={d.perimetreText} onChange={e => setD({ ...d, perimetreText: e.target.value })} /></label>
       <label>Frais des outils (facultatif)<textarea maxLength={800} {...f('outils')} /></label>
+      <label>Lien de paiement par carte (facultatif)<input type="url" placeholder="https://buy.stripe.com/…" {...f('lienPaiement')} /></label>
+      <p className="mgc-muted" style={{ margin: 0 }}>Le client peut accepter ce devis en ligne dans son espace, puis régler l’acompte par virement (ton IBAN s’affiche) ou par carte si tu mets un lien.</p>
       <label>Mention ou conditions (facultatif)<input maxLength={800} {...f('note')} /></label>
       <div className="mgc-total"><div><div className="mgc-muted">Total HT</div><strong>{money(base)}</strong></div>
         <div><div className="mgc-muted">Régime</div><strong style={{ fontSize: '.9rem' }}>{REGIMES[d.regime]}</strong></div></div>

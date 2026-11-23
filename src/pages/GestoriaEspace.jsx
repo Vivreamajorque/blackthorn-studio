@@ -41,7 +41,7 @@ export default function GestoriaEspace({ token }) {
     setBusy(true)
     try {
       const response = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ t: token, projetId: project.id, ...payload }) })
+        body: JSON.stringify({ t: token, projetId: project?.id, ...payload }) })
       if (response.ok) { setView(await response.json()); return true }
       const err = await response.json().catch(() => ({}))
       window.alert(err.error || 'Modification non enregistrée. Recharge la page et réessaie.')
@@ -77,7 +77,7 @@ export default function GestoriaEspace({ token }) {
       {project && current === 'lecons' && <Lecons project={project} first={first} busy={busy} send={send} />}
       {project && current === 'visios' && <Visios project={project} first={first} busy={busy} send={send} />}
       {project && current === 'questions' && <Questions project={project} first={first} busy={busy} send={send} />}
-      {current === 'documents' && <Documents view={view} project={project} />}
+      {current === 'documents' && <Documents view={view} project={project} send={send} busy={busy} />}
       {view.consultante.email && <p className="mgc-muted" style={{ marginTop: 28 }}>Une question ? Écris à {view.consultante.email}.</p>}
     </div>
   </div>
@@ -245,7 +245,30 @@ function Questions({ project, first, busy, send }) {
   </section>
 }
 
-function Documents({ view, project }) {
+const ibanFmt = v => String(v || '').replace(/\s+/g, '').replace(/(.{4})/g, '$1 ').trim()
+// Le client accepte le devis en ligne (nom + case cochée), puis voit comment régler l'acompte.
+function AcceptDevis({ devis, send, busy, onRead }) {
+  const [nom, setNom] = useState('')
+  const [ok, setOk] = useState(false)
+  return <div className="mgc-accept">
+    <h4>Accepter le devis {devis.numero}</h4>
+    <p className="mgc-muted">Prends le temps de <button className="mgc-link" onClick={onRead}>relire le devis</button>. En l’acceptant ici, tu valides les prestations, les prix et l’échéancier{devis.validite ? ' (devis valable jusqu’au ' + formatDate(devis.validite) + ')' : ''}.</p>
+    <label>Ton nom et prénom<input value={nom} onChange={e => setNom(e.target.value)} autoComplete="name" /></label>
+    <label className="mgc-check"><input type="checkbox" checked={ok} onChange={e => setOk(e.target.checked)} /> J’ai lu le devis et j’en accepte les prestations, les prix et l’échéancier.</label>
+    <button className="mgc-primary" disabled={busy || !ok || nom.trim().length < 2} onClick={() => send({ op: 'accepter_devis', devisId: devis.id, nom: nom.trim(), accepte: true })}>J’accepte le devis</button>
+  </div>
+}
+function PayAcompte({ devis, emetteur }) {
+  const first = [...(devis.echeances || [])].sort((a, b) => (a.date || '').localeCompare(b.date || ''))[0]
+  return <div className="mgc-accept done">
+    <h4>Devis {devis.numero} accepté{devis.signeLe ? ' le ' + formatDate(devis.signeLe) : ''}{devis.signePar ? ' par ' + devis.signePar : ''}. Merci !</h4>
+    {first && <p><strong>Pour lancer le projet : {first.label} · {money(first.montantCents)} HT.</strong> Tu reçois la facture correspondante par email.</p>}
+    {emetteur?.iban && <dl className="mgc-pay"><dt>Virement</dt><dd>{ibanFmt(emetteur.iban)}</dd><dt>Bénéficiaire</dt><dd>{emetteur.nom}</dd><dt>Référence</dt><dd>{devis.numero}</dd></dl>}
+    {devis.lienPaiement && <a className="mgc-primary-link" href={devis.lienPaiement} target="_blank" rel="noopener noreferrer">Payer par carte ↗</a>}
+  </div>
+}
+
+function Documents({ view, project, send, busy }) {
   const printDevis = d => printDocument({ kind: 'devis', numero: d.numero, date: d.date, validite: d.validite, regime: d.regime, irpf: 0,
     lignes: d.lignes, intro: d.intro, perimetre: d.perimetre, note: d.note, outils: d.outils, echeances: d.echeances, client: view.client, emetteur: view.emetteur })
   return <>
@@ -257,6 +280,8 @@ function Documents({ view, project }) {
           <td><span className={'mgc-badge ' + DEVIS_LABEL[d.statut][1]}>{DEVIS_LABEL[d.statut][0]}</span></td>
           <td className="mgc-num">{money(devisBase(d))} HT</td>
           <td><button onClick={() => printDevis(d)}>Voir / PDF</button></td></tr>)}</tbody></table>}
+      {view.devis.filter(d => d.statut === 'envoye').map(d => <AcceptDevis key={d.id} devis={d} send={send} busy={busy} onRead={() => printDevis(d)} />)}
+      {view.devis.filter(d => d.statut === 'signe' && d.signePar).slice(0, 1).map(d => <PayAcompte key={d.id} devis={d} emetteur={view.emetteur} />)}
     </section>
     <section className="mgc-panel"><h3 style={{ marginTop: 0 }}>Échéancier et suivi des règlements</h3>
       {view.echeancier?.length > 0 ? <table className="mgc-table"><tbody>{view.echeancier.map((e, i) => <tr key={i}>

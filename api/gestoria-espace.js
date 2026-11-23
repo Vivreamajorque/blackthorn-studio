@@ -25,7 +25,7 @@ function devisFor(crm, client) {
   return (crm.devis || []).filter(d => d.clientId === client.id && (d.statut === 'envoye' || d.statut === 'signe'))
     .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
     .map(d => ({ id: d.id, numero: d.numero, date: d.date, validite: d.validite, statut: d.statut, regime: d.regime,
-      lignes: d.lignes, intro: d.intro, perimetre: d.perimetre, note: d.note, outils: d.outils,
+      lignes: d.lignes, intro: d.intro, perimetre: d.perimetre, note: d.note, outils: d.outils, signeLe: d.signeLe, signePar: d.signePar, lienPaiement: d.lienPaiement,
       echeances: (crm.echeances || []).filter(e => e.devisId ? e.devisId === d.id : e.clientId === client.id).map(e => ({ label: e.label, date: e.date, montantCents: e.montantCents })) }))
 }
 
@@ -72,12 +72,25 @@ module.exports = async function handler(req, res) {
 
     if (req.method === 'POST') {
       if (!/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '')) return res.status(403).end()
-      const projet = crm.projets.find(p => p.id === body.projetId && p.clientId === client.id && p.visibleClient)
-      if (!projet) return res.status(403).json({ error: 'Projet introuvable' })
       const today = new Date().toISOString().slice(0, 10)
       const log = texte => { crm.journal = [{ date: new Date().toISOString(), texte: client.nom + ' ' + texte }, ...crm.journal].slice(0, 200) }
       const op = body.op || 'action'
-      if (op === 'action') {
+      const projet = crm.projets.find(p => p.id === body.projetId && p.clientId === client.id && p.visibleClient)
+      if (!projet && op !== 'accepter_devis') return res.status(403).json({ error: 'Projet introuvable' })
+      if (op === 'accepter_devis') {
+        // Acceptation en ligne : nom tapé + case cochée. Seul un devis envoyé et encore valable peut être accepté.
+        const d = (crm.devis || []).find(x => x.id === body.devisId && x.clientId === client.id)
+        const nom = String(body.nom || '').trim().slice(0, 120)
+        if (!d || d.statut !== 'envoye') return res.status(403).json({ error: 'Ce devis ne peut pas être accepté en ligne.' })
+        if (d.validite && d.validite < today) return res.status(403).json({ error: 'Ce devis a expiré : demande-en un nouveau.' })
+        if (body.accepte !== true || nom.length < 2) return res.status(400).json({ error: 'Indique ton nom et coche la case pour accepter.' })
+        d.statut = 'signe'; d.signeLe = today; d.signePar = nom
+        const now = new Date(Date.now() + 3600e3).toISOString().slice(0, 16)
+        const msgs = crm.messages && typeof crm.messages === 'object' ? crm.messages : { items: [] }
+        crm.messages = { ...msgs, items: [{ id: 'client:devis-accepte-' + d.id, source: 'client', de: client.nom, sujet: 'A accepté le devis ' + d.numero + ' en ligne : émettre la facture d’acompte',
+          apercu: 'Accepté par ' + nom + ' le ' + today.split('-').reverse().join('/') + '.', date: now, lien: '', clientId: client.id, vu: false }, ...(msgs.items || [])].slice(0, 60) }
+        log(`a accepté en ligne le devis ${d.numero} (${nom})`)
+      } else if (op === 'action') {
         const action = projet.actions.find(a => a.id === body.actionId)
         if (!action || action.pour !== 'client') return res.status(403).json({ error: 'Action non modifiable' })
         action.fait = body.fait === true

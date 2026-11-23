@@ -101,3 +101,29 @@ test('espace client : devis visibles hors brouillons, brief, leçons, questions 
   r = await call({ method: 'POST', body: { t, projetId: projet.id, op: 'creneau', creneauId: 'c2' } })
   assert.deepEqual(r.data.projets[0].creneaux.map(c => c.reserve), [false, true], 'un seul horaire réservé par visio')
 })
+
+test('espace client : accepter un devis envoyé en ligne', async () => {
+  const crm = seedCrm()
+  const nisha = crm.clients.find(c => c.nom === 'Nisha')
+  crm.devis = [
+    { id: 'dev_env', clientId: nisha.id, numero: 'DEV-X', statut: 'envoye', validite: '2099-12-31', lignes: [{ description: 'Outil', quantite: 1, prixCents: 125000 }] },
+    { id: 'dev_bro', clientId: nisha.id, numero: 'DEV-Y', statut: 'brouillon', lignes: [{ description: 'Outil', quantite: 1, prixCents: 1000 }] },
+  ]
+  const workspace = { entries: [], records: {} }
+  const blob = fakeBlob({ [CRM_PATH]: crm, 'mi-gestoria/personal/v1/workspace.json': workspace })
+  espace.blobForTests = blob
+  let r = await call({ method: 'POST', body: { t: nisha.portalToken, op: 'accepter_devis', devisId: 'dev_env', nom: '', accepte: true } })
+  assert.equal(r.status, 400, 'nom obligatoire')
+  r = await call({ method: 'POST', body: { t: nisha.portalToken, op: 'accepter_devis', devisId: 'dev_bro', nom: 'Nisha', accepte: true } })
+  assert.equal(r.status, 403, 'un brouillon ne s’accepte pas')
+  r = await call({ method: 'POST', body: { t: nisha.portalToken, op: 'accepter_devis', devisId: 'dev_env', nom: 'Nisha D.', accepte: true } })
+  assert.equal(r.status, 200)
+  const d = r.data.devis.find(x => x.numero === 'DEV-X')
+  assert.equal(d.statut, 'signe')
+  assert.equal(d.signePar, 'Nisha D.')
+  const saved = JSON.parse(blob.store.get(CRM_PATH).body)
+  assert.ok(saved.messages.items.some(m => m.id === 'client:devis-accepte-dev_env'), 'Amely est prévenue')
+  r = await call({ method: 'POST', body: { t: nisha.portalToken, op: 'accepter_devis', devisId: 'dev_env', nom: 'Nisha D.', accepte: true } })
+  assert.equal(r.status, 403, 'pas deux fois')
+  espace.blobForTests = null
+})

@@ -28,3 +28,9 @@ test('atelier : le carnet de construction est gardé et nettoyé', () => {
   assert.equal(k.etapes[0].etat, 'a_tester')
   assert.equal(k.etapes[1].etat, 'a_faire')
 })
+
+test('devis : nom de la personne qui accepte et lien de paiement gardés', () => {
+  const crm = cleanCrm({ clients: [{ id: 'cli_a', nom: 'A' }], devis: [{ id: 'dev_a', clientId: 'cli_a', numero: 'D1', statut: 'signe', signeLe: '2026-11-23', signePar: 'Nisha', lienPaiement: 'https://buy.stripe.com/x', lignes: [{ description: 'x', quantite: 1, prixCents: 100 }] }] })
+  assert.equal(crm.devis[0].signePar, 'Nisha')
+  assert.equal(crm.devis[0].lienPaiement, 'https://buy.stripe.com/x')
+})
