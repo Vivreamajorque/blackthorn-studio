@@ -110,7 +110,8 @@
 .qga-week { display: grid; gap: 10px; }
 .qga-day { background: #fffdf9; border: 1px solid #e6ded1; border-radius: 14px; padding: 12px 14px; }
 .qga-day.is-today { border-color: #00897b; box-shadow: 0 0 0 1px #00897b inset; }
-.qga-day h3 { margin: 0 0 8px; font-size: 1rem; text-transform: capitalize; }
+.qga-day h3 { margin: 0 0 8px; font-size: 1rem; }
+.qga-day h3::first-letter { text-transform: uppercase; }
 .qga-day .mgc-muted { margin: 0; }
 .qga-event { display: grid; grid-template-columns: 110px 1fr; gap: 2px 12px; padding: 7px 10px; border-left: 4px solid; border-radius: 6px; background: #f8f4ec; margin-top: 6px; }
 .qga-time { font-weight: 700; font-size: .85rem; grid-row: span 2; }

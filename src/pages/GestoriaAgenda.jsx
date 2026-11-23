@@ -12,7 +12,7 @@ export const TYPES = {
   livementor: { label: 'LiveMentor', color: '#e87ba4' },
   google: { label: 'Google Agenda', color: '#7a6fd0' },
   entreprise: { label: 'Agenda entreprise', color: '#8a5a3c' },
-  perso: { label: 'Mes rendez-vous', color: '#c0457a' },
+  perso: { label: 'Mes rendez-vous', color: '#d4a017' },
 }
 const SOURCE_TYPES = { google: 'Agenda principal', livementor: 'LiveMentor', perso: 'Perso', autre: 'Autre' }
 const addDays = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10) }
@@ -202,7 +202,7 @@ export default function GestoriaAgenda({ crm, saveCrm, canSave, onGo }) {
 
   return <>
     <div className="mgc-between">
-      <div><p className="mg-section-label">Piloter</p>
+      <div>
         <h1 style={{ margin: '.1em 0', fontSize: 'clamp(1.65rem, 4vw, 2.6rem)' }}>Agenda</h1>
         <p className="mgc-muted" style={{ margin: 0 }}>Tes rendez-vous Google, tes visios LiveMentor, tes clients, tes relances et tes échéances de compta, au même endroit.</p></div>
       <div className="mgc-row">

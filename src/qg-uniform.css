@@ -55,3 +55,10 @@ main.mg-shell .mgc-search:focus, main.mg-shell .mgc-form input:focus, main.mg-sh
 main.mg-shell .mg-entity-label, main.mg-shell .mgc-group-title, main.mg-shell .lm-kicker, main.mg-shell .mg-nav-group, main.mg-shell .qga-head,
 main.mg-shell .mg-clean-dashboard [class*="label"] { text-transform: none !important; letter-spacing: 0 !important; }
 main.mg-shell .lm-kicker { color: var(--u-gris); font-weight: 500; }
+/* Bandeau sombre de la page Clients : titres en clair */
+main.mg-shell .mgc-hero { background: var(--u-mer); border-radius: 22px; }
+main.mg-shell .mgc-hero h1 { color: #fff; }
+main.mg-shell .mgc-hero .mgc-eyebrow { color: #9fd3c7 !important; opacity: 1; }
+main.mg-shell .mgc-hero p { color: #d8ebe6; }
+/* Tableau des pistes : toutes les colonnes visibles */
+main.mg-shell .mgc-kanban { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important; overflow: visible; }

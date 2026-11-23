@@ -71,7 +71,7 @@ export default function GestoriaProspection({ crm, saveCrm, canSave, saving, onC
 
   return <>
     <div className="mgc-between">
-      <div><p className="mg-section-label">Mon activité</p><h1 style={{ margin: '.1em 0', fontSize: 'clamp(1.65rem, 4vw, 2.6rem)', letterSpacing: '-.05em' }}>Prospection</h1>
+      <div><h1 style={{ margin: '.1em 0' }}>Développer</h1>
         <p className="mgc-muted" style={{ margin: 0 }}>Tes pistes, tes relances, et un clic pour transformer un « oui » en client.</p></div>
       {view === 'pistes' && <button className="mgc-primary" disabled={!canSave} onClick={() => setEdit({ nom: '', statut: 'nouveau', source: 'Instagram' })}>+ Prospect</button>}
     </div>

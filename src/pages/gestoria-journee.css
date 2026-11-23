@@ -82,8 +82,8 @@
 .j-day { display: block; font-weight: 700; font-size: .9rem; margin-bottom: 4px; }
 .j-week ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .j-week ul li { display: grid; grid-template-columns: 56px 1fr; gap: 6px; font-size: .9rem; padding-left: 10px; border-left: 3px solid var(--dot, var(--eau)); }
-.j .t-livementor { --dot: #c0457a; } .j .t-google { --dot: #24527a; } .j .t-perso { --dot: #c0457a; } .j .t-entreprise { --dot: #8a5a3c; }
-.j .t-task { --dot: var(--soleil); } .j .t-compta, .j .t-fiscal { --dot: #b5651d; } .j .t-client { --dot: var(--posi); }
+.j .t-livementor { --dot: #e87ba4; } .j .t-google { --dot: #7a6fd0; } .j .t-perso { --dot: #d4a017; } .j .t-entreprise { --dot: #8a5a3c; } .j .t-prospection { --dot: #2a78d6; }
+.j .t-task { --dot: var(--soleil); } .j .t-compta, .j .t-fiscal { --dot: #d07a2e; } .j .t-client { --dot: #00897b; }
 
 @media (max-width: 1000px) {
   .j-layout { grid-template-columns: 1fr; }
