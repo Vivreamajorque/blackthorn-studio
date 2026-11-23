@@ -98,6 +98,7 @@ body { background: var(--qg-ecume); color: var(--qg-mer); font-family: 'Bricolag
 
 /* ===== Téléphone : barre d'onglets en bas, comme une appli ===== */
 .mg-nav-mobile-more, .mg-sheet { display: none; }
+.mg-main-nav > .mg-nav-mobile-more { display: none !important; }
 @media (max-width: 999px) {
   body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
   .app-header { padding: 10px 16px; }
@@ -110,7 +111,7 @@ body { background: var(--qg-ecume); color: var(--qg-mer); font-family: 'Bricolag
   .mg-main-nav > button svg { width: 22px; height: 22px; stroke: currentColor !important; }
   .mg-main-nav > button[aria-pressed="true"] { color: var(--qg-mer) !important; background: var(--qg-eau-pale) !important; }
   .mg-main-nav .mg-nav-equipe, .mg-main-nav .mg-nav-more, .mg-main-nav .mg-nav-group { display: none !important; }
-  .mg-nav-mobile-more { display: flex; }
+  .mg-main-nav > .mg-nav-mobile-more { display: flex !important; }
   .mg-sheet { display: block; position: fixed; inset: 0; z-index: 49; background: rgba(16, 60, 66, .25); }
   .mg-sheet-in { position: absolute; left: 10px; right: 10px; bottom: calc(80px + env(safe-area-inset-bottom)); background: #fff; border-radius: 22px; padding: 10px; display: grid; gap: 2px; box-shadow: 0 12px 40px rgba(16, 60, 66, .2); }
   .mg-sheet-in button { text-align: left; border: 0; background: none; padding: 12px 14px; border-radius: 12px; font-size: 1rem; font-weight: 600; color: var(--qg-mer); }

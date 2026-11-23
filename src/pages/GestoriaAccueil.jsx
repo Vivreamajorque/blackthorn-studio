@@ -41,13 +41,13 @@ function DayRibbon({ events, today }) {
   const nowPct = (h - START) / (END - START) * 100
   return <div className="mj-ribbon" aria-label="Ta journée">
     {allDay.length > 0 && <div className="mj-allday">{allDay.map(e => <span key={e.id} className={'mj-chip t-' + e.type}>{e.title}</span>)}</div>}
+    {timed.length === 0 && <p className="mj-free">Aucun rendez-vous aujourd’hui</p>}
     <div className="mj-track">
       {Array.from({ length: END - START + 1 }, (_, k) => START + k).map(hh =>
         <span key={hh} className="mj-tick" style={{ left: ((hh - START) / (END - START) * 100) + '%' }}>{hh % 2 === 1 ? hh + ' h' : ''}</span>)}
       {nowPct >= 0 && nowPct <= 100 && <span className="mj-now" style={{ left: nowPct + '%' }} title="Maintenant" />}
       {timed.map((e, k) => <span key={e.id} className={'mj-ev t-' + e.type + (k % 2 ? ' low' : '')} style={{ left: pos(e.start) + '%' }} title={e.start.slice(11, 16) + ' · ' + e.title}>
         <b>{e.start.slice(11, 16)}</b> {e.title}</span>)}
-      {timed.length === 0 && <span className="mj-free">Aucun rendez-vous aujourd’hui</span>}
     </div>
   </div>
 }
@@ -158,9 +158,9 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
               <div className="mgc-between"><strong>{c.nom}</strong>{pct !== null && <small>{pct} %</small>}</div>
               <small>{p.nom}</small>
               {pct !== null && <i className="acc-meter"><i style={{ width: pct + '%' }} /></i>}
-              <small className="mj-next">{a ? 'Prochaine action : ' + a.label : p.prochainRdv ? 'RDV ' + dateCourte(p.prochainRdv) : 'Pas d’action en attente de ta part'}</small>
+              {(a || p.prochainRdv) && <small className="mj-next">{a ? 'Prochaine action : ' + a.label : 'RDV ' + dateCourte(p.prochainRdv)}</small>}
             </li>)}</ul>}
-          {projets.length > 4 && <button className="mgc-link" onClick={() => onGo('clients')}>+ {projets.length - 4} autres projets</button>}
+          {projets.length > 4 && <button className="mgc-link" onClick={() => onGo('clients')}>+ {projets.length - 4} autre{projets.length - 4 > 1 ? 's' : ''} projet{projets.length - 4 > 1 ? 's' : ''}</button>}
         </section>
       </div>
     </div>
@@ -174,10 +174,10 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
             ? <li key={'e' + k}><i className={'t-' + x.e.type} /><span className="acc-hour">{x.e.allDay ? 'Journée' : x.e.start.slice(11, 16)}</span><span>{x.e.title}</span></li>
             : <li key={'i' + k}><i className="t-task" /><span className="acc-hour">tâche</span><span>{x.i.titre}</span></li>)}</ul>
         </div>)}</div>}
-      <details className="mj-more">
-        <summary>{later.length} autre{later.length > 1 ? 's' : ''} chose{later.length > 1 ? 's' : ''} à planifier ou à confier · {m.plus_tard.length} plus tard</summary>
+      {later.length + m.plus_tard.length > 0 && <details className="mj-more">
+        <summary>{[later.length && later.length + ' autre' + (later.length > 1 ? 's' : '') + ' chose' + (later.length > 1 ? 's' : '') + ' à planifier ou à confier', m.plus_tard.length && m.plus_tard.length + ' pour plus tard'].filter(Boolean).join(' · ')}</summary>
         <ul className="mj-list">{[...later, ...m.plus_tard].map(i => <Item key={i.id} i={i} canSave={canSave} act={act} onGo={onGo} />)}</ul>
-      </details>
+      </details>}
     </section>
 
     <section className="mj-figures" aria-label="Chiffres">
