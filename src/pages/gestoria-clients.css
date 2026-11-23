@@ -184,3 +184,47 @@
 .mgc-pay dt { color: var(--qg-muted, #5a6d6f); }
 .mgc-pay dd { margin: 0; font-weight: 700; word-break: break-all; }
 .mgc-primary-link { justify-self: start; display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 999px; background: #103c42; color: #fff; font-weight: 700; text-decoration: none; }
+
+/* Fiche client refaite */
+.fc-crumb { margin: 0 0 8px; }
+.fc-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; background: #fff; border: 1px solid #e3ecea; border-radius: 22px; padding: 18px 20px; }
+.fc-head h1 { margin: 0; font-size: clamp(1.5rem, 3vw, 2rem); letter-spacing: -.03em; line-height: 1.1; }
+.fc-head-act { display: flex; gap: 8px; flex-wrap: wrap; }
+.fc-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid #c9dcd8; background: #fff; color: #103c42 !important; font: inherit; font-weight: 600; font-size: .92rem; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.fc-btn:hover:not(:disabled) { border-color: #2e7d72; }
+.fc-btn:disabled { opacity: .5; cursor: default; }
+.fc-btn-main { background: #103c42; border-color: #103c42; color: #fff !important; }
+.fc-btn-main:hover:not(:disabled) { background: #1b545b; }
+.fc-tabs { margin: 18px 0 4px !important; }
+.fc-proj { background: #fff; border: 1px solid #e3ecea; border-radius: 22px; padding: 18px 20px 14px; margin-top: 14px; display: flex; flex-direction: column; gap: 12px; }
+.fc-proj.off { opacity: .8; }
+.fc-proj-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.fc-proj-head h3 { margin: 0; font-size: 1.2rem; }
+.fc-bar { height: 6px; background: #ddefea; border-radius: 9px; overflow: hidden; }
+.fc-bar div { height: 100%; background: #2e7d72; border-radius: 9px; }
+.fc-vues { display: flex; gap: 4px; border-bottom: 1px solid #e3ecea; overflow-x: auto; }
+.fc-vues button { background: none; border: 0; border-bottom: 3px solid transparent; padding: 8px 12px; min-height: 42px; font: inherit; color: #44646a; cursor: pointer; white-space: nowrap; border-radius: 0; }
+.fc-vues button[aria-selected="true"] { color: #103c42; font-weight: 700; border-bottom-color: #103c42; }
+.fc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.fc-box { background: #f2f7f6; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.fc-box > .mgc-between { width: 100%; }
+.fc-box small { color: #44646a; }
+.fc-box.warn { background: #fff4dc; }
+.fc-box.hot { background: #fde9e4; }
+.fc-box.dark { background: #103c42; color: #fff; }
+.fc-box.dark span { color: #ddefea; }
+.fc-box .fc-btn { margin-top: 4px; }
+.fc-checks, .fc-list { list-style: none; margin: 0; padding: 0; width: 100%; }
+.fc-checks li label { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; cursor: pointer; }
+.fc-checks input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: #2e7d72; flex: none; }
+.fc-checks small { display: block; color: #44646a; font-size: .85rem; }
+.fc-list li { padding: 4px 0 4px 14px; position: relative; }
+.fc-list li::before { content: ''; position: absolute; left: 0; top: 12px; width: 6px; height: 6px; border-radius: 50%; background: #9fd3c7; }
+.fc-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+.fc-cols h4 { margin: 4px 0 6px; }
+.fc-done summary { cursor: pointer; color: #44646a; font-weight: 600; margin-top: 6px; }
+.fc-note { font-size: .85rem; }
+.fc-proj-foot { display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid #e3ecea; padding-top: 12px; }
+.fc-add { margin-top: 14px; width: 100%; min-height: 52px; border: 2px dashed #c9dcd8; border-radius: 18px; background: transparent; font: inherit; font-weight: 700; color: #103c42; cursor: pointer; }
+.fc-add:hover:not(:disabled) { border-color: #2e7d72; }
+@media (max-width: 640px) { .fc-head { padding: 16px; } .fc-head-act .fc-btn { flex: 1 1 auto; } .fc-proj { padding: 14px; } }

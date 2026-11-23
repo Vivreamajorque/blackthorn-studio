@@ -381,9 +381,9 @@ const BRIEF_FORMATION = ['À quels parents veux-tu t’adresser ?', 'Quelle diff
 // Ce que le client voit et remplit dans son espace : type, brief, créneaux de visio, questions et leçons.
 const ETAPE_LABEL = { a_faire: 'À faire', en_cours: 'En cours', a_tester: 'À tester', a_corriger: 'À corriger', validee: 'Validée' }
 // Atelier : carnet de construction de l'outil d'un client. L'agent Atelier prépare et construit ; Amely teste et valide.
-function AtelierPanel({ project, canSave, saveConstruction }) {
+function AtelierPanel({ project, canSave, saveConstruction, defaultOpen = false }) {
   const k = project.construction
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(defaultOpen)
   const [retour, setRetour] = useState({})
   const [cahierOpen, setCahierOpen] = useState(false)
   if (!k || !k.actif) return <div className="atl atl-off">
@@ -551,22 +551,77 @@ function ClientSummary({ client, crm, saveCrm, entries, invoices, projects, canS
       </div> : <p className="mgc-muted">Ajoute les chiffres à suivre (apprenants actifs, jauge…).</p>}
     </section>}
 
-    <section className="mgc-panel">
-      <div className="mgc-between"><h3>Suivi des projets</h3><button className="mgc-link" onClick={() => onTab('projets')}>Détail</button></div>
-      {active.length === 0 ? <p className="mgc-muted">Aucun projet en cours.</p> : <ul className="mgc-list">{active.map(p => {
-        const done = p.actions.filter(a => a.fait).length
-        const nextAction = p.actions.find(a => !a.fait)
-        return <li key={p.id} style={{ display: 'block' }}>
-          <div className="mgc-between"><div className="mgc-row"><ProjectBadge status={p.statut} /><strong>{p.nom}</strong></div>
-            {p.actions.length > 0 && <span className="mgc-muted">{done} / {p.actions.length} actions</span>}</div>
-          {p.actions.length > 0 && <div className="mgc-bar"><div style={{ width: Math.round(done / p.actions.length * 100) + '%' }} /></div>}
-          <div className="mgc-muted">{[nextAction && 'Prochaine action : ' + nextAction.label + (nextAction.pour === 'amely' ? ' (toi)' : ' (client)'),
-            p.prochainRdv && 'Rendez-vous : ' + formatDate(p.prochainRdv.slice(0, 10)) + (p.prochainRdv.length > 10 ? ' à ' + p.prochainRdv.slice(11, 16) : ''),
-            p.echeance && 'Échéance : ' + formatDate(p.echeance)].filter(Boolean).join(' · ') || 'Pas encore d’action ni de rendez-vous.'}</div>
-        </li>
-      })}</ul>}
-    </section>
   </>
+}
+
+// Une carte par projet : Aperçu (ce qui compte maintenant), Actions (moi / client), Construction (Atelier), Liens et notes.
+function ProjectCard({ p, client, canSave, toggle, onEdit, onShared, onInvoice, saveConstruction }) {
+  const [vue, setVue] = useState('apercu')
+  const today = todayInSpain()
+  const k = p.construction
+  const mine = p.actions.filter(a => a.pour === 'amely'), theirs = p.actions.filter(a => a.pour !== 'amely')
+  const done = p.actions.filter(a => a.fait).length
+  const questions = (p.questions || []).filter(q => !q.traitee).length
+  const lecons = (p.lecons || []).filter(l => l.statut === 'a_valider').length
+  const visio = [...(p.creneaux || []).filter(c => c.reserve).map(c => c.date), p.prochainRdv].filter(d => d && d.slice(0, 10) >= today).sort()[0]
+  const lastClient = theirs.filter(a => a.fait && a.faitLe).map(a => a.faitLe).sort().at(-1)
+  const actif = !['livre', 'en_pause'].includes(p.statut)
+  const etapeK = k?.actif ? (k.etapes.find(e => e.etat === 'a_tester') || k.etapes.find(e => e.etat === 'a_corriger')) : null
+  const nbVal = k?.etapes?.filter(e => e.etat === 'validee').length || 0
+  const Check = ({ a, ro }) => <li><label>
+    <input type="checkbox" checked={a.fait} disabled={!canSave || ro} onChange={() => toggle(p, a)} />
+    <span className={a.fait ? 'mgc-done' : ''}>{a.label}{a.detail && !a.fait && <small>{a.detail}</small>}</span></label></li>
+  const Liste = ({ list, ro, vide }) => {
+    const open = list.filter(a => !a.fait), closed = list.filter(a => a.fait)
+    return <>{open.length === 0 ? <p className="mgc-muted">{vide}</p> : <ul className="fc-checks">{open.map(a => <Check key={a.id} a={a} ro={ro} />)}</ul>}
+      {closed.length > 0 && <details className="fc-done"><summary>Fait ({closed.length})</summary><ul className="fc-checks">{closed.map(a => <Check key={a.id} a={a} ro={ro} />)}</ul></details>}</>
+  }
+  return <section className={'fc-proj' + (actif ? '' : ' off')}>
+    <header className="fc-proj-head">
+      <div className="mgc-row"><ProjectBadge status={p.statut} /><h3>{p.nom}</h3></div>
+      <span className="mgc-muted">{[p.etape, p.montantCents > 0 && money(p.montantCents) + ' HT', p.actions.length && done + ' / ' + p.actions.length + ' actions'].filter(Boolean).join(' · ')}</span>
+    </header>
+    {p.actions.length > 0 && <div className="fc-bar" aria-hidden="true"><div style={{ width: Math.round(done / p.actions.length * 100) + '%' }} /></div>}
+    <div className="fc-vues" role="tablist">
+      {[['apercu', 'Aperçu'], ['actions', 'Actions'], ...(k ? [['construction', 'Construction']] : []), ['liens', 'Liens et notes']].map(([v, l]) =>
+        <button key={v} role="tab" aria-selected={vue === v} onClick={() => setVue(v)}>{l}{v === 'construction' && etapeK ? ' •' : ''}</button>)}
+    </div>
+
+    {vue === 'apercu' && <div className="fc-grid">
+      {(questions > 0 || lecons > 0) && <div className="fc-box hot"><strong>{client.nom.split(' ')[0]} attend ta réponse</strong>
+        <span>{[questions && questions + ' message' + (questions > 1 ? 's' : ''), lecons && lecons + ' leçon' + (lecons > 1 ? 's' : '') + ' à relire'].filter(Boolean).join(' · ')}</span>
+        <button className="fc-btn fc-btn-main" onClick={onShared}>Répondre</button></div>}
+      {actif && (visio ? <div className="fc-box"><strong>Prochaine visio</strong><span>{formatDate(visio.slice(0, 10))}{visio.length > 10 ? ' à ' + visio.slice(11, 16) : ''}</span></div>
+        : <div className="fc-box warn"><strong>Aucune visio prévue</strong><span>Propose des créneaux : ils s’affichent dans son espace.</span><button className="fc-btn fc-btn-main" disabled={!canSave} onClick={onShared}>Proposer des créneaux</button></div>)}
+      {k?.actif && <div className="fc-box dark"><strong>Atelier · {k.cahier && !k.cahierValide ? 'cahier à relire' : etapeK ? 'étape ' + (etapeK.etat === 'a_tester' ? 'à tester' : 'à corriger') : k.cahier ? nbVal + ' / ' + k.etapes.length + ' étapes validées' : 'cahier en préparation'}</strong>
+        <span>{etapeK ? etapeK.titre : k.cahier && !k.cahierValide ? 'Relis-le et valide-le pour lancer la construction.' : 'L’Atelier avance étape par étape.'}</span>
+        <button className="fc-btn" onClick={() => setVue('construction')}>Voir la construction</button></div>}
+      {p.actions.length > 0 && <><div className="fc-box"><div className="mgc-between"><strong>Mon côté</strong><small>{mine.filter(a => !a.fait).length} à faire</small></div>
+        {mine.filter(a => !a.fait).length === 0 ? <span className="mgc-muted">Rien en attente.</span> : <ul className="fc-checks">{mine.filter(a => !a.fait).slice(0, 3).map(a => <Check key={a.id} a={a} />)}</ul>}</div>
+      <div className="fc-box"><div className="mgc-between"><strong>Côté {client.nom.split(' ')[0]}</strong><small>{lastClient ? 'dernière coche le ' + formatDate(lastClient) : theirs.length ? 'rien coché pour l’instant' : ''}</small></div>
+        {theirs.filter(a => !a.fait).length === 0 ? <span className="mgc-muted">Rien en attente.</span> : <ul className="fc-list">{theirs.filter(a => !a.fait).slice(0, 3).map(a => <li key={a.id}>{a.label}</li>)}</ul>}</div></>}
+      {p.actions.length === 0 && <div className="fc-box"><strong>Pas encore d’actions</strong><span className="mgc-muted">Ajoute les étapes de ton côté et du côté du client.</span><button className="fc-btn" disabled={!canSave} onClick={onEdit}>Ajouter des actions</button></div>}
+    </div>}
+
+    {vue === 'actions' && <div className="fc-cols">
+      <div><h4>Mon côté</h4><Liste list={mine} vide="Rien de ton côté." /></div>
+      <div><h4>Côté {client.nom.split(' ')[0]}</h4><Liste list={theirs} ro vide="Rien de son côté." /><p className="mgc-muted fc-note">C’est {client.nom.split(' ')[0]} qui coche ses actions dans son espace.</p></div>
+    </div>}
+
+    {vue === 'construction' && k && <AtelierPanel project={p} canSave={canSave} saveConstruction={saveConstruction} defaultOpen />}
+
+    {vue === 'liens' && <div className="fc-liens">
+      {p.documents.length > 0 ? <ul className="fc-list">{p.documents.map(d => <li key={d.id}><a href={d.url} target="_blank" rel="noopener noreferrer">{d.label} ↗</a></li>)}</ul> : <p className="mgc-muted">Aucun lien. Ajoute-les dans « Modifier le projet ».</p>}
+      <p className="mgc-muted">{[p.plan?.length && p.plan.length + ' étapes au plan', p.notesPartagees?.length && p.notesPartagees.length + ' comptes rendus partagés', p.rythme].filter(Boolean).join(' · ')}</p>
+    </div>}
+
+    {!k && actif && vue === 'apercu' && <AtelierPanel project={p} canSave={canSave} saveConstruction={saveConstruction} />}
+    <footer className="fc-proj-foot">
+      <button className="fc-btn" disabled={!canSave} onClick={onEdit}>Modifier le projet</button>
+      <button className="fc-btn" disabled={!canSave} onClick={onShared}>Espace partagé{questions + lecons ? ' (' + (questions + lecons) + ')' : ''}</button>
+      <button className="fc-btn" disabled={!canSave} onClick={onInvoice}>Facturer</button>
+    </footer>
+  </section>
 }
 
 function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onBack, onFinance, saving }) {
@@ -576,6 +631,7 @@ function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onB
   const [invoiceFor, setInvoiceFor] = useState(null)
   const [editIndic, setEditIndic] = useState(false)
   const [editShared, setEditShared] = useState(null)
+  const [copied, setCopied] = useState(false)
   const saveConstruction = (p, fn, msg) => saveCrm(data => ({ ...data, projets: data.projets.map(x => x.id === p.id ? { ...x, construction: fn(x.construction || {}) } : x) }), msg)
   const projects = crm.projets.filter(p => p.clientId === client.id)
   const invoices = clientInvoices(entries, crm, client)
@@ -603,57 +659,32 @@ function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onB
     })()) }))
 
   return <>
-    <p className="mgc-muted"><button className="mgc-link" onClick={onBack}>Clients</button> / {client.nom}</p>
-    <section className="mgc-panel mgc-between">
+    <p className="mgc-muted fc-crumb"><button className="mgc-link" onClick={onBack}>Clients</button> / {client.nom}</p>
+    <section className="fc-head">
       <div className="mgc-row"><Initial name={client.nom} /><div>
-        <h1 style={{ margin: 0, fontSize: '1.7rem', letterSpacing: '-.03em' }}>{client.nom}</h1>
-        <div className="mgc-muted">{[client.contact, client.pays, client.canal && 'arrivé via ' + client.canal, client.tarifJourCents ? money(client.tarifJourCents) + ' / jour' : ''].filter(Boolean).join(' · ')}</div>
+        <h1>{client.nom}</h1>
+        <div className="mgc-muted">{[client.raisonSociale !== client.nom && client.raisonSociale, client.pays, client.nif, client.tarifJourCents ? money(client.tarifJourCents) + ' / jour' : '', client.canal && 'arrivé via ' + client.canal].filter(Boolean).join(' · ')}</div>
       </div></div>
+      <div className="fc-head-act">
+        <a className="fc-btn" href={link} target="_blank" rel="noopener noreferrer">Ouvrir son espace ↗</a>
+        <button className="fc-btn" onClick={() => { navigator.clipboard?.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 2000) }}>{copied ? 'Lien copié ✓' : 'Copier son lien'}</button>
+        <button className="fc-btn" disabled={!canSave} onClick={() => setEditClient(true)}>Modifier la fiche</button>
+        <button className="fc-btn fc-btn-main" disabled={!canSave} onClick={() => setInvoiceFor({})}>+ Facture</button>
+      </div>
     </section>
     <ClientSummary client={client} crm={crm} saveCrm={saveCrm} entries={entries} invoices={invoices} projects={projects} canSave={canSave}
       onTab={t => { setTab(t); setTimeout(() => document.getElementById('mgc-tabs')?.scrollIntoView({ behavior: 'smooth' }), 0) }}
       onIndicateurs={() => setEditIndic(true)} />
-    <div className="mgc-between" style={{ marginTop: 12 }} id="mgc-tabs">
-      <div className="mgc-tabs" style={{ margin: 0 }}>
-        {[['projets', 'Projets'], ['devis', 'Devis (' + (crm.devis || []).filter(d => d.clientId === client.id).length + ')'], ['factures', 'Factures (' + invoices.length + ')'], ['espace', 'Espace client'], ['infos', 'Infos']].map(([k, l]) =>
-          <button key={k} aria-pressed={tab === k} onClick={() => setTab(k)}>{l}</button>)}
-      </div>
-      <div className="mgc-row">
-        <button disabled={!canSave} onClick={() => setEditClient(true)}>Modifier la fiche</button>
-        <button className="mgc-primary" disabled={!canSave} onClick={() => setInvoiceFor({})}>+ Facture</button>
-      </div>
+    <div className="mgc-tabs fc-tabs" id="mgc-tabs" role="tablist">
+      {[['projets', 'Projets (' + projects.length + ')'], ['devis', 'Devis (' + (crm.devis || []).filter(d => d.clientId === client.id).length + ')'], ['factures', 'Factures (' + invoices.length + ')'], ['infos', 'Infos']].map(([k, l]) =>
+        <button key={k} role="tab" aria-selected={tab === k} aria-pressed={tab === k} onClick={() => setTab(k)}>{l}</button>)}
     </div>
 
     {tab === 'projets' && <>
-      {projects.map(p => {
-        const done = p.actions.filter(a => a.fait).length
-        return <section key={p.id} className="mgc-panel">
-          <div className="mgc-between">
-            <div className="mgc-row"><ProjectBadge status={p.statut} /><h3>{p.nom}</h3></div>
-            <div className="mgc-row">
-              {p.montantCents > 0 && <span className="mgc-muted">{money(p.montantCents)} HT prévus</span>}
-              <button disabled={!canSave} onClick={() => setEditProject(p)}>Modifier</button>
-              <button disabled={!canSave} onClick={() => setEditShared(p)}>Espace partagé{(() => { const n = (p.questions || []).filter(q => !q.traitee).length + (p.lecons || []).filter(l => l.statut === 'a_valider').length; return n ? ' (' + n + ')' : '' })()}</button>
-              <button disabled={!canSave} onClick={() => setInvoiceFor({ project: p })}>Facturer</button>
-            </div>
-          </div>
-          {p.etape && <p className="mgc-muted" style={{ margin: '6px 0 0' }}>Étape : {p.etape}</p>}
-          {(p.prochainRdv || p.plan?.length > 0 || p.notesPartagees?.length > 0) && <p className="mgc-muted" style={{ margin: '4px 0 0' }}>
-            {[p.prochainRdv && 'Prochain rendez-vous : ' + p.prochainRdv.replace('T', ' à '), p.plan?.length && p.plan.length + ' étapes au plan', p.notesPartagees?.length && p.notesPartagees.length + ' notes partagées'].filter(Boolean).join(' · ')}</p>}
-          {p.actions.length > 0 && <>
-            <div className="mgc-bar"><div style={{ width: Math.round(done / p.actions.length * 100) + '%' }} /></div>
-            <div className="mgc-muted">{done} / {p.actions.length} actions terminées</div>
-            <ul className="mgc-list">{p.actions.map(a => <li key={a.id}>
-              <input type="checkbox" checked={a.fait} disabled={!canSave} onChange={() => toggle(p, a)} aria-label={a.label} />
-              <span className={a.fait ? 'mgc-done' : ''} style={{ flex: 1 }}>{a.label}</span>
-              <span className={'mgc-badge ' + (a.pour === 'amely' ? 'ok' : '')}>{a.pour === 'amely' ? 'Moi' : 'Client'}</span>
-            </li>)}</ul>
-          </>}
-          {p.documents.length > 0 && <p className="mgc-row" style={{ marginBottom: 0 }}>{p.documents.map(d => <a key={d.id} href={d.url} target="_blank" rel="noopener noreferrer">{d.label} ↗</a>)}</p>}
-          <AtelierPanel project={p} canSave={canSave} saveConstruction={saveConstruction} />
-        </section>
-      })}
-      <button style={{ marginTop: 12 }} disabled={!canSave} onClick={() => setEditProject({ clientId: client.id, nom: '', statut: 'a_demarrer', actions: [], documents: [] })}>+ Ajouter un projet</button>
+      {projects.length === 0 && <p className="mg-empty">Pas encore de projet pour ce client.</p>}
+      {[...projects].sort((x, y) => Number(x.statut === 'livre') - Number(y.statut === 'livre')).map(p => <ProjectCard key={p.id} p={p} client={client} canSave={canSave} toggle={toggle}
+        onEdit={() => setEditProject(p)} onShared={() => setEditShared(p)} onInvoice={() => setInvoiceFor({ project: p })} saveConstruction={saveConstruction} />)}
+      <button className="fc-add" disabled={!canSave} onClick={() => setEditProject({ clientId: client.id, nom: '', statut: 'a_demarrer', actions: [], documents: [] })}>+ Ajouter un projet</button>
     </>}
 
     {tab === 'devis' && <DevisTab client={client} crm={crm} entries={entries} saveCrm={saveCrm} canSave={canSave} saving={saving}
@@ -672,24 +703,15 @@ function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onB
       <p className="mgc-muted" style={{ marginBottom: 0 }}>Ces factures sont celles de ton registre. Pour les modifier ou joindre la pièce : <button className="mgc-link" onClick={onFinance}>Factures &amp; dépenses</button>.</p>
     </section>}
 
-    {tab === 'espace' && <section className="mgc-panel">
-      <h3>Lien personnel de {client.nom}</h3>
-      <p className="mgc-muted">Ce lien ouvre l’espace du client : ses projets visibles, ses actions à cocher, ses documents et ses factures. Rien d’autre. Ne le partage qu’avec lui.</p>
-      <div className="mgc-row">
-        <input readOnly value={link} onFocus={e => e.target.select()} style={{ flex: 1, minWidth: 220 }} />
-        <button className="mgc-primary" onClick={() => navigator.clipboard?.writeText(link)}>Copier</button>
-        <a href={link} target="_blank" rel="noopener noreferrer">Voir comme le client ↗</a>
-      </div>
-      <button className="mgc-link" style={{ marginTop: 12 }} disabled={!canSave} onClick={() => window.confirm('Créer un nouveau lien ? L’ancien ne marchera plus.') &&
-        saveCrm(data => ({ ...data, clients: data.clients.map(c => c.id === client.id ? { ...c, portalToken: '' } : c) }), 'Nouveau lien créé.')}>Remplacer le lien (si l’ancien a circulé)</button>
-    </section>}
-
     {tab === 'infos' && <section className="mgc-panel mgc-cols">
       <div><div className="mgc-muted">Raison sociale</div>{client.raisonSociale || '—'}</div>
       <div><div className="mgc-muted">NIF / TVA</div>{client.nif || '—'}</div>
       <div><div className="mgc-muted">E-mail</div>{client.email || '—'}</div>
       <div><div className="mgc-muted">Adresse</div><div style={{ whiteSpace: 'pre-line' }}>{client.adresse || '—'}</div></div>
       <div style={{ gridColumn: '1 / -1' }}><div className="mgc-muted">Notes</div><div style={{ whiteSpace: 'pre-line' }}>{client.notes || '—'}</div></div>
+      <div style={{ gridColumn: '1 / -1' }}><div className="mgc-muted">Lien de son espace (à ne partager qu’avec lui)</div>
+        <button className="mgc-link" disabled={!canSave} onClick={() => window.confirm('Créer un nouveau lien ? L’ancien ne marchera plus.') &&
+          saveCrm(data => ({ ...data, clients: data.clients.map(c => c.id === client.id ? { ...c, portalToken: '' } : c) }), 'Nouveau lien créé.')}>Remplacer le lien (si l’ancien a circulé)</button></div>
     </section>}
 
     {editIndic && <IndicateursForm client={client} saving={saving} onClose={() => setEditIndic(false)}
