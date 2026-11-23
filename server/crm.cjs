@@ -93,6 +93,21 @@ function cleanProject(p) {
     creneaux: (Array.isArray(p.creneaux) ? p.creneaux : []).slice(0, 40).filter(c => c && str(c.titre).trim() && str(c.date).trim()).map(c => ({
       id: id(c.id) || newId('crn'), titre: str(c.titre, 140).trim(), date: str(c.date, 30), lien: url(c.lien), reserve: c.reserve === true,
     })),
+    construction: cleanConstruction(p.construction),
+  }
+}
+
+// Atelier : le carnet de construction d'un outil (cahier, étapes, liens de test). Jamais visible du client.
+const ETAPE_ETATS = ['a_faire', 'en_cours', 'a_tester', 'a_corriger', 'validee']
+function cleanConstruction(c) {
+  if (!c || typeof c !== 'object') return null
+  return {
+    actif: c.actif === true, demande: str(c.demande, 25), majLe: str(c.majLe, 25), cahierValide: c.cahierValide === true,
+    repo: str(c.repo, 120), urlTest: url(c.urlTest), urlProd: url(c.urlProd), cahier: str(c.cahier, 30000), note: str(c.note, 1500),
+    etapes: (Array.isArray(c.etapes) ? c.etapes : []).slice(0, 40).filter(e => e && str(e.titre).trim()).map(e => ({
+      id: id(e.id) || newId('etc'), titre: str(e.titre, 160).trim(), detail: str(e.detail, 3000), etat: oneOf(e.etat, ETAPE_ETATS, 'a_faire'),
+      lienTest: url(e.lienTest), fait: str(e.fait, 3000), aVerifier: str(e.aVerifier, 2000), retour: str(e.retour, 2000), majLe: str(e.majLe, 25),
+    })),
   }
 }
 

@@ -379,6 +379,59 @@ const BRIEF_FORMATION = ['À quels parents veux-tu t’adresser ?', 'Quelle diff
   'Comment les parents te poseront-ils leurs questions ?', 'Qu’aimerais-tu éclaircir avec Amely ?']
 
 // Ce que le client voit et remplit dans son espace : type, brief, créneaux de visio, questions et leçons.
+const ETAPE_LABEL = { a_faire: 'À faire', en_cours: 'En cours', a_tester: 'À tester', a_corriger: 'À corriger', validee: 'Validée' }
+// Atelier : carnet de construction de l'outil d'un client. L'agent Atelier prépare et construit ; Amely teste et valide.
+function AtelierPanel({ project, canSave, saveConstruction }) {
+  const k = project.construction
+  const [open, setOpen] = useState(false)
+  const [retour, setRetour] = useState({})
+  if (!k || !k.actif) return <div className="atl atl-off">
+    <span className="mgc-muted">{k ? 'Atelier en pause.' : 'Un outil à construire pour ce projet ?'}</span>
+    <button disabled={!canSave} onClick={() => saveConstruction(project, x => ({ etapes: [], ...x, actif: true, demande: new Date().toISOString().slice(0, 16) }), 'L’Atelier va préparer le cahier de construction.')}>
+      {k ? 'Reprendre l’Atelier' : 'Démarrer l’Atelier'}</button>
+  </div>
+  const todo = k.etapes.filter(e => e.etat !== 'validee').length
+  const done = k.etapes.length - todo
+  const setEtape = (e, patch, msg) => saveConstruction(project, x => ({ ...x, etapes: x.etapes.map(o => o.id === e.id ? { ...o, ...patch, majLe: new Date().toISOString().slice(0, 16) } : o) }), msg)
+  return <div className="atl">
+    <div className="mgc-between">
+      <button className="atl-toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
+        <strong>Atelier</strong> · {k.etapes.length ? done + ' / ' + k.etapes.length + ' étapes validées' : (k.cahier ? 'cahier prêt' : 'cahier en préparation')}
+        {k.etapes.some(e => e.etat === 'a_tester') && <span className="mgc-badge warn">à tester</span>} <span aria-hidden="true">{open ? '▴' : '▾'}</span>
+      </button>
+      <div className="mgc-row">
+        {k.urlTest && <a href={k.urlTest} target="_blank" rel="noopener noreferrer">Version de test ↗</a>}
+        <button className="mgc-primary" disabled={!canSave || !!k.demande} onClick={() => saveConstruction(project, x => ({ ...x, demande: new Date().toISOString().slice(0, 16) }), 'Demande envoyée à l’Atelier.')}>
+          {k.demande ? 'Demandé · l’Atelier passe bientôt' : (k.cahier ? 'Construis l’étape suivante' : 'Prépare le cahier')}</button>
+      </div>
+    </div>
+    {open && <div className="atl-body">
+      {k.note && <p className="atl-note">{k.note}</p>}
+      {k.cahier && <details className="atl-cahier">
+        <summary>Cahier de construction {k.cahierValide ? '· validé' : '· à relire'}</summary>
+        <div className="atl-text">{k.cahier}</div>
+        {!k.cahierValide && <button disabled={!canSave} onClick={() => saveConstruction(project, x => ({ ...x, cahierValide: true }), 'Cahier validé.')}>Valider le cahier</button>}
+      </details>}
+      {k.etapes.length > 0 && <ol className="atl-steps">{k.etapes.map(e => <li key={e.id} className={'atl-step s-' + e.etat}>
+        <div className="mgc-between"><strong>{e.titre}</strong><span className={'mgc-badge ' + (e.etat === 'validee' ? 'ok' : e.etat === 'a_tester' || e.etat === 'a_corriger' ? 'warn' : '')}>{ETAPE_LABEL[e.etat]}</span></div>
+        {e.detail && <p className="mgc-muted">{e.detail}</p>}
+        {e.fait && <p><b>Ce qui a été fait :</b> {e.fait}</p>}
+        {e.aVerifier && e.etat === 'a_tester' && <p><b>À vérifier :</b> {e.aVerifier}</p>}
+        {e.retour && e.etat === 'a_corriger' && <p><b>Ton retour :</b> {e.retour}</p>}
+        {e.lienTest && <p><a href={e.lienTest} target="_blank" rel="noopener noreferrer">Ouvrir la version de test ↗</a></p>}
+        {e.etat === 'a_tester' && <div className="atl-actions">
+          <button className="mgc-primary" disabled={!canSave} onClick={() => setEtape(e, { etat: 'validee' }, 'Étape validée.')}>C’est bon</button>
+          <input placeholder="Ce qu’il faut corriger…" value={retour[e.id] || ''} onChange={ev => setRetour({ ...retour, [e.id]: ev.target.value })} />
+          <button disabled={!canSave || !(retour[e.id] || '').trim()} onClick={() => setEtape(e, { etat: 'a_corriger', retour: retour[e.id].trim() }, 'Retour envoyé à l’Atelier.')}>À corriger</button>
+        </div>}
+      </li>)}</ol>}
+      {!k.cahier && !k.etapes.length && <p className="mgc-muted">L’Atelier prépare le cahier de construction à son prochain passage (chaque nuit vers 22 h, ou en journée si tu le demandes).</p>}
+      <p className="atl-foot"><button className="mgc-link" disabled={!canSave} onClick={() => saveConstruction(project, x => ({ ...x, actif: false, demande: '' }), 'Atelier mis en pause.')}>Mettre l’Atelier en pause</button>
+        {k.majLe && <span className="mgc-muted"> · dernière mise à jour {k.majLe.replace('T', ' à ')}</span>}</p>
+    </div>}
+  </div>
+}
+
 function SharedSpaceForm({ project, onSave, onClose, saving }) {
   const [p, setP] = useState(() => ({ type: project.type || 'standard', brief: project.brief || [], creneaux: project.creneaux || [],
     questions: project.questions || [], lecons: project.lecons || [] }))
@@ -517,12 +570,13 @@ function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onB
   const [invoiceFor, setInvoiceFor] = useState(null)
   const [editIndic, setEditIndic] = useState(false)
   const [editShared, setEditShared] = useState(null)
+  const saveConstruction = (p, fn, msg) => saveCrm(data => ({ ...data, projets: data.projets.map(x => x.id === p.id ? { ...x, construction: fn(x.construction || {}) } : x) }), msg)
   const projects = crm.projets.filter(p => p.clientId === client.id)
   const invoices = clientInvoices(entries, crm, client)
   const link = window.location.origin + '/espace/' + client.portalToken
 
   const saveProject = p => saveCrm(data => ({ ...data, projets: p.id && data.projets.some(x => x.id === p.id)
-    ? data.projets.map(x => x.id === p.id ? p : x) : [...data.projets, { ...p, id: uid('prj'), clientId: client.id }] }), 'Projet enregistré.')
+    ? data.projets.map(x => x.id === p.id ? { ...p, construction: x.construction } : x) : [...data.projets, { ...p, id: uid('prj'), clientId: client.id }] }), 'Projet enregistré.')
     .then(ok => ok && setEditProject(null))
   const toggle = (p, a) => saveCrm(data => ({ ...data, projets: data.projets.map(x => x.id !== p.id ? x : {
     ...x, actions: x.actions.map(y => y.id === a.id ? { ...y, fait: !y.fait, faitLe: !y.fait ? todayInSpain() : '' } : y) }) }), 'Action mise à jour.')
@@ -590,6 +644,7 @@ function ClientPage({ client, crm, entries, saveCrm, saveWorkspace, canSave, onB
             </li>)}</ul>
           </>}
           {p.documents.length > 0 && <p className="mgc-row" style={{ marginBottom: 0 }}>{p.documents.map(d => <a key={d.id} href={d.url} target="_blank" rel="noopener noreferrer">{d.label} ↗</a>)}</p>}
+          <AtelierPanel project={p} canSave={canSave} saveConstruction={saveConstruction} />
         </section>
       })}
       <button style={{ marginTop: 12 }} disabled={!canSave} onClick={() => setEditProject({ clientId: client.id, nom: '', statut: 'a_demarrer', actions: [], documents: [] })}>+ Ajouter un projet</button>

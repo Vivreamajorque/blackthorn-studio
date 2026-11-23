@@ -66,6 +66,11 @@ export function autoItems({ entries = [], crm, today, lm = null }) {
     const q = (p.questions || []).filter(q => !q.traitee).length
     const l = (p.lecons || []).filter(l => l.statut === 'a_valider').length
     if (q || l) add('espace:' + p.id + ':' + q + ':' + l, 'faire', c.nom + ' attend ta réponse', { detail: [q && q + ' question' + (q > 1 ? 's' : ''), l && l + ' leçon' + (l > 1 ? 's' : '') + ' à relire'].filter(Boolean).join(' · ') + ' · ' + p.nom, domaine: 'clients', go: 'clients', clientId: c.id })
+    const k = p.construction
+    if (k?.actif) {
+      for (const e of k.etapes.filter(e => e.etat === 'a_tester')) add('atelier:' + e.id + ':' + e.majLe, 'faire', 'Tester « ' + e.titre + ' »', { detail: 'Atelier · ' + p.nom + (e.aVerifier ? ' · ' + e.aVerifier.slice(0, 160) : ''), domaine: 'clients', go: 'clients', clientId: c.id })
+      if (k.cahier && !k.cahierValide) add('atelier-cahier:' + p.id, 'planifier', 'Relire le cahier de construction', { detail: 'Atelier · ' + p.nom, domaine: 'clients', go: 'clients', clientId: c.id })
+    }
     if (['en_cours', 'a_demarrer'].includes(p.statut)) {
       const a = p.actions.find(a => a.pour === 'amely' && !a.fait)
       if (a) add('act:' + a.id, 'planifier', a.label, { detail: c.nom + ' · ' + p.nom, domaine: 'clients', go: 'clients', clientId: c.id })

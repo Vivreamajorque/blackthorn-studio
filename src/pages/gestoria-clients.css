@@ -154,3 +154,20 @@
 .mgc-badge.src-client { background: #e3f2ef; color: #00695c; }
 .qg-messages { margin: 16px 0; }
 .qg-messages h2 { font-size: 20px; margin: 0; }
+
+/* Atelier : carnet de construction d'un outil */
+.mgc-badge.warn { background: #fdf1d8; color: #7a5200; }
+.atl { margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: var(--qg-soft, #eef6f4); }
+.atl-off { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.atl-toggle { background: none; border: 0; padding: 0; min-height: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.atl-body { margin-top: 12px; display: grid; gap: 12px; }
+.atl-note { margin: 0; padding: 10px 12px; border-radius: 10px; background: #fff; }
+.atl-cahier summary { cursor: pointer; font-weight: 700; }
+.atl-text { white-space: pre-wrap; margin: 10px 0; padding: 12px; background: #fff; border-radius: 10px; max-height: 420px; overflow: auto; font-size: .95rem; line-height: 1.5; }
+.atl-steps { margin: 0; padding-left: 22px; display: grid; gap: 10px; }
+.atl-step { background: #fff; border-radius: 10px; padding: 10px 12px; }
+.atl-step p { margin: 6px 0 0; }
+.atl-step.s-validee { opacity: .7; }
+.atl-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+.atl-actions input { flex: 1 1 200px; min-width: 0; }
+.atl-foot { margin: 0; font-size: .9rem; }

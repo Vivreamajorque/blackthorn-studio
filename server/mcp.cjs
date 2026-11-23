@@ -228,6 +228,11 @@ const TOOLS = [
     priorite: text, brief: text,
     agent: object({ id: { type: 'string', enum: ['alfred', 'courrier', 'clients', 'commercial', 'communication', 'compta', 'plateformes'] }, resume: text, attente: text }, ['id']),
   }), false),
+  tool('atelier_lire', 'Atelier (construction des outils clients) : lire les projets en construction avec leur carnet (cahier, étapes, liens de test, demande d’Amely), le devis du client (lignes = ce qui est vendu) et le cadrage du projet. Sans argument : tous les projets dont la construction est active.', object({ projet: text })),
+  tool('atelier_ecrire', 'Atelier : mettre à jour le carnet de construction d’un projet (cahier, note, dépôt de code, liens de test, étapes). Une étape existante se met à jour par son id ; sans id, elle est ajoutée. L’Atelier ne peut jamais passer une étape en « validee » : seule Amely valide. Ne touche ni aux clients, ni aux devis, ni à la compta.', object({
+    projet_id: text, cahier: text, note: text, repo: text, url_test: text, demande_traitee: { type: 'boolean' },
+    etapes: { type: 'array', maxItems: 40, items: object({ id: text, titre: text, detail: text, etat: { type: 'string', enum: ['a_faire', 'en_cours', 'a_tester', 'a_corriger'] }, lien_test: text, fait: text, a_verifier: text }) },
+  }, ['projet_id']), false),
   tool('agenda_importer', 'Recopier dans l’agenda du QG les événements d’un agenda qui n’a pas d’adresse iCal (ex. agenda Decathlon lu avec Google Agenda). Remplace tous les événements déjà importés de cette source entre du et au. Lecture seule ailleurs : ne touche ni aux clients ni à la compta.', object({
     source: text, du: text, au: text,
     evenements: { type: 'array', maxItems: 300, items: object({ id: text, titre: text, debut: { type: 'string', description: 'AAAA-MM-JJ (journée entière) ou AAAA-MM-JJTHH:MM, heure de Majorque' }, fin: text, lieu: text }, ['titre', 'debut']) },
@@ -382,6 +387,44 @@ async function callTool(name, args, blob) {
           ...(args.agent && { [args.agent.id]: { majLe: nowParis(), resume: String(args.agent.resume || '').slice(0, 600), attente: String(args.agent.attente || '').slice(0, 400) } }) } }
     })
     return { classes: traites.size, taches_creees: taches.length }
+  }
+  if (name === 'atelier_lire') {
+    const { data: crm } = await readCrm(blob)
+    const q = String(args.projet || '').toLowerCase().trim()
+    const list = crm.projets.filter(p => q ? (p.id === args.projet || p.nom.toLowerCase().includes(q)) : p.construction?.actif)
+    return list.map(p => {
+      const c = crm.clients.find(x => x.id === p.clientId)
+      const all = (crm.devis || []).filter(d => d.clientId === p.clientId && d.statut !== 'refuse'); const own = all.filter(d => d.projetId === p.id); const devis = own.length ? own : all
+      return { projet_id: p.id, projet: p.nom, client: c?.nom || '', statut: p.statut, montant_ht: p.montantCents ? euros(p.montantCents) : null,
+        devis: devis.map(d => ({ numero: d.numero, statut: DEVIS_LABEL[d.statut], intro: d.intro || '', lignes: d.lignes.map(l => l.description), perimetre: d.perimetre || [], outils: d.outils || '', note: d.note || '' })),
+        cadrage: { brief: (p.brief || []).filter(b => b.r).map(b => ({ question: b.q, reponse: b.r })), notes: (p.notes || '').slice(0, 4000),
+          plan: (p.plan || []).map(e => e.titre + (e.amely ? ' : ' + e.amely : '')), notes_partagees: (p.notesPartagees || []).slice(-3).map(n => n.titre + ' : ' + n.texte.slice(0, 1200)) },
+        construction: p.construction || { actif: false, etapes: [] } }
+    })
+  }
+  if (name === 'atelier_ecrire') {
+    let result
+    await updateCrm(blob, c => {
+      const p = c.projets.find(x => x.id === args.projet_id)
+      if (!p) throw fail('Projet introuvable : appelle d’abord atelier_lire pour avoir son projet_id.')
+      const k = { actif: true, etapes: [], ...(p.construction || {}) }
+      if (args.cahier !== undefined) k.cahier = String(args.cahier)
+      if (args.note !== undefined) k.note = String(args.note)
+      if (args.repo !== undefined) k.repo = String(args.repo)
+      if (args.url_test !== undefined) k.urlTest = String(args.url_test)
+      if (args.demande_traitee) k.demande = ''
+      const now = nowParis()
+      for (const e of args.etapes || []) {
+        const cur = e.id && k.etapes.find(x => x.id === e.id)
+        const patch = { ...(e.titre !== undefined && { titre: e.titre }), ...(e.detail !== undefined && { detail: e.detail }), ...(e.etat && { etat: e.etat }),
+          ...(e.lien_test !== undefined && { lienTest: e.lien_test }), ...(e.fait !== undefined && { fait: e.fait }), ...(e.a_verifier !== undefined && { aVerifier: e.a_verifier }), majLe: now }
+        if (cur) { if (cur.etat === 'validee') continue; Object.assign(cur, patch) } else if (e.titre) k.etapes.push({ id: 'etc_' + Math.random().toString(36).slice(2, 12), etat: 'a_faire', ...patch })
+      }
+      k.majLe = now
+      result = { projet: p.nom, etapes: k.etapes.map(e => ({ id: e.id, titre: e.titre, etat: e.etat })) }
+      return { ...c, projets: c.projets.map(x => x.id === p.id ? { ...x, construction: k } : x) }
+    })
+    return result
   }
   if (name === 'agenda_importer') {
     const src = String(args.source || '').trim().slice(0, 60)

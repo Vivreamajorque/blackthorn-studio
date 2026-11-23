@@ -17,3 +17,14 @@ test('agenda importé : garde les événements valides, rejette le reste', () =>
   assert.equal(crm.agenda.importes[1].source, 'Agenda entreprise')
   assert.equal(crm.agenda.importesMaj, '2026-11-23T08:40')
 })
+
+test('atelier : le carnet de construction est gardé et nettoyé', () => {
+  const crm = cleanCrm({ clients: [{ id: 'cli_a', nom: 'A' }], projets: [{ id: 'prj_a', clientId: 'cli_a', nom: 'Outil', construction: {
+    actif: true, cahier: 'Écrans…', repo: 'owner/outil', urlTest: 'http://pas-https', etapes: [{ titre: 'Catalogue', etat: 'a_tester', lienTest: 'https://test.example' }, { titre: '' }, { titre: 'X', etat: 'nimporte' }] } }] })
+  const k = crm.projets[0].construction
+  assert.equal(k.actif, true)
+  assert.equal(k.urlTest, '')
+  assert.equal(k.etapes.length, 2)
+  assert.equal(k.etapes[0].etat, 'a_tester')
+  assert.equal(k.etapes[1].etat, 'a_faire')
+})
