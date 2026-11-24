@@ -156,6 +156,8 @@ function cleanAlfred(a) {
     // Éléments automatiques déplacés ou écartés depuis l'accueil.
     deplaces: map(a.deplaces, v => oneOf(v, QUADRANTS, '')),
     ecartes: map(a.ecartes, v => date(v)),
+    // Priorités du jour cochées « C'est fait » dans l'encart d'Alfred.
+    prioFaites: (Array.isArray(a.prioFaites) ? a.prioFaites : []).filter(x => x && str(x.texte).trim()).slice(-30).map(x => ({ texte: str(x.texte, 300), le: date(x.le) })),
   }
 }
 const AGENT_KEYS = ['alfred', 'courrier', 'clients', 'commercial', 'communication', 'compta', 'plateformes', 'atelier']

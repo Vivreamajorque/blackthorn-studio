@@ -71,3 +71,9 @@ test('les devis et les échéances sont nettoyés et rattachés à un client exi
   assert.equal(crm.echeances[0].factureId, 'inv_x')
   assert.deepEqual(cleanCrm({}).devis, [])
 })
+
+test('priorités cochées « C’est fait » conservées par le serveur', async () => {
+  const { cleanCrm } = (await import('node:module')).createRequire(import.meta.url)('../server/crm.cjs')
+  const c = cleanCrm({ alfred: { priorite: 'Répondre à Meriel', prioFaites: [{ texte: 'Répondre à Meriel', le: '2026-11-24' }, { texte: '' }] } })
+  assert.deepEqual(c.alfred.prioFaites, [{ texte: 'Répondre à Meriel', le: '2026-11-24' }])
+})

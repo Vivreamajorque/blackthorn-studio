@@ -374,7 +374,7 @@ async function callTool(name, args, blob) {
       messages_non_lus: (crm.messages?.items || []).filter(x => !x.vu).map(x => ({ source: x.source, de: x.de, sujet: x.sujet, apercu: x.apercu || '', date: x.date })),
       equipe: Object.fromEntries(Object.entries(crm.agents || {}).map(([k, v]) => [k, { dernier_passage: v.majLe, resume: v.resume, attente: v.attente }])),
       canaux: Object.fromEntries(Object.entries(crm.canaux || {}).map(([k, v]) => [k, { statut: v.statut, lien: v.lien || '', action: v.action || '' }])),
-      taches_faites_aujourdhui: (crm.taches || []).filter(t => t.fait && t.faitLe === d).map(t => t.titre),
+      taches_faites_aujourdhui: [...(crm.taches || []).filter(t => t.fait && t.faitLe === d).map(t => t.titre), ...(crm.alfred?.prioFaites || []).filter(p => p.le === d).map(p => p.texte)],
       chiffres: { facture_annee: euros(inv.filter(e => e.date.startsWith(d.slice(0, 4))).reduce((s, e) => s + base(e), 0)),
         a_encaisser: euros(inv.filter(e => e.payment !== 'paid').reduce((s, e) => s + e.amountCents, 0)) },
       agenda_7_jours: await agendaComplet(crm, data.entries, lm, d, to),

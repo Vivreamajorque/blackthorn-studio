@@ -220,15 +220,23 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
   const norm = x => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()
   const same = (a, b) => { const x = norm(a), y = norm(b); return !!x && !!y && (x === y || (y.length > 8 && x.includes(y)) || (x.length > 8 && y.includes(x))) }
   const faits = [...(crm.taches || []).filter(t => t.fait).map(t => t.titre), ...crm.projets.flatMap(p => p.actions.filter(a => a.fait).map(a => a.label))]
-  const prioFaite = !!al.priorite && faits.some(t => same(t, al.priorite))
-  const priorite = prioFaite ? (urgent.find(i => !same(i.titre, al.priorite))?.titre || '') : (al.priorite || urgent[0]?.titre || '')
+  const prioFaites = (al.prioFaites || []).map(p => p.texte)
+  const estFait = t => faits.some(f => same(f, t)) || prioFaites.some(f => same(f, t))
+  const prioFaite = !!al.priorite && estFait(al.priorite)
+  const priorite = prioFaite ? (urgent.find(i => !estFait(i.titre))?.titre || '') : (al.priorite || urgent.find(i => !estFait(i.titre))?.titre || '')
 
   const give = () => { const t = note.trim(); if (t) act.give(t).then(ok => ok && setNote('')) }
   const addToday = () => { const t = newTask.trim(); if (t) act.add(t, 'faire', today).then(ok => ok && setNewTask('')) }
 
-  const prioItem = prioFaite ? null : [...m.faire, ...m.planifier, ...m.deleguer].find(i => same(i.titre, priorite))
-  const prioDone = () => prioItem ? act.done(prioItem)
-    : saveCrm(d => ({ ...d, taches: [...(d.taches || []), { id: uid('tac'), titre: priorite, quadrant: 'faire', source: 'moi', creeLe: today, fait: true, faitLe: today }] }), 'Bravo, c’est fait.')
+  const prioItem = !priorite ? null : [...m.faire, ...m.planifier, ...m.deleguer].find(i => same(i.titre, priorite))
+  // « C'est fait » : on note la priorité comme faite (elle disparaît tout de suite) et on coche la tâche ou l'élément lié, en un seul enregistrement.
+  const prioDone = () => saveCrm(d => {
+    const a = d.alfred || {}
+    const alfred = { ...a, prioFaites: [...(a.prioFaites || []), { texte: priorite, le: today }].slice(-30) }
+    if (prioItem?.auto) alfred.ecartes = { ...a.ecartes, [prioItem.id]: today }
+    const taches = prioItem && !prioItem.auto ? (d.taches || []).map(t => t.id === prioItem.id ? { ...t, fait: true, faitLe: today } : t) : d.taches
+    return { ...d, alfred, taches }
+  }, 'Bravo, c’est fait.')
   const nowHM = new Date().toTimeString().slice(0, 5)
   const weekItems = upcomingDays.flatMap(d => upcoming[d].map(x => ({ d, x })))
   const pct = Math.min(100, Math.round(billed2027 / goal * 100))
