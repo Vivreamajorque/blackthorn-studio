@@ -195,9 +195,15 @@ const TOOLS = [
     libelle: text, fournisseur: text, date: text, montant_ttc: { type: 'number', minimum: 0 }, iva: { type: 'number', minimum: 0 },
     payee: { type: 'boolean' }, confirmation: { type: 'string', enum: ['ajouter'] },
   }, ['libelle', 'date', 'montant_ttc', 'iva', 'confirmation']), false),
-  tool('ajouter_prospect', 'Ajouter une piste dans l’onglet Prospection.', object({
-    nom: text, entreprise: text, source: text, besoin: text, valeur_ht: { type: 'number', minimum: 0 }, relance: text,
+  tool('ajouter_prospect', 'Ajouter une opportunité dans l’onglet Développer : une annonce réelle trouvée (agent Prospection) ou une piste. Amely la trie ensuite elle-même (ça m’intéresse / pas pour moi, je contacte / je ne contacte pas). Une annonce déjà présente (même lien) n’est pas ajoutée deux fois.', object({
+    nom: { type: 'string', description: 'Qui publie : personne ou entreprise' }, entreprise: text,
+    lien: { type: 'string', description: 'URL https complète de l’annonce' }, plateforme: { type: 'string', description: 'Site où elle a été trouvée (Malt, Codeur.com, LinkedIn…)' },
+    besoin: { type: 'string', description: 'Ce qu’ils cherchent, en une ou deux phrases simples' }, publie_le: { type: 'string', description: 'AAAA-MM-JJ' },
+    pourquoi: { type: 'string', description: 'Pourquoi ça colle à l’offre d’Amely, en une phrase' }, pertinence: { type: 'integer', minimum: 1, maximum: 3 },
+    brouillon: { type: 'string', description: 'Réponse ou candidature prête à envoyer' },
+    source: text, valeur_ht: { type: 'number', minimum: 0 }, relance: text,
   }, ['nom']), false),
+  tool('lister_prospects', 'Lister les opportunités et pistes de l’onglet Développer avec la décision d’Amely (interesse, refuse avec sa raison, plus_tard, ou à trier) : à lire avant de chercher, pour ne jamais reproposer une annonce et pour apprendre de ses refus.', object({})),
   tool('lister_devis', 'Lister les devis (brouillon, envoyé, signé, refusé), filtrables par client et statut, avec leur total HT.', object({
     client: text, statut: { type: 'string', enum: ['brouillon', 'envoye', 'signe', 'refuse', 'tous'] },
   })),
@@ -595,9 +601,23 @@ async function callTool(name, args, blob) {
   }
   if (name === 'ajouter_prospect') {
     if (args.relance && !/^\d{4}-\d{2}-\d{2}$/.test(args.relance)) throw fail('Date de relance invalide.')
-    await updateCrm(blob, c => ({ ...c, prospects: [{ id: 'pro_' + randomBytes(6).toString('hex'), nom: String(args.nom), entreprise: args.entreprise || '',
-      source: args.source || '', besoin: args.besoin || '', valeurCents: Math.round((args.valeur_ht || 0) * 100), relance: args.relance || '', statut: 'nouveau' }, ...c.prospects] }))
-    return { ajoute: true, nom: args.nom }
+    const lien = /^https:\/\//i.test(String(args.lien || '')) ? String(args.lien) : /^https:\/\//i.test(String(args.source || '')) ? String(args.source) : ''
+    const plateforme = String(args.plateforme || (lien ? new URL(lien).hostname.replace(/^www\./, '') : args.source || '')).slice(0, 60)
+    const agent = !!(lien || args.pourquoi || args.brouillon)
+    let deja = false
+    await updateCrm(blob, c => {
+      if (lien && c.prospects.some(p => p.lien === lien)) { deja = true; return c }
+      return { ...c, prospects: [{ id: 'pro_' + randomBytes(6).toString('hex'), nom: String(args.nom), entreprise: args.entreprise || '',
+        source: plateforme, lien, besoin: args.besoin || '', valeurCents: Math.round((args.valeur_ht || 0) * 100), relance: args.relance || '', statut: 'nouveau',
+        origine: agent ? 'agent' : 'moi', decision: '', pourquoi: args.pourquoi || '', brouillon: args.brouillon || '', plateforme,
+        publieLe: dateOk(args.publie_le) ? args.publie_le || '' : '', trouveLe: today(), pertinence: args.pertinence || 0 }, ...c.prospects] }
+    })
+    return deja ? { deja_presente: true, nom: args.nom } : { ajoute: true, nom: args.nom }
+  }
+  if (name === 'lister_prospects') {
+    const { data: crm } = await readCrm(blob)
+    return { opportunites: crm.prospects.slice(0, 150).map(p => ({ nom: p.nom, entreprise: p.entreprise, lien: p.lien, plateforme: p.plateforme || p.source,
+      besoin: p.besoin.slice(0, 200), statut: p.statut, decision: p.decision || (p.origine === 'agent' ? 'a_trier' : ''), raison_du_refus: p.raison, trouve_le: p.trouveLe })) }
   }
   throw fail('Outil inconnu.')
 }

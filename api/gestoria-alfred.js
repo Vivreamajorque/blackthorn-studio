@@ -5,7 +5,7 @@ const { requireSession } = require('../server/session.cjs')
 const mcp = require('../server/mcp.cjs')
 
 const ALLOWED = ['alfred_point', 'alfred_noter', 'alfred_classer', 'alfred_terminer', 'lire_espaces', 'lister_clients',
-  'lister_factures', 'lister_devis', 'resume_activite', 'atelier_lire', 'ajouter_prospect', 'preparer_facture', 'preparer_devis']
+  'lister_factures', 'lister_devis', 'resume_activite', 'atelier_lire', 'ajouter_prospect', 'lister_prospects', 'preparer_facture', 'preparer_devis']
 
 const AGENTS = {
   alfred: 'Tu es Alfred, le majordome et chef de cabinet d’Amely. Tu centralises son équipe (Clients, Prospection, Communication, Compta, LiveMentor, Messages, Atelier) et tu l’aides à décider par quoi commencer.',
@@ -66,7 +66,7 @@ async function converse({ agent, messages }, blob, call = claude) {
       if (!ALLOWED.includes(u.name)) { content = 'Outil non disponible ici.'; isError = true } else {
         try {
           content = JSON.stringify(await mcp.callTool(u.name, u.input || {}, blob)).slice(0, 30000)
-          if (!['alfred_point', 'lire_espaces', 'lister_clients', 'lister_factures', 'lister_devis', 'resume_activite', 'atelier_lire'].includes(u.name)) actions.push(u.name)
+          if (!['alfred_point', 'lire_espaces', 'lister_clients', 'lister_factures', 'lister_devis', 'resume_activite', 'atelier_lire', 'lister_prospects'].includes(u.name)) actions.push(u.name)
         } catch (e) { content = 'Erreur : ' + String(e?.message || e).slice(0, 300); isError = true }
       }
       results.push({ type: 'tool_result', tool_use_id: u.id, content, is_error: isError })

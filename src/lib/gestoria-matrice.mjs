@@ -99,9 +99,12 @@ export function autoItems({ entries = [], crm, today, lm = null }) {
     if (d.statut === 'brouillon') add('devis:' + d.id, 'planifier', 'Finaliser et envoyer le devis ' + d.numero, { detail: c.nom, domaine: 'commercial', go: 'clients', clientId: c.id })
     if (d.statut === 'envoye' && d.date && days(d.date, today) >= 7) add('devisrel:' + d.id, 'deleguer', 'Relancer ' + c.nom + ' sur le devis ' + d.numero, { detail: 'envoyé le ' + fr(d.date), domaine: 'commercial', go: 'clients', clientId: c.id, agent: 'commercial' })
   }
+  // Annonces trouvées par l'agent, pas encore triées : une seule ligne, pas une par annonce.
+  const aTrier = crm.prospects.filter(p => p.origine === 'agent' && !p.decision && p.statut === 'nouveau')
+  if (aTrier.length) add('trier:' + today, 'planifier', 'Trier ' + (aTrier.length > 1 ? aTrier.length + ' nouvelles annonces' : 'une nouvelle annonce'), { detail: 'Pour chacune : ça m’intéresse ou pas pour moi.', domaine: 'commercial', go: 'prospection', agent: 'commercial' })
   for (const p of crm.prospects.filter(p => !['gagne', 'perdu'].includes(p.statut))) {
     if (p.relance && p.relance <= addDays(today, 1)) add('rel:' + p.id + ':' + p.relance, 'deleguer', 'Relancer ' + p.nom + (p.entreprise ? ' (' + p.entreprise + ')' : ''), { detail: p.relance < today ? 'prévu le ' + fr(p.relance) : p.relance === today ? 'aujourd’hui' : 'demain', domaine: 'commercial', go: 'prospection', agent: 'commercial' })
-    else if (!p.relance && p.statut === 'nouveau') add('pro:' + p.id, 'plus_tard', 'Qualifier la piste ' + p.nom, { detail: p.entreprise || p.source || '', domaine: 'commercial', go: 'prospection' })
+    else if (!p.relance && p.statut === 'nouveau' && p.origine !== 'agent') add('pro:' + p.id, 'plus_tard', 'Qualifier la piste ' + p.nom, { detail: p.entreprise || p.source || '', domaine: 'commercial', go: 'prospection' })
   }
   for (const [key, name] of [['instagram', 'Instagram'], ['linkedin', 'LinkedIn'], ['indeed', 'Indeed'], ['site', 'Page web']]) {
     const c = (crm.canaux || {})[key]

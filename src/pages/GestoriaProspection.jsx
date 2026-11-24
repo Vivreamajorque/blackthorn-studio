@@ -3,6 +3,7 @@ import { money, uid, toCents, fromCents } from '../lib/gestoria-crm'
 import { formatDate, todayInSpain } from '../lib/gestoria-calendar.mjs'
 import { Dialog, bind } from './GestoriaClients'
 import GestoriaCanaux from './GestoriaCanaux'
+import GestoriaOpportunites, { etatOf } from './GestoriaOpportunites'
 import './gestoria-clients.css'
 
 const STEPS = [['nouveau', 'À contacter'], ['contacte', 'Contacté'], ['rdv', 'Rendez-vous'], ['devis', 'Devis envoyé'], ['gagne', 'Signé'], ['perdu', 'Perdu']]
@@ -44,9 +45,12 @@ function ProspectForm({ prospect, onSave, onDelete, onSign, onClose, saving }) {
 
 export default function GestoriaProspection({ crm, saveCrm, canSave, saving, onClient }) {
   const [edit, setEdit] = useState(null)
-  const [view, setView] = useState('pistes')
+  const aTrier = crm.prospects.filter(p => p.origine === 'agent' && etatOf(p) === 'a_trier').length
+  const [view, setView] = useState('annonces')
   const today = todayInSpain()
-  const open = crm.prospects.filter(p => !['gagne', 'perdu'].includes(p.statut))
+  // Les annonces de l'agent ne rejoignent les pistes qu'une fois contactées.
+  const pistes = crm.prospects.filter(p => p.origine !== 'agent' || etatOf(p) === 'contacte')
+  const open = pistes.filter(p => !['gagne', 'perdu'].includes(p.statut))
   const toFollow = open.filter(p => p.relance && p.relance <= today)
   const month = today.slice(0, 7)
 
@@ -72,19 +76,20 @@ export default function GestoriaProspection({ crm, saveCrm, canSave, saving, onC
   return <>
     <div className="mgc-between">
       <div><h1 style={{ margin: '.1em 0' }}>Développer</h1>
-        <p className="mgc-muted" style={{ margin: 0 }}>Tes pistes, tes relances, et un clic pour transformer un « oui » en client.</p></div>
+        <p className="mgc-muted" style={{ margin: 0 }}>Les annonces à trier, tes pistes, tes relances, et un clic pour transformer un « oui » en client.</p></div>
       {view === 'pistes' && <button className="mgc-primary" disabled={!canSave} onClick={() => setEdit({ nom: '', statut: 'nouveau', source: 'Instagram' })}>+ Prospect</button>}
     </div>
     <div className="mgc-tabs" role="tablist" aria-label="Prospection">
-      {[['pistes', 'Pistes'], ['canaux', 'Canaux de communication']].map(([id, label]) =>
+      {[['annonces', 'Annonces' + (aTrier ? ' · ' + aTrier + ' à trier' : '')], ['pistes', 'Pistes'], ['canaux', 'Canaux de communication']].map(([id, label]) =>
         <button key={id} role="tab" aria-selected={view === id} className={view === id ? 'on' : ''} onClick={() => setView(id)}>{label}</button>)}
     </div>
+    {view === 'annonces' && <GestoriaOpportunites crm={crm} saveCrm={saveCrm} canSave={canSave} />}
     {view === 'canaux' && <GestoriaCanaux crm={crm} saveCrm={saveCrm} canSave={canSave} saving={saving} />}
     {view === 'pistes' && <>
     <div className="mgc-tiles">
       <div className="mgc-tile"><strong>{open.length}</strong><span>Pistes ouvertes · {money(open.reduce((s, p) => s + p.valeurCents, 0))} potentiels</span></div>
       <div className="mgc-tile"><strong>{toFollow.length}</strong><span>À relancer aujourd’hui</span></div>
-      <div className="mgc-tile"><strong>{crm.prospects.filter(p => p.statut === 'gagne' && p.signeLe.startsWith(month)).length}</strong><span>Signés ce mois-ci</span></div>
+      <div className="mgc-tile"><strong>{pistes.filter(p => p.statut === 'gagne' && p.signeLe.startsWith(month)).length}</strong><span>Signés ce mois-ci</span></div>
     </div>
     {toFollow.length > 0 && <section className="mgc-panel">
       <h3>À relancer</h3>
@@ -93,7 +98,7 @@ export default function GestoriaProspection({ crm, saveCrm, canSave, saving, onC
     </section>}
     <div className="mgc-kanban">
       {STEPS.map(([k, l]) => {
-        const items = crm.prospects.filter(p => p.statut === k)
+        const items = pistes.filter(p => p.statut === k)
         return <div key={k} className="mgc-col"><h3>{l}<span className="mgc-muted">{items.length}</span></h3>
           {items.map(p => <button key={p.id} className="mgc-pcard" onClick={() => setEdit(p)}>
             <strong>{p.nom}</strong>

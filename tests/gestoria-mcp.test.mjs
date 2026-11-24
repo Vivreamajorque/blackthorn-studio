@@ -78,6 +78,13 @@ test('facture dictée : préparation sans écriture, émission après confirmati
   const resume = await mcp.callTool('resume_activite', { annee: 2026 }, blob)
   assert.equal(resume.a_encaisser.length, 1)
   assert.equal(read(blob, CRM_PATH).prospects[0].nom, 'Laura')
+  const annonce = { nom: 'Atelier Brun', lien: 'https://www.codeur.com/projects/123-outil-de-suivi', besoin: 'Un outil de suivi clients', pourquoi: 'Outil métier sur mesure', pertinence: 3, brouillon: 'Bonjour…', publie_le: '2026-11-22' }
+  assert.equal((await mcp.callTool('ajouter_prospect', annonce, blob)).ajoute, true)
+  assert.equal((await mcp.callTool('ajouter_prospect', annonce, blob)).deja_presente, true)
+  const op = read(blob, CRM_PATH).prospects[0]
+  assert.equal(op.origine, 'agent'); assert.equal(op.plateforme, 'codeur.com'); assert.equal(op.lien, annonce.lien); assert.equal(op.decision, '')
+  const liste = await mcp.callTool('lister_prospects', {}, blob)
+  assert.equal(liste.opportunites[0].decision, 'a_trier')
   await assert.rejects(mcp.callTool('preparer_facture', { client: 'Inconnu', lignes: [{ description: 'x', quantite: 1, prix_ht: 1 }] }, blob), /introuvable/)
 })
 

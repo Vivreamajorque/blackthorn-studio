@@ -120,6 +120,10 @@ function cleanProspect(p) {
     source: str(p.source, 40), statut: oneOf(p.statut, PROSPECT_STATUS, 'nouveau'), valeurCents: cents(p.valeurCents),
     email: str(p.email, 160), lien: url(p.lien), relance: date(p.relance), besoin: str(p.besoin, 1000),
     notes: str(p.notes, 3000), clientId: id(p.clientId) || '', signeLe: date(p.signeLe),
+    // Annonces trouvées par l'agent Prospection : Amely trie (ça m'intéresse / pas pour moi) puis contacte ou non.
+    origine: oneOf(p.origine, ['moi', 'agent'], 'moi'), decision: oneOf(p.decision, ['', 'interesse', 'refuse', 'plus_tard'], ''),
+    raison: str(p.raison, 200), pourquoi: str(p.pourquoi, 600), brouillon: str(p.brouillon, 4000), plateforme: str(p.plateforme, 60),
+    publieLe: date(p.publieLe), trouveLe: date(p.trouveLe), decideLe: date(p.decideLe), pertinence: Math.max(0, Math.min(3, Math.round(Number(p.pertinence) || 0))),
   }
 }
 
