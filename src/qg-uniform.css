@@ -62,3 +62,8 @@ main.mg-shell .mgc-hero .mgc-eyebrow { color: #9fd3c7 !important; opacity: 1; }
 main.mg-shell .mgc-hero p { color: #d8ebe6; }
 /* Tableau des pistes : toutes les colonnes visibles */
 main.mg-shell .mgc-kanban { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important; overflow: visible; }
+
+/* Le logo du QG est un bouton : un appui recharge l'appli (nouvelle version + données à jour). */
+button.app-brand, button.app-brand:hover:not(:disabled) { border: 0; background: transparent; padding: 0; color: inherit; font-size: 1.2rem; font-weight: 700; cursor: pointer; }
+button.app-brand:active img { transform: rotate(-8deg) scale(.94); }
+button.app-brand img { transition: transform .15s ease; }

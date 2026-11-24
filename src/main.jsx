@@ -101,7 +101,7 @@ function App() {
   if (status === 'connected' && connectRequest) return <GestoriaConnect request={connectRequest} onDone={() => setConnectRequest(null)} />
   if (status === 'connected') return <>
     <header className="app-header">
-      <strong className="app-brand"><img src="/qg-icon-96.png" alt="" width="34" height="34" /> Le QG</strong>
+      <button type="button" className="app-brand" title="Mettre à jour le QG" onClick={() => miseAJourMaintenant()}><img src="/qg-icon-96.png" alt="" width="34" height="34" /> Le QG</button>
       <button onClick={logout} disabled={busy}>Se déconnecter</button>
     </header>
     {feedback && <p className="auth-feedback" role="alert">{feedback.text}</p>}
@@ -157,18 +157,43 @@ function proposerMiseAJour() {
   const auto = () => { if (!enTrainDEcrire()) window.location.reload(); else setTimeout(auto, 15000) }
   setTimeout(auto, 6000)
 }
-async function checkForUpdate(force = false) {
+// Recharge tout de suite (nouvelle version + données fraîches), avec un petit voile pour montrer que ça bouge.
+function miseAJourMaintenant() {
+  const voile = document.createElement('div')
+  voile.setAttribute('role', 'status')
+  voile.textContent = 'Mise à jour du QG…'
+  voile.style.cssText = 'position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:rgba(242,247,246,.92);color:#103c42;font:600 18px/1.2 "Bricolage Grotesque Variable",system-ui,sans-serif'
+  document.body.appendChild(voile)
+  window.location.reload()
+}
+window.miseAJourMaintenant = miseAJourMaintenant
+
+async function checkForUpdate(force = false, immediat = false) {
   if (!import.meta.env.PROD || bandeau || (!force && Date.now() - lastCheck < 30000)) return
   lastCheck = Date.now()
   try {
     const html = await (await fetch('/?v=' + Date.now(), { cache: 'no-store', headers: { 'cache-control': 'no-cache' } })).text()
     const next = html.match(/<script[^>]+type="module"[^>]+src="([^"]*\/assets\/[^"]+)"/)?.[1]
-    if (next && currentBundle() && next !== currentBundle()) proposerMiseAJour()
+    if (next && currentBundle() && next !== currentBundle()) {
+      if (immediat && !enTrainDEcrire()) miseAJourMaintenant()
+      else proposerMiseAJour()
+    }
   } catch { /* hors ligne : on réessaiera */ }
 }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate() })
-window.addEventListener('pageshow', () => checkForUpdate())
+
+// Quand on rouvre l'appli depuis son icône (téléphone, iPad) : si elle dormait depuis plus de 2 minutes,
+// on recharge tout (dernière version + données à jour) ; sinon on vérifie juste s'il y a une nouvelle version.
+let cacheLe = 0
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') { cacheLe = Date.now(); return }
+  const dormait = cacheLe && Date.now() - cacheLe > 120000
+  cacheLe = 0
+  if (dormait && import.meta.env.PROD && !enTrainDEcrire()) return miseAJourMaintenant()
+  window.dispatchEvent(new CustomEvent('qg-crm-change'))
+  checkForUpdate(true, true)
+})
+window.addEventListener('pageshow', e => { if (e.persisted && import.meta.env.PROD) miseAJourMaintenant(); else checkForUpdate(true, true) })
 window.addEventListener('focus', () => checkForUpdate())
 window.addEventListener('online', () => checkForUpdate(true))
 setInterval(() => { if (document.visibilityState === 'visible') checkForUpdate(true) }, 180000)
-setTimeout(() => checkForUpdate(true), 5000)
+setTimeout(() => checkForUpdate(true, true), 3000)
