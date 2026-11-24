@@ -168,10 +168,26 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
   const [events, setEvents] = useState(null)
   const act = useActions(crm, saveCrm, today)
 
+  // L'agenda se recharge quand on revient dans l'appli (téléphone, iPad) et toutes les 10 minutes.
+  // En cas d'échec, on garde ce qu'on avait et on le dit, au lieu d'afficher « aucun rendez-vous ».
+  const [agendaKo, setAgendaKo] = useState(false)
+  const [agendaTick, setAgendaTick] = useState(0)
   useEffect(() => {
-    fetch(`/api/gestoria-agenda?from=${today}&to=${addDays(today, 8)}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : Promise.reject())
-      .then(d => setEvents(d.events || [])).catch(() => setEvents([]))
-  }, [today])
+    const again = () => { if (document.visibilityState !== 'hidden') setAgendaTick(t => t + 1) }
+    document.addEventListener('visibilitychange', again)
+    window.addEventListener('focus', again)
+    const timer = setInterval(again, 10 * 60000)
+    return () => { document.removeEventListener('visibilitychange', again); window.removeEventListener('focus', again); clearInterval(timer) }
+  }, [])
+  useEffect(() => {
+    let stop = false
+    const load = (essai = 0) => fetch(`/api/gestoria-agenda?from=${today}&to=${addDays(today, 8)}`, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(d => { if (!stop) { setEvents(d.events || []); setAgendaKo(false) } })
+      .catch(() => { if (stop) return; if (essai < 2) setTimeout(() => load(essai + 1), 2500); else { setAgendaKo(true); setEvents(e => e || []) } })
+    load()
+    return () => { stop = true }
+  }, [today, agendaTick])
 
   const m = useMemo(() => matrice({ entries, crm, today, lm: lmStore.loadState === 'ready' ? lmStore.data : null }), [entries, crm, today, lmStore.data, lmStore.loadState])
   const mine = entries.filter(e => (e.entity || 'independent') === 'independent' && e.kind === 'invoice')
@@ -266,7 +282,8 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
       <aside className="j-side">
         <section className="j-panel">
           <header><h2>Aujourd’hui</h2><button onClick={() => onGo('agenda')}>Agenda</button></header>
-          {events === null ? <p className="acc-empty">Chargement…</p> : todayEvents.length === 0 ? <p className="acc-empty">Aucun rendez-vous. Journée libre pour avancer.</p> :
+          {agendaKo && <p className="acc-empty j-agenda-ko">Ton agenda ne répond pas pour l’instant. <button type="button" onClick={() => setAgendaTick(t => t + 1)}>Réessayer</button></p>}
+          {events === null ? <p className="acc-empty">Chargement de ton agenda…</p> : agendaKo && todayEvents.length === 0 ? null : todayEvents.length === 0 ? <p className="acc-empty">Aucun rendez-vous. Journée libre pour avancer.</p> :
             <ol className="j-tl">{todayEvents.map((e, k) => {
               const passe = !e.allDay && (e.end || e.start).slice(11, 16) < nowHM
               const showNow = !e.allDay && !passe && (k === 0 || (todayEvents[k - 1].allDay || (todayEvents[k - 1].end || todayEvents[k - 1].start).slice(11, 16) < nowHM))

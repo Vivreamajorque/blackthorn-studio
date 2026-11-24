@@ -165,3 +165,7 @@
 
 .j .mj-facturer, .mj-facturer { background: #103c42; color: #fff !important; border: 0; border-radius: 999px; padding: 0 14px; min-height: 34px; font: inherit; font-weight: 700; font-size: .85rem; cursor: pointer; flex: none; }
 .mj-facturer:hover:not(:disabled) { background: #1b545b; }
+
+.j-agenda-ko { background: #fdf1d8; color: #6b4a06; border-radius: 14px; padding: 10px 12px; }
+.j-agenda-ko button { margin-left: 6px; border: 0; background: #103c42; color: #fff; border-radius: 999px; padding: 4px 12px; font: inherit; font-size: .9em; cursor: pointer; }
+.j .j-agenda-ko button { color: #fff !important; }

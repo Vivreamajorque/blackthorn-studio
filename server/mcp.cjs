@@ -217,7 +217,7 @@ const TOOLS = [
     numero: text, statut: { type: 'string', enum: ['brouillon', 'envoye', 'signe', 'refuse'] }, date: text, confirmation: { type: 'string', enum: ['changer'] },
   }, ['numero', 'statut', 'confirmation']), false),
   tool('lire_espaces', 'Lire les projets clients en cours et leurs espaces partagés : questions du client non traitées, leçons à relire, brief, actions en attente côté client et côté Amely, prochain rendez-vous, dernières notes. Lecture seule.', object({ client: text })),
-  tool('alfred_point', 'Alfred, le majordome d’Amely : point complet du jour. Matrice d’Eisenhower (à faire maintenant, à planifier, à confier, plus tard), ce qu’elle a confié à Alfred et qui reste à classer, messages non lus, chiffres clés et agenda du QG sur 7 jours. À appeler en premier quand Amely parle à Alfred ou demande « par quoi je commence ».', object({})),
+  tool('alfred_point', 'Alfred, le majordome d’Amely : point complet du jour. Matrice d’Eisenhower (à faire maintenant, à planifier, à confier, plus tard), ce qu’elle a confié à Alfred et qui reste à classer, messages non lus, chiffres clés et tous ses rendez-vous des 7 prochains jours (Google Agenda, LiveMentor, QG). À appeler en premier quand Amely parle à Alfred ou demande « par quoi je commence ».', object({})),
   tool('alfred_noter', 'Alfred note quelque chose pour Amely. Sans titre : le texte va dans la boîte d’Alfred, à classer. Avec un titre : crée directement une tâche dans la matrice (quadrant faire / planifier / deleguer / plus_tard). Aucune donnée comptable n’est touchée.', object({
     texte: text, titre: text, detail: text, quadrant: { type: 'string', enum: ['faire', 'planifier', 'deleguer', 'plus_tard'] },
     echeance: { type: 'string', description: 'AAAA-MM-JJ' }, domaine: { type: 'string', enum: ['clients', 'commercial', 'compta', 'communication', 'messages', 'perso', 'autre'] },
@@ -252,6 +252,22 @@ const nextDevisNumber = (devis, year) => {
   const prefix = 'DEV-' + year + '-'
   const max = devis.filter(d => d.numero.startsWith(prefix)).map(d => parseInt(d.numero.slice(prefix.length), 10)).filter(Number.isFinite).reduce((m, n) => Math.max(m, n), 0)
   return prefix + String(max + 1).padStart(3, '0')
+}
+
+// Agenda complet pour Alfred : rendez-vous du QG, importés et agendas Google (iCal), triés.
+async function agendaComplet(crm, entries, lm, from, to) {
+  const { qgEvents, fetchSource, nommerLivementor } = require('./agenda.cjs')
+  const events = qgEvents(crm, entries, from, to)
+  for (const e of crm.agenda?.importes || []) {
+    if (e.debut.slice(0, 10) > to || (e.fin || e.debut).slice(0, 10) < from) continue
+    events.push({ id: 'imp-' + e.id, type: 'perso', title: e.titre, start: e.debut, end: e.fin, allDay: e.journee })
+  }
+  await Promise.all((crm.agenda?.sources || []).map(async src => {
+    try { events.push(...await fetchSource(src, from, to)) } catch { /* agenda injoignable : on garde le reste */ }
+  }))
+  nommerLivementor(events, lm?.apprenants || [])
+  return events.sort((a, b) => a.start.localeCompare(b.start))
+    .map(e => ({ debut: e.start, fin: e.end || '', journee: !!e.allDay, titre: e.title, type: e.type }))
 }
 
 async function callTool(name, args, blob) {
@@ -361,8 +377,8 @@ async function callTool(name, args, blob) {
       taches_faites_aujourdhui: (crm.taches || []).filter(t => t.fait && t.faitLe === d).map(t => t.titre),
       chiffres: { facture_annee: euros(inv.filter(e => e.date.startsWith(d.slice(0, 4))).reduce((s, e) => s + base(e), 0)),
         a_encaisser: euros(inv.filter(e => e.payment !== 'paid').reduce((s, e) => s + e.amountCents, 0)) },
-      agenda_qg_7_jours: qgEvents(crm, data.entries, d, to).map(e => ({ date: e.start, titre: e.title })),
-      note: 'Les éléments auto:… viennent des factures, échéances, clients et messages. Les rendez-vous Google ne sont pas inclus ici.',
+      agenda_7_jours: await agendaComplet(crm, data.entries, lm, d, to),
+      note: 'Les éléments auto:… viennent des factures, échéances, clients et messages. agenda_7_jours contient TOUS ses rendez-vous (Google Agenda, LiveMentor avec le nom de l’apprenant, rendez-vous du QG) : ne dis jamais qu’elle n’a aucun rendez-vous sans l’avoir regardé.',
     }
   }
   if (name === 'alfred_noter') {
