@@ -19,3 +19,15 @@ test('une échéance proche et un mois LiveMentor à facturer donnent un bouton 
   assert.equal(lm.facturer.montantCents, 56070)
   assert.match(lm.facturer.label, /octobre 2026/)
 })
+
+test('LiveMentor : rien à facturer si la facture du mois est déjà émise, ni avant le 1er du mois suivant', () => {
+  const crm = cleanCrm({ clients: [{ id: 'lm', nom: 'LiveMentor', source: 'livementor' }],
+    livementor: { aFacturer: { mois: '2026-10', montantCents: 56070 } } })
+  const facture = { id: 'f2', kind: 'invoice', entity: 'independent', source: 'livementor', date: '2026-11-01', reference: 'LL-2026-002',
+    label: 'LiveMentor · Mentorat octobre 2026', amountCents: 56070, payment: 'pending' }
+  const ids = m => [...m.faire, ...m.planifier].map(i => i.id)
+  assert.ok(!ids(matrice({ entries: [facture], crm, today: '2026-11-24' })).includes('auto:lmfact:2026-10'))
+  const nov = cleanCrm({ ...crm, livementor: { aFacturer: { mois: '2026-11', montantCents: 51646 } } })
+  assert.ok(!ids(matrice({ entries: [facture], crm: nov, today: '2026-11-24' })).includes('auto:lmfact:2026-11'))
+  assert.ok(ids(matrice({ entries: [facture], crm: nov, today: '2026-12-01' })).includes('auto:lmfact:2026-11'))
+})

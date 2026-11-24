@@ -60,7 +60,12 @@ export function autoItems({ entries = [], crm, today, lm = null }) {
   // Mois LiveMentor terminé et pas encore facturé : prêt à facturer en un geste.
   const lmf = crm.livementor?.aFacturer
   const lmClient = crm.clients.find(c => c.source === 'livementor') || crm.clients.find(c => /livementor/i.test(c.nom))
-  if (lmf && lmClient) {
+  // Déjà facturé dans le QG (facture LiveMentor qui cite ce mois, ou émise le mois suivant) : rien à faire.
+  const moisLong = lmf ? MOIS[Number(lmf.mois.slice(5, 7)) - 1] : ''
+  const moisSuivant = lmf ? new Date(Date.parse(lmf.mois + '-01T12:00:00Z') + 32 * DAY).toISOString().slice(0, 7) : ''
+  const dejaFacture = lmf && mine.some(e => e.kind === 'invoice' && (e.source === 'livementor' || /livementor/i.test(e.label || '')) &&
+    (e.date.slice(0, 7) === moisSuivant || new RegExp(moisLong + '\\s+' + lmf.mois.slice(0, 4), 'i').test(e.label || '')))
+  if (lmf && lmClient && !dejaFacture && today.slice(0, 7) > lmf.mois) {
     const moisNom = new Date(lmf.mois + '-15T12:00:00').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
     add('lmfact:' + lmf.mois, 'faire', 'Facturer LiveMentor · ' + moisNom, { detail: eur(lmf.montantCents) + ' HT · à envoyer avant le 16', domaine: 'livementor', go: 'clients', clientId: lmClient.id,
       facturer: { label: 'Mentorat LiveMentor · ' + moisNom, montantCents: lmf.montantCents, lmMois: lmf.mois } })
