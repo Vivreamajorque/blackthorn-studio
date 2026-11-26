@@ -191,7 +191,8 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
 
   const m = useMemo(() => matrice({ entries, crm, today, lm: lmStore.loadState === 'ready' ? lmStore.data : null }), [entries, crm, today, lmStore.data, lmStore.loadState])
   const mine = entries.filter(e => (e.entity || 'independent') === 'independent' && e.kind === 'invoice')
-  const billed = mine.filter(e => e.date.startsWith(String(year))).reduce((s, e) => s + baseCents(e), 0)
+  const billed = mine.filter(e => e.date.startsWith(today.slice(0, 7))).reduce((s, e) => s + baseCents(e), 0)
+  const moisNom = new Date(today + 'T12:00:00').toLocaleDateString('fr-FR', { month: 'long' })
   const due = mine.filter(e => e.payment !== 'paid').reduce((s, e) => s + e.amountCents, 0)
   const coming = crm.clients.map(c => clientPotential(entries, crm, c)).reduce((s, p) => s + p.rest + p.enCours, 0)
   const goal = crm.objectifs?.[2027] ?? 20000000
@@ -248,7 +249,7 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
         <h1>{hello()} Amely</h1>
       </div>
       <nav className="j-kpis" aria-label="Chiffres clés">
-        <button onClick={() => onGo('pilotage')}><span>Facturé {year}</span><strong>{money(billed)}</strong></button>
+        <button onClick={() => onGo('pilotage')}><span>Facturé en {moisNom}</span><strong>{money(billed)}</strong></button>
         <button onClick={() => onGo('pilotage')}><span>À venir</span><strong>{money(coming)}</strong></button>
         <button onClick={() => onGo('finance')} className={due ? 'warn' : ''}><span>À encaisser</span><strong>{money(due)}</strong></button>
         <button onClick={() => onGo('pilotage')} className="j-goal"><span>Objectif 2027</span><strong>{pct} %</strong><i aria-hidden="true"><i style={{ width: pct + '%' }} /></i></button>
