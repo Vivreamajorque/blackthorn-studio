@@ -323,6 +323,20 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
   </div>
 }
 
+// Pictogrammes simples, un par agent.
+const ICONES = {
+  courrier: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></>,
+  clients: <><circle cx="9" cy="8" r="3.2" /><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5" /><path d="M16 4.8a3 3 0 0 1 0 6" /><path d="M18 13.8c1.9.7 3 2.6 3 5.2" /></>,
+  commercial: <><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="1" /></>,
+  communication: <><path d="M4 10v4h3l6 4V6L7 10H4z" /><path d="M16.5 9a4 4 0 0 1 0 6" /><path d="M19 6.5a7.5 7.5 0 0 1 0 11" /></>,
+  compta: <><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6M9 16h3" /></>,
+  plateformes: <><path d="M2 9l10-5 10 5-10 5z" /><path d="M6 11v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5" /></>,
+  atelier: <><path d="M14.5 5.5a4 4 0 0 0-5 5L4 16l4 4 5.5-5.5a4 4 0 0 0 5-5l-2.5 2.5-3-3z" /></>,
+}
+function Icone({ id }) {
+  return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{ICONES[id] || <circle cx="12" cy="12" r="8" />}</svg>
+}
+
 // Page Équipe : Alfred, sa boîte, et l'état de chaque agent.
 export function GestoriaEquipe({ crm, saveCrm, canSave }) {
   const al = crm.alfred || {}
@@ -365,17 +379,37 @@ export function GestoriaEquipe({ crm, saveCrm, canSave }) {
       <div className="eq-chef-inbox"><strong>{aClasser.length}</strong><small>à classer dans sa boîte</small></div>
     </section>
 
-    <section className="eq-grid">{autres.map(a => {
-      const s = state(a.id)
-      return <article key={a.id} className={'eq-card' + (s.attente ? ' wait' : '')} style={{ '--c': COULEUR[a.id] || '#2e7d72' }}>
-        <div className="eq-line"><span className="eq-av" aria-hidden="true">{a.nom[0]}</span><span className={'eq-st' + (s.on ? ' on' : '')}>{s.on ? 'Actif' : 'Bientôt'}</span></div>
-        <strong>{a.nom}</strong>
-        <small className="eq-role">{a.role}</small>
-        <p>{s.resume}</p>
-        {s.attente && <p className="eq-wait">Attend de toi : {s.attente}</p>}
-        <small className="eq-when">{s.last ? 'Passé ' + ago(s.last) : ''}{s.last ? ' · ' : ''}{SCHEDULE[a.id]}</small>
-      </article>
-    })}</section>
+    {attendent.length > 0 && <section className="eq-todo">
+      <h2>À toi de jouer</h2>
+      <ul>{attendent.map(a => <li key={a.id} style={{ '--c': COULEUR[a.id] || '#2e7d72' }}>
+        <span className="eq-ic" aria-hidden="true"><Icone id={a.id} /></span>
+        <div><strong>{a.nom}</strong><p>{state(a.id).attente}</p></div>
+      </li>)}</ul>
+    </section>}
+
+    <section className="eq-list">
+      <h2>L’équipe</h2>
+      <ul>{autres.map(a => {
+        const s = state(a.id)
+        return <li key={a.id} style={{ '--c': COULEUR[a.id] || '#2e7d72' }}>
+          <details>
+            <summary>
+              <span className="eq-ic" aria-hidden="true"><Icone id={a.id} /></span>
+              <span className="eq-head">
+                <span className="eq-name"><strong>{a.nom}</strong>{s.attente && <span className="eq-flag">pour toi</span>}</span>
+                <span className="eq-meta"><span className={'eq-dot2' + (s.on ? ' on' : '')} aria-hidden="true" />{s.last ? 'Passé ' + ago(s.last) : (s.on ? 'Actif' : 'Bientôt')}</span>
+                <span className="eq-res">{s.resume}</span>
+              </span>
+              <svg className="eq-chev" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+            </summary>
+            <div className="eq-more">
+              <p><span>Son rôle</span>{a.mission}</p>
+              <p><span>Quand il passe</span>{SCHEDULE[a.id]}</p>
+            </div>
+          </details>
+        </li>
+      })}</ul>
+    </section>
 
     <section className="eq-box">
       <header><h2>La boîte d’Alfred</h2><small>{aClasser.length ? aClasser.length + ' à classer' : 'Tout est classé'}</small></header>
