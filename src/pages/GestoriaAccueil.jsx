@@ -98,7 +98,8 @@ function Cartes({ m, crm, saveCrm, canSave, act, onGo, msgs, projets, today }) {
     const ag = c.agents.map(a => crm.agents?.[a]).filter(Boolean)
     const mot = al.cartes?.[c.id] || ag.map(g => g.attente).filter(Boolean)[0] || ag.map(g => g.resume).filter(Boolean)[0] || ''
     const count = c.id === 'messages' ? msgs.length : now.length + next.length
-    return { ...c, now, next, later, mot, count, urgent: c.id === 'messages' ? msgs.filter(x => x.source === 'client').length : now.length }
+    const wait = ag.map(g => g.attente).filter(Boolean)[0] || ''
+    return { ...c, now, next, later, mot, count, wait, urgent: c.id === 'messages' ? msgs.filter(x => x.source === 'client').length : now.length }
   })
   const ordre = [...cards].sort((a, b) => (b.urgent - a.urgent) || (b.count - a.count))
   const card = cards.find(c => c.id === open)
@@ -110,11 +111,11 @@ function Cartes({ m, crm, saveCrm, canSave, act, onGo, msgs, projets, today }) {
   const effacer = x => saveCrm(d => ({ ...d, messages: { ...d.messages, items: (d.messages?.items || []).map(y => y.id === x.id ? { ...y, vu: true } : y) } }), 'Message effacé.')
   return <>
     <section className="cx-grid" aria-label="Tes domaines">
-      {ordre.map(c => <button key={c.id} className={'cx-card' + (c.count ? '' : ' calme') + (c.urgent ? ' chaud' : '')} style={{ '--c': c.couleur }} onClick={() => setOpen(c.id)}>
+      {ordre.map(c => <button key={c.id} className={'cx-card' + (c.count || c.wait ? '' : ' calme') + (c.urgent ? ' chaud' : '')} style={{ '--c': c.couleur }} onClick={() => setOpen(c.id)}>
         <span className="cx-top"><span className="cx-pastille" aria-hidden="true">{c.nom[0]}</span>
-          <span className="cx-count">{c.count ? c.count + (c.id === 'messages' ? ' non lu' + (c.count > 1 ? 's' : '') : ' à faire') : '✓'}</span></span>
+          <span className="cx-count">{c.count ? c.count + (c.id === 'messages' ? ' non lu' + (c.count > 1 ? 's' : '') : ' à faire') : c.wait ? 't’attend' : '✓'}</span></span>
         <strong>{c.nom}</strong>
-        <span className="cx-mot">{c.count ? (c.mot || (c.now[0] || c.next[0] || {}).titre || (c.id === 'messages' && msgs[0] ? msgs[0].de + ' · ' + msgs[0].sujet : '')) : 'Rien à faire ici. Tranquille.'}</span>
+        <span className="cx-mot">{c.count ? (c.mot || (c.now[0] || c.next[0] || {}).titre || (c.id === 'messages' && msgs[0] ? msgs[0].de + ' · ' + msgs[0].sujet : '')) : c.wait ? c.wait : 'Rien à faire ici. Tranquille.'}</span>
       </button>)}
     </section>
 
@@ -122,7 +123,7 @@ function Cartes({ m, crm, saveCrm, canSave, act, onGo, msgs, projets, today }) {
       <section className="cx-panel" role="dialog" aria-modal="true" aria-label={card.nom} style={{ '--c': card.couleur }}>
         <header><span className="cx-pastille" aria-hidden="true">{card.nom[0]}</span><h2>{card.nom}</h2>
           <button className="cx-close" onClick={() => setOpen(null)} aria-label="Fermer">×</button></header>
-        <div className="cx-alfred"><Alfred size={44} /><p>{card.mot || (card.count ? 'Voici ce qui t’attend ici. Commence par le premier.' : 'Rien à faire ici pour l’instant. Je te préviens dès que ça bouge.')}</p></div>
+        <div className="cx-alfred"><Alfred size={44} /><p>{card.mot || card.wait || (card.count ? 'Voici ce qui t’attend ici. Commence par le premier.' : 'Rien à faire ici pour l’instant. Je te préviens dès que ça bouge.')}</p></div>
 
         {card.id === 'messages' && (msgs.length === 0 ? <p className="acc-empty">Tout est lu.</p> :
           <ul className="cx-msgs">{msgs.map(x => <li key={x.id}>
