@@ -242,3 +242,7 @@ button.qga-mini:hover { text-decoration: underline; }
 .qga-empty:hover:not(:disabled) { border-color: #2e7d72; color: #103c42; }
 .qga-sheet p { margin: 0 0 8px; }
 .qga-sheet i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: 0; }
+
+.mgc-upload { position: relative; display: inline-block; cursor: pointer; }
+.mgc-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.mgc-upload:focus-within { outline: 3px solid #f0b43c; outline-offset: 2px; }

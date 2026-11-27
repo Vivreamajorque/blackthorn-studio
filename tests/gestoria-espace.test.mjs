@@ -127,3 +127,28 @@ test('espace client : accepter un devis envoyé en ligne', async () => {
   assert.equal(r.status, 403, 'pas deux fois')
   espace.blobForTests = null
 })
+
+test('espace client : le client dépose un fichier et ne peut télécharger que les siens', async () => {
+  const crm = seedCrm()
+  const nisha = crm.clients.find(c => c.nom === 'Nisha')
+  const decathlon = crm.clients.find(c => c.nom === 'Decathlon')
+  const projet = crm.projets.find(p => p.clientId === nisha.id)
+  projet.visibleClient = true
+  const autre = crm.projets.find(p => p.clientId === decathlon.id); if (autre) autre.visibleClient = true
+  const blob = fakeBlob({ [CRM_PATH]: crm })
+  const put = blob.put.bind(blob)
+  blob.put = async (path, body, opts) => { if (path.includes('/files/')) { blob.store.set(path, { body, etag: 'f', type: opts.contentType }); return {} } return put(path, body, opts) }
+  const get = blob.get.bind(blob)
+  blob.get = async path => { const f = blob.store.get(path); return f?.type ? { stream: new Response(f.body).body, blob: { contentType: f.type } } : get(path) }
+  espace.blobForTests = blob
+  const pdf = Buffer.from('%PDF-1.4 test').toString('base64')
+  let r = await call({ method: 'POST', body: { t: nisha.portalToken, projetId: projet.id, op: 'document', fichier: { name: 'contrat.pdf', mime: 'application/pdf', base64: pdf } } })
+  assert.equal(r.status, 200)
+  const doc = r.data.projets.find(p => p.id === projet.id).documents[0]
+  assert.equal(doc.par, 'client'); assert.ok(doc.fileId)
+  r = await call({ method: 'POST', body: { t: nisha.portalToken, projetId: projet.id, op: 'document', fichier: { name: 'x.exe', mime: 'application/pdf', base64: Buffer.from('MZ').toString('base64') } } })
+  assert.equal(r.status, 400, 'un faux PDF est refusé')
+  r = await call({ method: 'GET', query: { t: nisha.portalToken, file: doc.fileId } })
+  assert.equal(r.status, 200)
+  if (autre) { r = await call({ method: 'GET', query: { t: decathlon.portalToken, file: doc.fileId } }); assert.equal(r.status, 404, 'un autre client ne voit pas le fichier') }
+})

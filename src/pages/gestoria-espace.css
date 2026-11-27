@@ -87,3 +87,10 @@
 .esp-bulle.elle .esp-sub { color: #9fd3c7; font-weight: 700; }
 .esp-attente { align-self: flex-end; font-size: .82rem; }
 .esp-write { flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+
+.esp-upload { position: relative; display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 999px; cursor: pointer; font-weight: 600; }
+.esp-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.esp-upload.off { opacity: .6; pointer-events: none; }
+.esp-upload:focus-within { outline: 3px solid #f0b43c; outline-offset: 2px; }
+.esp-docs li { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.esp-error { color: #9b2c1f; margin: 8px 0 0; }

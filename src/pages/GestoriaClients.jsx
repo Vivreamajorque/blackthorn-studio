@@ -89,7 +89,22 @@ function ProjectForm({ project, onSave, onDelete, onClose, saving }) {
   const f = bind(p, setP)
   const setAction = (id, key, value) => setP(x => ({ ...x, actions: x.actions.map(a => a.id === id ? { ...a, [key]: value } : a) }))
   const setDoc = (id, key, value) => setP(x => ({ ...x, documents: x.documents.map(a => a.id === id ? { ...a, [key]: value } : a) }))
-  const badUrl = p.documents.some(d => d.url && !/^https:\/\//i.test(d.url.trim()))
+  const badUrl = p.documents.some(d => !d.fileId && d.url && !/^https:\/\//i.test(d.url.trim()))
+  const [upErr, setUpErr] = useState(''); const [up, setUp] = useState(false)
+  async function deposer(e) {
+    const file = e.target.files?.[0]; e.target.value = ''
+    if (!file) return
+    setUpErr('')
+    if (!['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 3 * 1024 * 1024) { setUpErr('PDF ou image (JPEG, PNG, WebP) de 3 Mo maximum.'); return }
+    setUp(true)
+    try {
+      const base64 = await new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] || ''); r.onerror = ko; r.readAsDataURL(file) })
+      const res = await fetch('/api/gestoria-file', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: file.name, mime: file.type, base64 }) })
+      const a = await res.json()
+      if (!res.ok) throw new Error(a.error)
+      setP(x => ({ ...x, documents: [{ id: uid('doc'), label: a.name, fileId: a.id, mime: a.mime, par: 'amely', date: new Date().toISOString().slice(0, 10) }, ...x.documents] }))
+    } catch (er) { setUpErr(er.message || 'Dépôt impossible, réessaie.') } finally { setUp(false) }
+  }
   return <Dialog title={project.id ? 'Projet' : 'Nouveau projet'} onClose={onClose}
     footer={<>
       {project.id ? <button className="mgc-danger" disabled={saving} onClick={() => window.confirm('Supprimer ce projet ?') && onDelete(project.id)}>Supprimer</button> : <span />}
@@ -151,11 +166,14 @@ function ProjectForm({ project, onSave, onDelete, onClose, saving }) {
         <strong style={{ fontSize: '.85rem' }}>Documents et liens partagés</strong>
         {p.documents.map(d => <div key={d.id} className="mgc-docs">
           <input value={d.label} placeholder="Nom" onChange={e => setDoc(d.id, 'label', e.target.value)} />
-          <input value={d.url} placeholder="https://… (Drive, Canva…)" onChange={e => setDoc(d.id, 'url', e.target.value)} />
+          {d.fileId ? <a className="mgc-muted" href={'/api/gestoria-file?id=' + d.fileId + '&name=' + encodeURIComponent(d.label)} target="_blank" rel="noopener noreferrer">{d.par === 'client' ? 'Déposé par le client' : 'Fichier déposé'}{d.date ? ' · ' + d.date.split('-').reverse().join('/') : ''} ↗</a>
+            : <input value={d.url} placeholder="https://… (Drive, Canva…)" onChange={e => setDoc(d.id, 'url', e.target.value)} />}
           <button type="button" aria-label="Retirer" onClick={() => setP(x => ({ ...x, documents: x.documents.filter(y => y.id !== d.id) }))}>×</button>
         </div>)}
         <button type="button" className="mgc-link" style={{ marginTop: 8 }}
-          onClick={() => setP(x => ({ ...x, documents: [...x.documents, { id: uid('doc'), label: '', url: '' }] }))}>+ Ajouter un document</button>
+          onClick={() => setP(x => ({ ...x, documents: [...x.documents, { id: uid('doc'), label: '', url: '' }] }))}>+ Ajouter un lien</button>
+        <label className="mgc-link mgc-upload" style={{ marginLeft: 12 }}>{up ? 'Dépôt…' : '+ Déposer un fichier'}<input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" disabled={up} onChange={deposer} /></label>
+        {upErr && <p className="mgc-error">{upErr}</p>}
         {badUrl && <p className="mgc-error">Les liens doivent commencer par https://</p>}
       </div>
       <label>Notes internes (jamais visibles du client)<textarea {...f('notes')} /></label>
@@ -644,7 +662,7 @@ function ProjectCard({ p, client, canSave, toggle, onEdit, onShared, onInvoice, 
     {vue === 'construction' && k && <AtelierPanel project={p} canSave={canSave} saveConstruction={saveConstruction} defaultOpen />}
 
     {vue === 'liens' && <div className="fc-liens">
-      {p.documents.length > 0 ? <ul className="fc-list">{p.documents.map(d => <li key={d.id}><a href={d.url} target="_blank" rel="noopener noreferrer">{d.label} ↗</a></li>)}</ul> : <p className="mgc-muted">Aucun lien. Ajoute-les dans « Modifier le projet ».</p>}
+      {p.documents.length > 0 ? <ul className="fc-list">{p.documents.map(d => <li key={d.id}><a href={d.fileId ? '/api/gestoria-file?id=' + d.fileId + '&name=' + encodeURIComponent(d.label) : d.url} target="_blank" rel="noopener noreferrer">{d.label} ↗</a>{d.fileId && <span className="mgc-muted"> · {d.par === 'client' ? 'déposé par le client' : 'déposé par toi'}{d.date ? ' le ' + d.date.split('-').reverse().join('/') : ''}</span>}</li>)}</ul> : <p className="mgc-muted">Aucun document. Ajoute des liens ou dépose des fichiers dans « Modifier le projet ».</p>}
       <p className="mgc-muted">{[p.plan?.length && p.plan.length + ' étapes au plan', p.notesPartagees?.length && p.notesPartagees.length + ' comptes rendus partagés', p.rythme].filter(Boolean).join(' · ')}</p>
     </div>}
 

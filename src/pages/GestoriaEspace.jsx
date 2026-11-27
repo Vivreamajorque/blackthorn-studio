@@ -63,7 +63,7 @@ export default function GestoriaEspace({ token }) {
     } finally { setBusy(false) }
   }
   const go = k => { setTab(k); window.scrollTo({ top: 0, behavior: 'smooth' }) }
-  const props = { view, project, first, busy, send, go }
+  const props = { view, project, first, busy, send, go, token }
 
   return <div className="esp">
     <header className="esp-top"><div className="esp-in esp-top-in">
@@ -341,7 +341,7 @@ function PayAcompte({ devis, next: first, emetteur }) {
   </section>
 }
 
-function Documents({ view, project, send, busy }) {
+function Documents({ view, project, send, busy, token }) {
   const printDevis = d => printDocument({ kind: 'devis', numero: d.numero, date: d.date, validite: d.validite, regime: d.regime, irpf: 0,
     lignes: d.lignes, intro: d.intro, perimetre: d.perimetre, note: d.note, outils: d.outils, echeances: d.echeances, client: view.client, emetteur: view.emetteur })
   const aSigner = view.devis.filter(d => d.statut === 'envoye')
@@ -379,9 +379,31 @@ function Documents({ view, project, send, busy }) {
         <span>{money(devisBase(d))} HT</span><button className="esp-link" onClick={() => printDevis(d)}>Voir</button></li>)}</ul>
     </section>}
 
-    {project && project.documents.length > 0 && <section className="esp-card">
-      <h2>Documents partagés</h2>
-      <ul className="esp-list">{project.documents.map((d, i) => <li key={i}><a href={d.url} target="_blank" rel="noopener noreferrer">{d.label}</a></li>)}</ul>
-    </section>}
+    {project && <DocsPartages project={project} send={send} busy={busy} token={token} first={view.consultante.nom.split(' ')[0]} />}
   </>
+}
+
+// ---------- Documents partagés (dans les deux sens) ----------
+const lireFichier = file => new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] || ''); r.onerror = ko; r.readAsDataURL(file) })
+function DocsPartages({ project, send, busy, first, token }) {
+  const [err, setErr] = useState('')
+  const lien = d => d.fileId ? '/api/gestoria-espace?t=' + encodeURIComponent(token) + '&file=' + d.fileId : d.url
+  async function deposer(e) {
+    const file = e.target.files?.[0]; e.target.value = ''
+    if (!file) return
+    setErr('')
+    if (!['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 3 * 1024 * 1024) { setErr('Choisis un PDF ou une image (JPEG, PNG, WebP) de 3 Mo maximum.'); return }
+    const base64 = await lireFichier(file)
+    await send({ op: 'document', fichier: { name: file.name, mime: file.type, base64 } }, 'Document déposé, ' + first + ' est prévenue.')
+  }
+  const docs = project.documents
+  return <section className="esp-card">
+    <div className="esp-between"><h2>Documents partagés</h2>
+      <label className={'esp-primary esp-upload' + (busy ? ' off' : '')}>Déposer un document<input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" disabled={busy} onChange={deposer} /></label></div>
+    {err && <p className="esp-error" role="alert">{err}</p>}
+    {docs.length ? <ul className="esp-list esp-docs">{docs.map((d, i) => <li key={d.id || i}>
+      <a href={lien(d)} target="_blank" rel="noopener noreferrer">{d.label}</a>
+      <span className="esp-muted">{d.fileId ? (d.par === 'client' ? 'déposé par toi' : 'déposé par ' + first) : 'lien'}{d.date ? ' · ' + d.date.split('-').reverse().join('/') : ''}</span>
+    </li>)}</ul> : <p className="esp-muted">Rien pour l’instant. Tu peux déposer ici tes fichiers (PDF ou images, 3 Mo max), {first} les retrouve aussitôt.</p>}
+  </section>
 }

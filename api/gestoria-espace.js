@@ -39,7 +39,7 @@ function view(crm, client, entries) {
       id: p.id, nom: p.nom, statut: p.statut, etape: p.etape, messageClient: p.messageClient,
       actions: p.actions.map(({ id, label, detail, groupe, pour, fait }) => ({ id, label, detail, groupe, pour, fait })),
       plan: p.plan, notes: p.notesPartagees, prochainRdv: p.prochainRdv, rythme: p.rythme,
-      documents: p.documents.map(({ label, url }) => ({ label, url })),
+      documents: p.documents.map(({ id, label, url, fileId, mime, par, date }) => ({ id, label, url, fileId, mime, par, date })),
       type: p.type, brief: p.brief, lecons: p.lecons, questions: p.questions, creneaux: p.creneaux,
     })),
     factures: invoicesFor(entries, crm, client),
@@ -69,6 +69,19 @@ module.exports = async function handler(req, res) {
     let { revision, data: crm } = await readCrm(blob)
     const client = revision !== null && crm.clients.find(c => c.portalToken === t && c.statut !== 'archive')
     if (!client) return res.status(404).json({ error: 'Espace introuvable' })
+
+    // Téléchargement d'un fichier partagé : seulement s'il appartient à un projet visible de CE client.
+    if (req.method === 'GET' && typeof req.query?.file === 'string') {
+      const doc = crm.projets.filter(p => p.clientId === client.id && p.visibleClient).flatMap(p => p.documents).find(d => d.fileId && d.fileId === req.query.file)
+      if (!doc) return res.status(404).end()
+      const { signatures } = require('../server/gestoria-attachments.cjs')
+      const result = await blob.get('mi-gestoria/personal/v1/files/' + doc.fileId, { access: 'private', useCache: false })
+      if (!result || !result.stream || !Object.hasOwn(signatures, result.blob.contentType)) return res.status(404).end()
+      res.setHeader('Content-Type', result.blob.contentType)
+      res.setHeader('X-Content-Type-Options', 'nosniff')
+      res.setHeader('Content-Disposition', 'inline; filename="' + doc.label.slice(0, 120).replace(/[^a-zA-Z0-9_.-]/g, '_') + '"')
+      return res.end(Buffer.from(await new Response(result.stream).arrayBuffer()))
+    }
 
     if (req.method === 'POST') {
       if (!/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '')) return res.status(403).end()
@@ -119,6 +132,19 @@ module.exports = async function handler(req, res) {
         crm.messages = { ...msgs, items: [{ id: 'client:espace-' + client.id + '-' + Date.now(), source: 'client', de: client.nom, sujet: 'Message dans son espace · ' + projet.nom,
           apercu: texte.slice(0, 200), date: now, lien: '', clientId: client.id, vu: false }, ...(msgs.items || [])].slice(0, 60) }
         log('a écrit un message')
+      } else if (op === 'document') {
+        // Le client dépose un fichier (PDF ou image, 3 Mo max) dans le projet.
+        if (projet.documents.filter(d => d.par === 'client').length >= 30) return res.status(400).json({ error: 'Trop de documents déposés : demande à ta consultante de faire du tri.' })
+        const { storeAttachment } = require('../server/gestoria-attachments.cjs')
+        const f = body.fichier && typeof body.fichier === 'object' ? body.fichier : {}
+        const stored = await storeAttachment(blob, { name: f.name, mime: f.mime, base64: f.base64 })
+        if (!stored || stored.mime === 'text/csv') return res.status(400).json({ error: 'Choisis un PDF, JPEG, PNG ou WebP de 3 Mo maximum.' })
+        projet.documents.unshift({ label: String(body.label || stored.name).trim().slice(0, 120), fileId: stored.id, mime: stored.mime, par: 'client', date: today })
+        const now = new Date(Date.now() + 3600e3).toISOString().slice(0, 16)
+        const msgs = crm.messages && typeof crm.messages === 'object' ? crm.messages : { items: [] }
+        crm.messages = { ...msgs, items: [{ id: 'client:espace-doc-' + client.id + '-' + Date.now(), source: 'client', de: client.nom, sujet: 'Document déposé dans son espace · ' + projet.nom,
+          apercu: stored.name, date: now, lien: '', clientId: client.id, vu: false }, ...(msgs.items || [])].slice(0, 60) }
+        log(`a déposé le document « ${stored.name.slice(0, 80)} »`)
       } else if (op === 'creneau') {
         const c = projet.creneaux.find(x => x.id === body.creneauId)
         if (!c) return res.status(404).json({ error: 'Créneau introuvable' })

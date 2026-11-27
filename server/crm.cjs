@@ -10,6 +10,7 @@ const id = v => typeof v === 'string' && /^[\w-]{1,64}$/.test(v) ? v : null
 const date = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : ''
 const cents = v => Number.isSafeInteger(v) && Math.abs(v) <= 1e10 ? v : 0
 const oneOf = (v, list, fallback) => list.includes(v) ? v : fallback
+const fichier = v => typeof v === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(v) ? v : ''
 const url = v => { const s = str(v, 600).trim(); return /^https:\/\//i.test(s) ? s : '' }
 const token = v => typeof v === 'string' && /^[A-Za-z0-9_-]{32}$/.test(v) ? v : null
 
@@ -78,8 +79,10 @@ function cleanProject(p) {
     notesPartagees: (Array.isArray(p.notesPartagees) ? p.notesPartagees : []).slice(0, 80).filter(n => n && str(n.texte).trim()).map(n => ({
       id: id(n.id) || newId('not'), date: str(n.date, 30), titre: str(n.titre, 200), texte: str(n.texte, 12000),
     })),
-    documents: (Array.isArray(p.documents) ? p.documents : []).slice(0, 40).filter(d => d && url(d.url)).map(d => ({
-      id: id(d.id) || newId('doc'), label: str(d.label, 120).trim() || 'Document', url: url(d.url),
+    // Documents partagés : un lien https, ou un fichier déposé (par Amely ou par le client) dans le stockage privé.
+    documents: (Array.isArray(p.documents) ? p.documents : []).slice(0, 60).filter(d => d && (url(d.url) || fichier(d.fileId))).map(d => ({
+      id: id(d.id) || newId('doc'), label: str(d.label, 120).trim() || 'Document', url: fichier(d.fileId) ? '' : url(d.url),
+      fileId: fichier(d.fileId), mime: fichier(d.fileId) ? str(d.mime, 40) : '', par: oneOf(d.par, ['amely', 'client'], 'amely'), date: date(d.date),
     })),
     // Espace partagé : type de projet (une formation ajoute le brief et les leçons), brief, leçons, questions, créneaux de visio.
     type: oneOf(p.type, ['standard', 'formation'], 'standard'),
