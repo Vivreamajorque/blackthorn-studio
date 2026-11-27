@@ -132,3 +132,24 @@ test('devis à la voix : préparer, enregistrer, changer de statut', async () =>
   const again = await mcp.callTool('preparer_devis', { client: 'Nisha', lignes: [{ description: 'X', quantite: 1, prix_ht: 10 }], date: '2026-11-22' }, blob)
   assert.equal(again.numero, 'DEV-2026-002')
 })
+
+test('proposer : un agent dépose une action prête, sans doublon, sans rien publier', async () => {
+  const crm = seedCrm()
+  const nisha = crm.clients.find(c => c.nom === 'Nisha')
+  const p = crm.projets.find(x => x.clientId === nisha.id)
+  p.questions = [{ id: 'qst_9', date: '2026-11-27', texte: 'Combien de vidéos ?', reponse: '', traitee: false }]
+  const blob = fakeBlob({ [CRM_PATH]: crm })
+  const espaces = await mcp.callTool('lire_espaces', { client: 'nisha' }, blob)
+  const e = espaces.find(x => x.projet_id === p.id)
+  assert.equal(e.questions_non_traitees[0].question_id, 'qst_9')
+  const args = { agent: 'clients', propositions: [{ type: 'reponse_question', projet_id: p.id, question_id: 'qst_9', titre: 'Répondre à Nisha', texte: 'Cinq.' }] }
+  let r = await mcp.callTool('proposer', args, blob)
+  assert.equal(r.propositions_ajoutees, 1)
+  r = await mcp.callTool('proposer', args, blob)
+  assert.equal(r.doublons_ignores, 1)
+  const point = await mcp.callTool('alfred_point', {}, blob)
+  assert.equal(point.a_valider.length, 1)
+  const after = await mcp.callTool('lire_espaces', { client: 'nisha' }, blob)
+  assert.equal(after.find(x => x.projet_id === p.id).questions_non_traitees[0].reponse_deja_ecrite, null, 'rien n’est publié avant validation')
+  await assert.rejects(mcp.callTool('proposer', { agent: 'clients', propositions: [{ type: 'compte_rendu', projet_id: 'prj_inconnu', titre: 'x' }] }, blob))
+})

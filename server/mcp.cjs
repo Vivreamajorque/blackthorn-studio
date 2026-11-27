@@ -244,6 +244,17 @@ const TOOLS = [
     source: text, du: text, au: text,
     evenements: { type: 'array', maxItems: 300, items: object({ id: text, titre: text, debut: { type: 'string', description: 'AAAA-MM-JJ (journée entière) ou AAAA-MM-JJTHH:MM, heure de Majorque' }, fin: text, lieu: text }, ['titre', 'debut']) },
   }, ['source', 'du', 'au', 'evenements']), false),
+  tool('proposer', 'Un agent dépose des ACTIONS PRÊTES dans la file « À valider » d’Amely, au lieu de tâches avec brouillon. Rien n’est publié : quand Amely clique sur Valider (après avoir éventuellement modifié le texte), l’action est publiée dans l’espace du client. Types : reponse_question (question_id + texte), compte_rendu (titre + texte + date), message_client (texte : mot d’accueil en haut de l’espace), creneaux (titre + dates AAAA-MM-JJTHH:MM + lien visio), actions (liste {label, detail, pour: client|amely}), etapes (liste {periode, titre, amely, client}). Le projet_id vient de lire_espaces. Ne propose pas deux fois la même chose.', object({
+    agent: { type: 'string', enum: ['clients', 'plateformes', 'communication', 'commercial', 'courrier', 'compta', 'atelier', 'alfred'] },
+    propositions: { type: 'array', minItems: 1, maxItems: 20, items: object({
+      type: { type: 'string', enum: ['reponse_question', 'compte_rendu', 'message_client', 'creneaux', 'actions', 'etapes'] },
+      projet_id: text, titre: { type: 'string', description: 'Ce que c’est, en une ligne, ex. « Répondre à Nisha : nombre de vidéos »' },
+      question_id: text, texte: text, date: text, lien: text,
+      dates: { type: 'array', items: text, maxItems: 6 },
+      actions: { type: 'array', maxItems: 20, items: object({ label: text, detail: text, pour: { type: 'string', enum: ['client', 'amely'] } }, ['label']) },
+      plan: { type: 'array', maxItems: 20, items: object({ periode: text, titre: text, amely: text, client: text }, ['titre']) },
+    }, ['type', 'projet_id', 'titre']) },
+  }, ['agent', 'propositions']), false),
   tool('alfred_terminer', 'Marquer une tâche de la matrice comme faite (par son id donné par alfred_point), à la demande d’Amely.', object({ id: text }, ['id']), false),
 ]
 
@@ -282,8 +293,8 @@ async function callTool(name, args, blob) {
     const client = args.client ? findClient(crm, args.client) : null
     return crm.projets.filter(p => (!client || p.clientId === client.id) && !['livre'].includes(p.statut)).map(p => {
       const c = crm.clients.find(x => x.id === p.clientId)
-      return { client: c?.nom, projet: p.nom, statut: p.statut, etape: p.etape, type: p.type, prochain_rdv: p.prochainRdv || null, visible_par_le_client: p.visibleClient,
-        questions_non_traitees: (p.questions || []).filter(q => !q.traitee).map(q => ({ date: q.date, texte: q.texte, reponse_deja_ecrite: q.reponse || null })),
+      return { client: c?.nom, projet_id: p.id, projet: p.nom, statut: p.statut, etape: p.etape, type: p.type, prochain_rdv: p.prochainRdv || null, visible_par_le_client: p.visibleClient,
+        questions_non_traitees: (p.questions || []).filter(q => !q.traitee).map(q => ({ question_id: q.id, date: q.date, texte: q.texte, reponse_deja_ecrite: q.reponse || null })),
         lecons_a_relire: (p.lecons || []).filter(l => l.statut === 'a_valider').map(l => ({ titre: l.titre, objectif: l.objectif, points: l.points, video: l.video || null })),
         brief: (p.brief || []).filter(b => b.r).map(b => ({ question: b.q, reponse: b.r })),
         actions_client_en_attente: p.actions.filter(a => a.pour === 'client' && !a.fait).map(a => a.label),
@@ -377,6 +388,7 @@ async function callTool(name, args, blob) {
       date: d, priorite_actuelle: crm.alfred?.priorite || null, dernier_passage_alfred: crm.alfred?.majLe || null,
       matrice: Object.fromEntries(QUADRANTS.map(q => [q.id, { titre: q.titre, elements: m[q.id].map(i => ({ id: i.id, titre: i.titre, detail: i.detail || '', auto: !!i.auto, agent: i.agent || null })) }])),
       boite_alfred_a_classer: (crm.alfred?.inbox || []).filter(x => !x.traite).map(x => ({ id: x.id, date: x.date, texte: x.texte })),
+      a_valider: (crm.propositions || []).filter(x => x.statut === 'a_valider').map(x => ({ agent: x.agent, titre: x.titre, depuis: x.creeLe })),
       messages_non_lus: (crm.messages?.items || []).filter(x => !x.vu).map(x => ({ source: x.source, de: x.de, sujet: x.sujet, apercu: x.apercu || '', date: x.date })),
       equipe: Object.fromEntries(Object.entries(crm.agents || {}).map(([k, v]) => [k, { dernier_passage: v.majLe, resume: v.resume, attente: v.attente }])),
       canaux: Object.fromEntries(Object.entries(crm.canaux || {}).map(([k, v]) => [k, { statut: v.statut, lien: v.lien || '', action: v.action || '' }])),
@@ -398,6 +410,25 @@ async function callTool(name, args, blob) {
     }
     await updateCrm(blob, c => ({ ...c, alfred: { ...(c.alfred || {}), inbox: [...(c.alfred?.inbox || []), { id: 'inb_' + randomBytes(6).toString('hex'), date: nowParis(), texte: String(args.texte).slice(0, 3000), traite: false }] } }))
     return { note_dans_la_boite_d_alfred: true }
+  }
+  if (name === 'proposer') {
+    let ajoutees = 0, ignorees = 0
+    await updateCrm(blob, c => {
+      const list = [...(c.propositions || [])]
+      for (const x of args.propositions || []) {
+        const p = c.projets.find(q => q.id === x.projet_id)
+        if (!p) throw fail('Projet introuvable : prends le projet_id donné par lire_espaces.')
+        if (x.type === 'reponse_question' && !p.questions.some(q => q.id === x.question_id)) throw fail('Question introuvable : prends le question_id donné par lire_espaces.')
+        const payload = { questionId: x.question_id, texte: x.texte, titre: x.type === 'creneaux' ? (x.titre || 'Visio') : x.titre, date: x.date, lien: x.lien, dates: x.dates, actions: x.actions, plan: x.plan }
+        if (x.type === 'compte_rendu') payload.titre = x.titre
+        const doublon = list.some(q => q.statut === 'a_valider' && q.projetId === p.id && q.type === x.type && (x.type === 'reponse_question' ? q.payload?.questionId === x.question_id : q.titre === x.titre))
+        if (doublon) { ignorees++; continue }
+        list.unshift({ id: 'prp_' + randomBytes(6).toString('hex'), agent: args.agent, type: x.type, clientId: p.clientId, projetId: p.id, titre: String(x.titre).slice(0, 200), payload, statut: 'a_valider', creeLe: nowParis() })
+        ajoutees++
+      }
+      return { ...c, propositions: list }
+    })
+    return { propositions_ajoutees: ajoutees, doublons_ignores: ignorees, a_savoir: 'Rien n’est publié tant qu’Amely ne valide pas.' }
   }
   if (name === 'alfred_classer') {
     const d = today()

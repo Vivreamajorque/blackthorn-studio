@@ -168,6 +168,26 @@ function cleanAlfred(a) {
   }
 }
 const AGENT_KEYS = ['alfred', 'courrier', 'clients', 'commercial', 'communication', 'compta', 'plateformes', 'atelier']
+// Propositions des agents : une action prête qu'Amely valide d'un clic (publiée alors dans l'espace du client).
+const PROP_TYPES = ['reponse_question', 'compte_rendu', 'message_client', 'creneaux', 'actions', 'etapes']
+function cleanPayload(type, x) {
+  x = x && typeof x === 'object' ? x : {}
+  if (type === 'reponse_question') return { questionId: id(x.questionId) || '', texte: str(x.texte, 3000) }
+  if (type === 'compte_rendu') return { titre: str(x.titre, 200), texte: str(x.texte, 12000), date: str(x.date, 30) }
+  if (type === 'message_client') return { texte: str(x.texte, 1500) }
+  if (type === 'creneaux') return { titre: str(x.titre, 140), lien: url(x.lien), dates: (Array.isArray(x.dates) ? x.dates : []).slice(0, 6).map(v => str(v, 30)).filter(Boolean) }
+  if (type === 'actions') return { actions: (Array.isArray(x.actions) ? x.actions : []).slice(0, 20).filter(a => a && str(a.label).trim()).map(a => ({ label: str(a.label, 200).trim(), detail: str(a.detail, 1500), pour: oneOf(a.pour, ['client', 'amely'], 'client') })) }
+  if (type === 'etapes') return { plan: (Array.isArray(x.plan) ? x.plan : []).slice(0, 20).filter(e => e && str(e.titre).trim()).map(e => ({ periode: str(e.periode, 80), titre: str(e.titre, 140), amely: str(e.amely, 800), client: str(e.client, 800) })) }
+  return {}
+}
+function cleanPropositions(list, projetIds) {
+  return (Array.isArray(list) ? list : []).filter(x => x && PROP_TYPES.includes(x.type) && projetIds.has(x.projetId)).slice(0, 150).map(x => ({
+    id: id(x.id) || newId('prp'), agent: oneOf(x.agent, AGENT_KEYS, 'clients'), type: x.type, clientId: str(x.clientId, 64), projetId: x.projetId,
+    titre: str(x.titre, 200), payload: cleanPayload(x.type, x.payload), statut: oneOf(x.statut, ['a_valider', 'validee', 'refusee'], 'a_valider'),
+    creeLe: str(x.creeLe, 25), traiteLe: str(x.traiteLe, 25),
+  }))
+}
+
 function cleanAgents(g) {
   g = g && typeof g === 'object' ? g : {}
   return Object.fromEntries(AGENT_KEYS.filter(k => g[k] && typeof g[k] === 'object').map(k => [k, {
@@ -263,7 +283,7 @@ function cleanCrm(data) {
     importesMaj: str(a.importesMaj, 20),
   }
   return {
-    version: 1, emetteur, objectifs, clients, projets, liens, factures, devis, echeances, journal, canaux: cleanCanaux(d.canaux), agenda, livementor: cleanLivementor(d.livementor), messages: cleanMessages(d.messages), taches: cleanTaches(d.taches), alfred: cleanAlfred(d.alfred), agents: cleanAgents(d.agents),
+    version: 1, emetteur, objectifs, clients, projets, liens, factures, devis, echeances, journal, canaux: cleanCanaux(d.canaux), agenda, livementor: cleanLivementor(d.livementor), messages: cleanMessages(d.messages), taches: cleanTaches(d.taches), alfred: cleanAlfred(d.alfred), agents: cleanAgents(d.agents), propositions: cleanPropositions(d.propositions, projetIds),
     prospects: (Array.isArray(d.prospects) ? d.prospects : []).slice(0, 600).map(cleanProspect),
   }
 }

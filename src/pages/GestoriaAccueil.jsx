@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { money, baseCents, clientPotential, uid, useLivementor } from '../lib/gestoria-crm'
 import { todayInSpain } from '../lib/gestoria-calendar.mjs'
 import { QUADRANTS, AGENTS, matrice, dateCourte } from '../lib/gestoria-matrice.mjs'
+import { appliquerProposition, refuserProposition, TYPE_LABEL } from '../lib/gestoria-propositions.mjs'
 import '@fontsource-variable/bricolage-grotesque'
 import './gestoria-accueil.css'
 import './gestoria-journee.css'
@@ -303,6 +304,8 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
           {inbox.length > 0 && <small>{inbox.length} en attente de classement</small>}
         </form>
 
+        <AValider crm={crm} saveCrm={saveCrm} canSave={canSave} />
+
         <div className="j-section-head"><h2>Tes domaines</h2>{al.majLe && <small>Alfred est passé {ago(al.majLe)}</small>}</div>
         <Cartes m={m} crm={crm} saveCrm={saveCrm} canSave={canSave} act={act} onGo={onGo} msgs={msgs} projets={projets} today={today} />
 
@@ -360,6 +363,44 @@ const ICONES = {
 }
 function Icone({ id }) {
   return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{ICONES[id] || <circle cx="12" cy="12" r="8" />}</svg>
+}
+
+// ---------- À valider : les actions prêtes des agents ----------
+const TEXTE = ['reponse_question', 'compte_rendu', 'message_client']
+function Apercu({ p }) {
+  const x = p.payload || {}
+  if (p.type === 'creneaux') return <ul className="av-list">{(x.dates || []).map(d => <li key={d}>{x.titre} · {d.replace('T', ' à ')}</li>)}</ul>
+  if (p.type === 'actions') return <ul className="av-list">{(x.actions || []).map((a, i) => <li key={i}><strong>{a.pour === 'amely' ? 'Toi' : 'Client'} :</strong> {a.label}</li>)}</ul>
+  if (p.type === 'etapes') return <ol className="av-list">{(x.plan || []).map((e, i) => <li key={i}><strong>{e.periode ? e.periode + ' · ' : ''}{e.titre}</strong>{e.client ? ' · client : ' + e.client : ''}</li>)}</ol>
+  return null
+}
+function AValider({ crm, saveCrm, canSave }) {
+  const [edit, setEdit] = useState({})
+  const liste = (crm.propositions || []).filter(p => p.statut === 'a_valider')
+  if (!liste.length) return null
+  const nomAgent = id => AGENTS.find(a => a.id === id)?.nom || 'Un agent'
+  const valider = p => saveCrm(d => appliquerProposition(d, p.id, edit[p.id] != null ? { texte: edit[p.id] } : {}), 'Validé et publié dans l’espace du client.')
+  const refuser = p => saveCrm(d => refuserProposition(d, p.id), 'Écarté.')
+  return <section className="av" aria-label="À valider">
+    <div className="j-section-head"><h2>À valider <span className="av-n">{liste.length}</span></h2><small>Tes agents ont tout préparé : un clic et c’est publié.</small></div>
+    <ul>{liste.map(p => {
+      const projet = crm.projets.find(x => x.id === p.projetId)
+      const client = crm.clients.find(x => x.id === p.clientId)
+      const q = p.type === 'reponse_question' && projet?.questions.find(x => x.id === p.payload.questionId)
+      return <li key={p.id} className="av-item">
+        <p className="av-meta">{nomAgent(p.agent)} · {TYPE_LABEL[p.type]} · {client?.nom}{projet ? ' · ' + projet.nom : ''}</p>
+        <strong className="av-titre">{p.titre}</strong>
+        {q && <blockquote className="av-q">« {q.texte} »</blockquote>}
+        {TEXTE.includes(p.type) ? <textarea aria-label={'Texte : ' + p.titre} rows={Math.min(10, Math.max(3, String(edit[p.id] ?? p.payload.texte ?? '').split('\n').length + 1))}
+          value={edit[p.id] ?? p.payload.texte ?? ''} onChange={e => setEdit(v => ({ ...v, [p.id]: e.target.value }))} /> : <Apercu p={p} />}
+        {projet && !projet.visibleClient && <p className="av-warn">L’espace de ce projet n’est pas encore visible par le client : il le verra quand tu l’auras rendu visible.</p>}
+        <div className="av-btns">
+          <button className="av-ok" disabled={!canSave} onClick={() => valider(p)}>Valider et publier</button>
+          <button className="av-no" disabled={!canSave} onClick={() => refuser(p)}>Écarter</button>
+        </div>
+      </li>
+    })}</ul>
+  </section>
 }
 
 // Page Équipe : Alfred, sa boîte, et l'état de chaque agent.

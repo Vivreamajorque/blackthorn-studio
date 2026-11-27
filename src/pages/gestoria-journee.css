@@ -206,3 +206,19 @@ details[open] .eq-chev { transform: rotate(90deg); }
 
 .cx-plus { margin: 10px 0 0; background: none; border: 1px dashed var(--ligne); border-radius: 14px; padding: 10px 14px; width: 100%; color: var(--mer); font-weight: 600; cursor: pointer; }
 .cx-plus:hover { background: #fff; }
+
+/* À valider */
+.av { margin: 0 0 18px; }
+.av-n { display: inline-flex; min-width: 26px; height: 26px; align-items: center; justify-content: center; border-radius: 999px; background: #b4532a; color: #fff; font-size: .85rem; margin-left: 6px; vertical-align: middle; }
+.av ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.av-item { background: #fff; border: 1px solid var(--ligne); border-left: 4px solid #b4532a; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.av-meta { margin: 0; font-size: .8rem; color: var(--gris); }
+.av-titre { font-size: 1.02rem; }
+.av-q { margin: 0; padding: 8px 12px; background: #f4f8f7; border-radius: 10px; font-style: italic; color: var(--mer); }
+.av-item textarea { width: 100%; box-sizing: border-box; font: inherit; line-height: 1.5; border: 1px solid var(--ligne); border-radius: 10px; padding: 10px 12px; resize: vertical; }
+.av-list { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.av-warn { margin: 0; font-size: .85rem; color: #8a4b00; background: #fff4dd; border-radius: 8px; padding: 6px 10px; }
+.av-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.av-ok { background: #103c42; color: #fff; border: 0; border-radius: 999px; min-height: 44px; padding: 0 18px; font-weight: 700; cursor: pointer; }
+.av-no { background: none; border: 1px solid var(--ligne); border-radius: 999px; min-height: 44px; padding: 0 16px; cursor: pointer; }
+.av-ok:disabled, .av-no:disabled { opacity: .5; }
