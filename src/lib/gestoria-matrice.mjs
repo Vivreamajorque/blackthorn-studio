@@ -112,7 +112,12 @@ export function autoItems({ entries = [], crm, today, lm = null }) {
   }
   for (const m of (crm.messages?.items || []).filter(m => !m.vu)) {
     const important = m.source === 'client' || m.source === 'malt' || !!m.clientId
-    add('msg:' + m.id, important ? 'faire' : 'deleguer', 'Répondre · ' + m.sujet, { detail: m.de + (m.date ? ' · ' + fr(m.date) : ''), domaine: 'messages', lien: m.lien, agent: important ? undefined : 'courrier' })
+    const txt = (m.sujet + ' ' + (m.apercu || '')).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    const facture = !important && /factur|invoice|receipt|recu de paiement|aviso de|prelevement|abonnement/.test(txt)
+    const notif = !important && (facture || /verificar|verifie|bienvenue|notification|alerte|newsletter|confirm/.test(txt))
+    const annonce = /^annonce\s*:/i.test(m.sujet)
+    const verbe = annonce ? 'Regarder · ' : facture ? 'Ranger en compta · ' : notif ? 'Lire · ' : 'Répondre · '
+    add('msg:' + m.id, important ? 'faire' : notif ? 'plus_tard' : 'deleguer', verbe + m.sujet.replace(/^annonce\s*:\s*/i, ''), { detail: m.de + (m.date ? ' · ' + fr(m.date) : ''), domaine: facture ? 'compta' : 'messages', lien: m.lien, agent: important || notif ? undefined : 'courrier' })
   }
   // Apprenants LiveMentor : rendez-vous, oraux et tâches ouvertes.
   for (const a of (lm?.apprenants || []).filter(a => !a.archive)) {

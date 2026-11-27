@@ -79,19 +79,36 @@ export const CARTES = [
   { id: 'livementor', nom: 'LiveMentor', couleur: '#c0457a', agents: ['plateformes'], go: 'livementor', page: 'Ouvrir LiveMentor' },
   { id: 'perso', nom: 'Perso et divers', couleur: '#6b7a3a', agents: [], go: null },
 ]
-export const carteOf = i => {
+const plat = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+// Mots qui désignent un client ou un de ses projets (noms, prénoms, mots du nom des projets).
+export function motsClients(crm) {
+  const mots = new Set()
+  const vide = new Set(['de', 'du', 'des', 'la', 'le', 'les', 'et', 'pour', 'mon', 'ma', 'mes', 'via', 'outil', 'projet', 'suivi', 'premiere', 'formation', 'base', 'espace', 'parents', 'communication', 'marketing', 'france', 'locale', 'activation', 'ressources', 'unifiee', 'livementor'])
+  const ajoute = t => plat(t).split(/[^a-z0-9]+/).filter(w => w.length >= 4 && !vide.has(w)).forEach(w => mots.add(w))
+  for (const c of crm?.clients || []) { ajoute(c.nom); ajoute(String(c.contact || '').split(/[ ,]/)[0]) }
+  for (const p of crm?.projets || []) if (['en_cours', 'a_demarrer'].includes(p.statut)) ajoute(String(p.nom).split(/[—(-]/)[0])
+  return mots
+}
+export const carteOf = (i, mots) => {
   if (String(i.id).startsWith('auto:atelier')) return 'atelier'
   const d = i.domaine
   if (d === 'commercial' || d === 'communication') return 'developper'
   if (['clients', 'compta', 'messages', 'livementor', 'atelier'].includes(d)) return d
+  if (mots && mots.size) {
+    const t = plat(i.titre + ' ' + (i.detail || '').slice(0, 120)).split(/[^a-z0-9]+/)
+    if (t.includes('livementor')) return 'livementor'
+    if (t.some(w => mots.has(w))) return 'clients'
+  }
   return 'perso'
 }
 
 function Cartes({ m, crm, saveCrm, canSave, act, onGo, msgs, projets, today }) {
   const [open, setOpen] = useState(null)
   const al = crm.alfred || {}
+  const [tout, setTout] = useState(false)
+  const mots = motsClients(crm)
   const cards = CARTES.map(c => {
-    const mine = i => c.id !== 'messages' && carteOf(i) === c.id // les messages ont leur propre liste
+    const mine = i => c.id !== 'messages' && carteOf(i, mots) === c.id // les messages ont leur propre liste
     const now = m.faire.filter(mine)
     const next = [...m.planifier, ...m.deleguer].filter(mine)
     const later = m.plus_tard.filter(mine)
@@ -101,7 +118,10 @@ function Cartes({ m, crm, saveCrm, canSave, act, onGo, msgs, projets, today }) {
     const wait = ag.map(g => g.attente).filter(Boolean)[0] || ''
     return { ...c, now, next, later, mot, count, wait, urgent: c.id === 'messages' ? msgs.filter(x => x.source === 'client').length : now.length }
   })
-  const ordre = [...cards].sort((a, b) => (b.urgent - a.urgent) || (b.count - a.count))
+  const ordre = [...cards].sort((a, b) => (b.urgent - a.urgent) || (b.count - a.count) || ((b.wait ? 1 : 0) - (a.wait ? 1 : 0)))
+  const actifs = ordre.filter(c => c.urgent || c.wait || c.id === 'messages' && c.count)
+  const montres = tout ? ordre : (actifs.length ? actifs : ordre.filter(c => c.count)).slice(0, 3)
+  const caches = ordre.length - montres.length
   const card = cards.find(c => c.id === open)
   useEffect(() => {
     if (!open) return
@@ -111,13 +131,14 @@ function Cartes({ m, crm, saveCrm, canSave, act, onGo, msgs, projets, today }) {
   const effacer = x => saveCrm(d => ({ ...d, messages: { ...d.messages, items: (d.messages?.items || []).map(y => y.id === x.id ? { ...y, vu: true } : y) } }), 'Message effacé.')
   return <>
     <section className="cx-grid" aria-label="Tes domaines">
-      {ordre.map(c => <button key={c.id} className={'cx-card' + (c.count || c.wait ? '' : ' calme') + (c.urgent ? ' chaud' : '')} style={{ '--c': c.couleur }} onClick={() => setOpen(c.id)}>
+      {montres.map(c => <button key={c.id} className={'cx-card' + (c.count || c.wait ? '' : ' calme') + (c.urgent ? ' chaud' : '')} style={{ '--c': c.couleur }} onClick={() => setOpen(c.id)}>
         <span className="cx-top"><span className="cx-pastille" aria-hidden="true">{c.nom[0]}</span>
           <span className="cx-count">{c.count ? c.count + (c.id === 'messages' ? ' non lu' + (c.count > 1 ? 's' : '') : ' à faire') : c.wait ? 't’attend' : '✓'}</span></span>
         <strong>{c.nom}</strong>
         <span className="cx-mot">{c.count ? (c.mot || (c.now[0] || c.next[0] || {}).titre || (c.id === 'messages' && msgs[0] ? msgs[0].de + ' · ' + msgs[0].sujet : '')) : c.wait ? c.wait : 'Rien à faire ici. Tranquille.'}</span>
       </button>)}
     </section>
+    {(caches > 0 || tout) && <button className="cx-plus" onClick={() => setTout(v => !v)}>{tout ? 'Ne garder que l’essentiel' : 'Voir les ' + caches + ' autres domaines'}</button>}
 
     {card && <div className="cx-veil" onClick={e => { if (e.target === e.currentTarget) setOpen(null) }}>
       <section className="cx-panel" role="dialog" aria-modal="true" aria-label={card.nom} style={{ '--c': card.couleur }}>
@@ -241,7 +262,9 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
   }, 'Bravo, c’est fait.')
   const nowHM = new Date().toTimeString().slice(0, 5)
   const weekItems = upcomingDays.flatMap(d => upcoming[d].map(x => ({ d, x })))
-  const pct = Math.min(100, Math.round(billed2027 / goal * 100))
+  const avant2027 = year < 2027
+  const goalMois = Math.round(goal / 12)
+  const pct = Math.min(100, Math.round((avant2027 ? billed / goalMois : billed2027 / goal) * 100))
 
   return <div className="j">
     <header className="j-top">
@@ -253,7 +276,7 @@ export default function GestoriaAccueil({ entries, crm, saveCrm, canSave, onGo }
         <button onClick={() => onGo('pilotage')}><span>Facturé en {moisNom}</span><strong>{money(billed)}</strong></button>
         <button onClick={() => onGo('pilotage')}><span>À venir</span><strong>{money(coming)}</strong></button>
         <button onClick={() => onGo('finance')} className={due ? 'warn' : ''}><span>À encaisser</span><strong>{money(due)}</strong></button>
-        <button onClick={() => onGo('pilotage')} className="j-goal"><span>Objectif 2027</span><strong>{pct} %</strong><i aria-hidden="true"><i style={{ width: pct + '%' }} /></i></button>
+        <button onClick={() => onGo('pilotage')} className="j-goal"><span>{avant2027 ? 'Rythme 2027 · ' + money(goalMois) + '/mois' : 'Objectif 2027'}</span><strong>{pct} %</strong><i aria-hidden="true"><i style={{ width: pct + '%' }} /></i></button>
       </nav>
     </header>
 

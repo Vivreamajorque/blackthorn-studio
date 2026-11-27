@@ -203,3 +203,6 @@ details[open] .eq-chev { transform: rotate(90deg); }
 @media (max-width: 640px) { .eq-todo, .eq-list { padding: 16px 14px 4px; border-radius: 18px; } .eq-more { padding-left: 0; } .eq-ic { width: 40px; height: 40px; border-radius: 12px; } }
 .eq-list summary { list-style: none; }
 .eq-list summary::-webkit-details-marker { display: none; }
+
+.cx-plus { margin: 10px 0 0; background: none; border: 1px dashed var(--ligne); border-radius: 14px; padding: 10px 14px; width: 100%; color: var(--mer); font-weight: 600; cursor: pointer; }
+.cx-plus:hover { background: #fff; }
